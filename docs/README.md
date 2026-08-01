@@ -28,6 +28,7 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `decisions/ADR-0003-artifact-publishing-targets.md` | Generation separate from publication; three targets |
 | `decisions/ADR-0004-mcp-access-layer.md` | MCP as the agent access layer, owned by KAE-Memory |
 | `decisions/ADR-0005-knowledge-scopes-and-patterns.md` | Multi-scope knowledge and the reusable pattern library |
+| `decisions/ADR-0006-memory-owns-durable-conversation.md` | KAE-Memory owns durable projects, sessions, and messages |
 | `planning/CAPABILITY_MATRIX.md` | Evidence-based Studio-need vs. KAE-Memory analysis, with ownership per gap |
 | `planning/VERTICAL_SLICE.md` | First demonstrable product flow and acceptance criteria |
 | `planning/IMPLEMENTATION_DIRECTIVE.md` | Work order and instructions for Claude |
@@ -47,9 +48,9 @@ No document in this package claims any capability is implemented. This repositor
 
 ## Open items
 
-- The first vertical slice has not been re-scoped since ADR-0002 widened the product. `planning/VERTICAL_SLICE.md` is stale in scope, though its boundary and durability acceptance criteria remain valid.
+- Whether KAE-Studio needs its own database. ADR-0006 removed durable conversation from it; decide after Studio's real persistence requirements are known.
+- Demo date, which would let the first Studio slice be sized against a deadline rather than a capability boundary.
 - The KAE-Memory capability matrix now exists (`planning/CAPABILITY_MATRIX.md`, 2026-08-01). Three structural gaps are identified: relationship write/traversal API, scoped readiness, and purpose-bounded context assembly.
-- Conversation ownership (Studio vs. Memory) needs an ADR — see capability matrix finding 6.
 - Application stack is undecided (ADR-0001 follow-up).
 - Authentication and tenancy are now urgent, not deferrable: ADR-0004 lets external agents connect directly to the platform.
 - Which repository hosts `kae-mcp` is an open follow-up (ADR-0004).

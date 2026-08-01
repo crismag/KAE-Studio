@@ -1,120 +1,87 @@
-# First Vertical Slice
+# First Studio Vertical Slice
 
-Status: **stale in scope — re-scoping required.** Not implemented by this document.
+Status: approved target, rewritten 2026-08-01 against the current product definition. **Not implemented by this document.**
 
-> **Re-scoping notice.** This slice was written before ADR-0002 and ADR-0003. It terminates at a single Markdown context export and does not account for modules as first-class objects, typed discovery interviews, model relationships, the Reviews step, or publication through an artifact target. Its boundary rules and durability criteria (AC-03, AC-04, AC-06, AC-09) remain valid and should carry forward. The demonstration statement, in-scope list, and slice sequence must be rewritten against the current product definition and the demo date.
+Sequencing: this slice begins after **MCP-M1** is demonstrated and the Memory gaps it depends on are closed. See `IMPLEMENTATION_DIRECTIVE.md`.
 
 ## Demonstration statement
 
-> A user creates a software project, describes an incomplete idea, answers a focused AI interview, watches an evolving requirements summary form, exports an initial project context, leaves, and returns to continue without losing confirmed decisions.
+> A user opens a project, answers one typed discovery interview, watches requirements and open decisions form, accepts a proposed module decomposition, curates one module, sees its dependencies and readiness gaps honestly, generates that module's context package, and publishes it to one target.
+
+The differentiator is **one module defined well enough to implement** — not a project-wide summary. One module is enough for the first slice.
 
 ## In scope
 
-1. Minimal project creation.
-2. Workspace with ordered chat messages.
+1. Open or create a KAE-Memory project from Studio.
+2. Workspace with conversation submitted through the Memory API (ADR-0006).
 3. One AI-provider adapter behind an interface.
-4. Initial understanding summary and one-question-at-a-time interviewing.
-5. Persistent Studio conversation.
-6. Evidence submission and extraction through KAE-Memory.
-7. Current requirements projection from Memory knowledge.
-8. Minimal Project Health showing understood areas and blocking gaps.
-9. Markdown initial-context artifact generation and download.
-10. Resume behavior based on retained Memory briefing.
+4. One typed discovery interview conducted end to end, chosen for the demonstration project.
+5. Requirements and open decisions projected from Memory knowledge.
+6. A proposed module decomposition the user can accept, rename, split, merge, or reject — recorded as a versioned decision with provenance.
+7. One curated module showing dependencies and per-dimension readiness gaps.
+8. Generation of that module's bounded context package, pinned to an exact Memory revision.
+9. Publication to **one** target, with proposed changes shown before writing.
+10. Resume: reopening the project continues without re-asking answered questions.
 
 ## Not in scope
 
-- Full architecture or delivery planning.
-- Coding-agent execution.
-- Repository analysis.
-- Complex organization/user administration.
-- Voice input.
+- The full project model. Only what the slice needs.
+- Every navigation destination polished.
+- All three publishers. One, properly.
 - Multiple simultaneous AI providers.
-- General-purpose Memory administration in Studio.
-- Polished implementation of every navigation destination.
+- Meeting ingestion, repository ingestion, visual wireframes.
+- Knowledge scopes, organization memory, or the pattern library (ADR-0005 is explicitly later).
+- Change-impact analysis.
+- Team accounts, approvals by multiple parties, billing.
 
 ## Walking-skeleton sequence
 
-### Slice A: Product shell
+**Slice A — Shell.** Workspace as default. Modules, Requirements, Deliverables, Reviews as destinations. Honest placeholders elsewhere.
 
-- Project creation route.
-- Workspace as default screen.
-- Requirements and Deliverables navigation.
-- Honest placeholders for deferred sections.
+**Slice B — Conversation through Memory.** Submit messages via the Memory API; render history from Memory. One provider adapter. Summary plus focused next question. Provider failure must not lose the user's message.
 
-### Slice B: Real conversation
+**Slice C — Typed interview and projections.** Run one interview type. Project requirements and open decisions from Memory knowledge. Show `proposed` versus `confirmed` honestly.
 
-- Persist user/assistant messages.
-- Call one provider through an adapter.
-- Produce a useful summary and next question.
-- Handle provider failure without losing the user's message.
+**Slice D — Modules.** Propose a decomposition with rationale. Curate it. Render one module's canonical specification, its dependencies, and its readiness by dimension.
 
-### Slice C: Memory connection
-
-- Create/link Memory project.
-- Submit each user message as idempotent evidence.
-- Observe extraction completion.
-- Retrieve a compact briefing and structured knowledge.
-- Clearly display pending synchronization when Memory is unavailable.
-
-### Slice D: Evolving requirements
-
-- Render current requirements sections from Memory knowledge.
-- Reflect corrections and superseded knowledge.
-- Show trace/source detail only on demand.
-
-### Slice E: Export and resume
-
-- Generate versioned Markdown from a fixed Memory revision.
-- Download the artifact.
-- Start a later session with a briefing and a non-repeated next question.
+**Slice E — Package and publish.** Generate the bounded module package from a pinned revision. Show proposed changes. Publish to one target. Detect conflict.
 
 ## Acceptance criteria
 
-### AC-01: Understandable entry
+**AC-01 — Understandable entry.** A new project's Workspace asks what the user wants to build and requires no knowledge-classification vocabulary.
 
-Given a new project, when the Workspace opens, then the page clearly asks the user what they want to build and does not require knowledge classification.
+**AC-02 — Typed interview.** The interview asks questions specific to its type, not generic requirements prompts, and does not re-ask what the project model already answers.
 
-### AC-02: Guided interview
+**AC-03 — Durable message.** When a provider or Memory call fails, the user's message is preserved in a transient send buffer and presented as retryable. Studio never claims success it did not have. *(Re-expressed for ADR-0006: durability here means "not lost before acknowledgement", not a second durable store.)*
 
-Given an incomplete idea, when the provider responds, then Studio returns a concise understanding summary and one relevant clarification question.
+**AC-04 — Idempotent submission.** Retrying the same message does not create duplicate evidence in KAE-Memory.
 
-### AC-03: Durable message
+**AC-05 — Readable projections.** Requirements and modules present project conclusions, not run payloads or database taxonomy.
 
-Given a submitted user message, when a provider or Memory call fails, then the message remains stored and the UI presents a retryable state without claiming success.
+**AC-06 — Correction with provenance.** A user correction revises the current projection while provenance retains both the original and the corrective evidence.
 
-### AC-04: Idempotent memory submission
+**AC-07 — Curated decomposition.** The user can accept, rename, split, merge, or reject a proposed module, and the choice is recorded as a versioned decision with provenance — not silently applied.
 
-Given a retry for the same Studio message, when evidence is submitted again, then KAE-Memory does not create duplicate source evidence.
+**AC-08 — Honest readiness.** The module's readiness is shown per dimension, and a module that is not implementation-ready says so. Open decisions appear as open. **No open decision is resolved by AI preference to make the module look complete.**
 
-### AC-05: Evolving requirements
+**AC-09 — Traceable package.** The generated module package records its Memory revision, and every substantive section traces to knowledge and evidence references.
 
-Given extracted project knowledge, when the Requirements view loads, then it presents readable project conclusions rather than raw run payloads or database taxonomy.
+**AC-10 — Reviewed publication.** Proposed changes are shown before anything is written. A changed target produces a conflict, never a silent overwrite. Publication is audited.
 
-### AC-06: Correction
+**AC-11 — Resume.** Reopening the project summarizes current understanding and chooses a relevant next question without restarting discovery.
 
-Given a user correction, when extraction completes, then the current projection reflects the revision while provenance retains both original and corrective evidence.
-
-### AC-07: Traceable export
-
-Given a context-generation request, when it succeeds, then the Markdown artifact records its Memory revision and every substantive generated section can be traced to knowledge/source references.
-
-### AC-08: Resume
-
-Given a later session, when the project opens, then Studio can summarize current understanding and choose a relevant next question without restarting discovery.
-
-### AC-09: Database boundary
-
-Given Studio runtime credentials, when attempting to write KAE-Memory tables directly, then database authorization denies the operation; ordinary memory work succeeds only through the Memory API.
+**AC-12 — Boundary.** Studio's runtime credentials cannot write `kae_memory` directly; all memory work succeeds only through the Memory API.
 
 ## Demonstration scenario
 
-Use a small reporting system example:
+The reporting example, carried forward because it exercises the module boundary cleanly:
 
 > Ministry leaders submit monthly reports. Reports require approval before publication, but the approver role is undecided.
 
-The interview should naturally clarify users, editability, approval, publication, scope, and acceptance expectations. The export should explicitly preserve “approver role” as an open decision until the user resolves it.
+The interview clarifies users, submission, editability, approval, and publication. The decomposition proposes Report Management, Approval Workflow, and Publication. The user curates it. **The Approval Workflow module's package must preserve "which role approves" as an open decision, and its security readiness must show as incomplete** — that is the demonstration's most important moment, because it is where a lesser tool would invent an answer.
 
 ## Definition of done
 
-The vertical slice is done only when it runs end to end against the target CockroachDB-backed services with automated tests for key state transitions and a repeatable demonstration script. Mock provider behavior may be used in tests, but the demonstrated provider interaction must be identified honestly.
+The slice is done when it runs end to end against the target CockroachDB-backed services, with automated tests for the state transitions in AC-03, AC-04, AC-06, AC-07, and AC-10, and a repeatable demonstration script.
 
+A mock provider may be used in tests. The provider used in the demonstration must be identified honestly.

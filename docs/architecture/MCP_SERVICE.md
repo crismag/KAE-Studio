@@ -49,13 +49,15 @@ kae://projects/{project_id}/change-impact
 
 ### Tools
 
-Initial set, deliberately small:
+**Target capability surface** — not the initial implementation. Several of these depend on structural Memory capabilities that do not exist yet; the implemented subset is MCP-M1 below.
 
 `kae_list_projects` · `kae_get_project_briefing` · `kae_get_module_context` · `kae_search_project_knowledge` · `kae_get_open_decisions` · `kae_get_implementation_readiness` · `kae_submit_evidence` · `kae_propose_knowledge_change` · `kae_record_decision` · `kae_record_action_item` · `kae_assemble_context` · `kae_record_delivery`
 
 Later: `kae_create_module` · `kae_define_dependency` · `kae_record_interface` · `kae_request_review` · `kae_calculate_change_impact` · `kae_mark_action_complete` · `kae_record_test_result`
 
 ### Prompts
+
+Target surface; MCP-M1 implements `kae.prepare-implementation` only.
 
 `/kae.start-discovery` · `/kae.define-module` · `/kae.prepare-integration` · `/kae.review-requirements` · `/kae.prepare-implementation` · `/kae.record-development-results` · `/kae.review-change-impact`
 
@@ -139,7 +141,7 @@ These help agents behave consistently. They do not replace MCP.
 
 ## First milestone
 
-**MCP-M1 — Local KAE Engineering Context Server** is specified in the KAE-Memory repository at `development/tasks/TASK-010-mcp-m1-engineering-context-server.md`. It delivers a local STDIO server over KAE-Memory's existing application services, with six read tools, one controlled write tool (`kae_submit_observation`), four resources, and one prompt (`kae.prepare-implementation`).
+**MCP-M1 is the first implemented subset of the target surface above.** It is specified in the KAE-Memory repository at `development/tasks/TASK-010-mcp-m1-engineering-context-server.md`. It delivers a local STDIO server over KAE-Memory's existing application services, with six read tools, one controlled write tool (`kae_submit_observation`), four resources, and one prompt (`kae.prepare-implementation`).
 
 It is sequenced **before** further KAE-Studio UI work, because it tests the platform claim directly: can a coding agent get useful scoped context and contribute knowledge back, without database access? If it holds, Studio is a client of a proven platform rather than the only proof of value.
 

@@ -1,6 +1,6 @@
 # Implementation Directive for Claude
 
-Status: execution prompt.
+Status: execution prompt. **Resequenced by MCP-M1 and corrected by ADR-0006.**
 
 ## Objective
 
@@ -24,7 +24,7 @@ Create or refine repository-local documents that provide:
 2. Re-scoped first vertical-slice user journey, reflecting ADR-0002 and ADR-0003.
 3. UI information architecture, Workspace behavior, and the structured views.
 4. Studio component design, including the interview orchestrator, projection layer, artifact generator, and publisher abstraction.
-5. Studio-owned physical schema proposal (Studio owns conversation, projections, delivery — not the project model).
+5. Studio-owned state inventory, and whether it justifies a database at all (ADR-0006). Studio owns interface state, configuration, projections, and delivery — not conversation, and not the project model.
 6. Existing KAE-Memory capability/reuse matrix, covering the project-model operations in `../architecture/API_CONTRACT.md`, not only the evidence/knowledge basics.
 7. Missing KAE-Memory API contract requirements, especially typed nodes, typed edges, traversal, and per-module readiness.
 8. Error, retry, idempotency, and eventual-consistency behavior.
@@ -41,60 +41,45 @@ Evidence must cite repository paths, migrations, tests, or callable endpoints. D
 
 ## Implementation order
 
-### Phase 0: Baseline
+**MCP-M1 comes first.** Studio implementation does not begin until the platform claim is demonstrated. Do not scaffold a Studio shell before Phase 4.
 
-- Record current state and existing constraints.
-- Define local run contract for Studio plus Memory.
-- Establish configuration boundaries and secret handling.
+### Phase 0: MCP-M1 in KAE-Memory
 
-### Phase 1: Studio shell
+Implement the local STDIO server specified in KAE-Memory's `development/tasks/TASK-010-mcp-m1-engineering-context-server.md`. Install it in Claude Code and in Codex or Cursor. Demonstrate real Memory retrieval, submit one observation, and verify it persists across clients.
 
-- Scaffold only what the chosen stack needs.
-- Make Workspace the default project view.
-- Add Requirements, Deliverables, and Project Health destinations.
-- Mark future destinations honestly.
+### Phase 1: Evaluate the demonstration
 
-### Phase 2: Conversation
+Record what worked, what the agents actually needed, and which tool responses were unhelpful or misleading. This evidence shapes every phase after it. If scoped context proves not to help an agent, the product thesis needs revisiting before Studio is built.
 
-- Add Studio-owned project/session/message persistence.
-- Add one AI-provider interface and adapter.
-- Implement summary plus focused next-question behavior.
-- Add durable retry/failure states.
+### Phase 2: Resolve ownership and configuration
 
-### Phase 3: Memory client
+Confirm ADR-0006 in practice. Determine what state Studio genuinely owns and whether it needs a database at all. Establish configuration boundaries and secret handling.
 
-- Implement a typed/versioned KAE-Memory client.
-- Create/link projects.
-- Submit evidence idempotently.
-- Poll or consume durable run completion.
-- Retrieve project briefing, knowledge, readiness, and findings.
+### Phase 3: Fill only the Memory gaps the first Studio slice needs
 
-### Phase 4: Projection and health
+From the capability matrix, in order: idempotent evidence ingestion; `KnowledgeKind` and `RelationshipType` extension; the relationship write and traversal API; module-scoped readiness. Contract-test each.
 
-- Render evolving requirements in human-readable sections.
-- Surface unresolved decisions and meaningful gaps.
-- Make provenance accessible on demand, not primary.
+Do not implement the full project model. Implement what the slice in `VERTICAL_SLICE.md` requires.
 
-### Phase 4b: Modules
+### Phase 4: Studio shell
 
-- Propose a module decomposition with rationale; let the user accept, split, merge, rename, or reject.
-- Record every curation action as a versioned decision with provenance.
-- Render the canonical module specification and per-dimension readiness.
-- Surface graph invariant violations (cycles, unowned data, untested requirements) in Reviews.
+Scaffold only what the chosen stack needs. Workspace as the default project view. Modules, Requirements, Deliverables, and Reviews as destinations. Mark future destinations honestly.
 
-### Phase 5: Artifact and resume
+### Phase 5: Connect Studio to Memory and one provider
 
-- Generate a versioned context package tied to an exact Memory revision, whole-project or bounded to one module.
-- Implement one publisher properly rather than three shallowly; keep the `ArtifactPublisher` interface intact for the others.
-- Show proposed changes before writing; detect conflicts; never overwrite silently.
-- Store artifact and publication metadata, including content hash and source revision.
-- Resume from retained project context without repeating answered questions.
+Implement the typed `kae_memory_client`. Submit messages *through Memory* — Studio persists no durable conversation. Add one AI-provider interface and adapter. Implement summary plus focused next-question behavior with durable retry and failure states.
 
-### Phase 6: Retain changes
+### Phase 6: Project-definition projections
 
-- Accept decisions and changes discovered during implementation as new evidence.
-- Mark artifacts generated from superseded revisions as outdated.
-- Support regeneration as a diff against what is already published.
+Render requirements, modules, dependencies, and readiness gaps from Memory knowledge. Surface unresolved decisions. Make provenance available on demand, not primary.
+
+### Phase 7: Context generation and one publisher
+
+Generate a versioned module context package pinned to an exact Memory revision. Implement **one** publisher properly, keeping the `ArtifactPublisher` interface intact for the others. Show proposed changes before writing; detect conflicts; never overwrite silently.
+
+### Phase 8: Retain changes
+
+Accept decisions discovered during implementation as new evidence. Mark artifacts from superseded revisions outdated. Support regeneration as a diff.
 
 ## Testing expectations
 
@@ -108,7 +93,7 @@ Evidence must cite repository paths, migrations, tests, or callable endpoints. D
 
 ## Scope note
 
-This directive predates ADR-0002 and ADR-0003 in places. Where it conflicts with `../architecture/PROJECT_MODEL.md`, `../architecture/MODULE_SPECIFICATION.md`, or `../delivery/`, those documents govern. `VERTICAL_SLICE.md` requires re-scoping before Phase 1 begins.
+Where this directive conflicts with `../architecture/PROJECT_MODEL.md`, `../architecture/MODULE_SPECIFICATION.md`, `../delivery/`, or ADR-0006, those govern.
 
 ## UI direction
 
@@ -128,9 +113,9 @@ The product should not ask users to manually assign every sentence to an area, i
 
 ## Database direction
 
-- Add only Studio-owned migrations to this repository.
-- Target `kae_studio`; do not create or modify `kae_memory` objects here.
-- Use an outbox/pending-action pattern for message-to-evidence synchronization.
+- **Do not provision a Studio database before Phase 2 establishes it is needed.** ADR-0006 removed durable conversation from Studio; what remains may not justify one.
+- If one is needed: add only Studio-owned migrations here, target `kae_studio`, and never create or modify `kae_memory` objects.
+- A pending-send buffer is transient operational state, not a durable conversation store.
 - Avoid cross-database foreign keys and transactions.
 - Store stable external references returned by Memory.
 - Keep large artifact bytes in object storage when introduced.
