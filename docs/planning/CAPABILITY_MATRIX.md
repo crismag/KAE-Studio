@@ -37,7 +37,7 @@ Gap severity: **None** (usable as-is) · **Additive** (extend an existing vocabu
 
 | Studio need | Existing Memory capability | Evidence | Gap | Owner | Required change |
 | --- | --- | --- | --- | --- | --- |
-| Store a module and its responsibilities | None. `KnowledgeKind` has 8 values: actor, goal, rule, constraint, requirement, decision, unknown, assumption. No module. | `domain/models.py:91-106` | **Additive** | Memory | Extend `KnowledgeKind`. The column is a plain string validated against the enum, and the docstring states adding a value needs no migration. |
+| Store a module and its responsibilities | None. `KnowledgeKind` has 8 values: actor, goal, rule, constraint, requirement, decision, unknown, assumption. No module. | `domain/models.py:91-106` | **Additive for the label; structural for the capability** | Memory | Extending `KnowledgeKind` is a one-line additive change, but **it does not deliver first-class modules.** Identity, lifecycle, relationship operations, traversal, scoped readiness, decomposition decisions, split/merge semantics, invariant findings, and bounded assembly are all required. See the minimum module capability contract in `../architecture/MODULE_SPECIFICATION.md`. |
 | Store stakeholders, workflows, interfaces, data entities, risks, acceptance criteria, action items, deliverables | Same vocabulary limit. `actor` covers stakeholders partially. | `domain/models.py:91` | **Additive** | Memory | Extend `KnowledgeKind`. Decide per concept whether it is a typed knowledge item or warrants its own structure — choose on operations and invariants, not UI sections. |
 | Module → depends on → Module | `RelationshipType` has supports, contradicts, derives_from, implements, validates, supersedes, blocks. No `depends_on`. | `domain/models.py:154-170` | **Additive** | Memory | Extend `RelationshipType`. Also a plain string column per its docstring. |
 | owns / exposes / consumes / uses / satisfies / verified_by / affected_by / blocked_by | `implements`, `validates`, `blocks` are near-matches; the rest absent. | `domain/models.py:154` | **Additive** | Memory | Extend the vocabulary. Prefer reusing `implements`/`validates`/`blocks` over inventing synonyms. |
@@ -118,11 +118,13 @@ Gap severity: **None** (usable as-is) · **Additive** (extend an existing vocabu
 
 **5. Artifact and publication records are entirely absent** — expected, since ADR-0003 is a day old. The staleness mechanism to make them useful already exists and should be reused rather than reinvented.
 
-**6. Conflict to resolve: who owns the conversation?** KAE-Memory already stores sessions and ordered messages, and `ProvenanceLink.message_id` binds knowledge to them. Studio's `DATA_OWNERSHIP.md` also assigns conversation to Studio, justified by AC-03 (the user's message must survive when Memory is unavailable). Both can be true — Studio's conversation record is the durable interaction log and retry buffer; Memory's message is the evidence record — but the duplication must be a recorded decision, not an accident. **This needs an ADR before implementation.**
+**6. RESOLVED by ADR-0006 — KAE-Memory owns the durable conversation.** The analysis below stands as the reasoning that produced the decision.
+
+**Original finding: who owns the conversation?** KAE-Memory already stores sessions and ordered messages, and `ProvenanceLink.message_id` binds knowledge to them. Studio's `DATA_OWNERSHIP.md` also assigns conversation to Studio, justified by AC-03 (the user's message must survive when Memory is unavailable). Both can be true — Studio's conversation record is the durable interaction log and retry buffer; Memory's message is the evidence record — but the duplication must be a recorded decision, not an accident. **Resolved: ADR-0006 assigns durable projects, sessions, and messages to KAE-Memory. Studio holds only a transient send buffer.** The duplication is removed rather than justified — a second durable record of what the user said would let the provenance spine diverge.
 
 ## Recommended sequence
 
-1. Record the conversation-ownership decision (finding 6).
+1. ~~Record the conversation-ownership decision~~ — done, ADR-0006.
 2. Fix idempotent evidence ingestion (finding 4) — small, and a stated acceptance criterion.
 3. Extend `KnowledgeKind` and `RelationshipType` (finding 2) — cheap, additive, unblocks the model.
 4. Build the relationship write + traversal API with contract tests (finding 3a) — the highest-leverage change.

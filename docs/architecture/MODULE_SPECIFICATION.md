@@ -165,6 +165,29 @@ Note what the example demonstrates and what a generated specification must prese
 - dependencies name the reason, not just the module;
 - failure behavior distinguishes what stays valid from what fails safe.
 
+## Minimum module capability contract
+
+**Adding `module` to `KnowledgeKind` does not make modules first-class.** A kind value gives a module a label and nothing else — no identity guarantees, no edges, no readiness, no decomposition history. Treating the enum extension as "module support" would ship a module concept that cannot answer any of the questions the product exists to answer.
+
+KAE-Memory should not consider module support complete until all of the following hold. This is the contract to agree *before* implementation, not to discover during it.
+
+| # | Capability | Why it is required |
+| --- | --- | --- |
+| 1 | **Stable module identity** | `MOD-APR` appears in packages, commits, tickets, and agent context. It must survive revision, rename, and supersession. |
+| 2 | **Module lifecycle** | Proposed, confirmed, contested, superseded, rejected, deferred — as for any knowledge. |
+| 3 | **Project membership** | A module belongs to exactly one project, and that is queryable. |
+| 4 | **Relationship operations** | Create, delete, and query `depends_on`, `owns`, `exposes`, `consumes`, `satisfies`, `verified_by`. Without a write path, modules have no structure. |
+| 5 | **Traversal** | Transitive dependencies, dependents, and blocked-by chains. Build order is otherwise underivable. |
+| 6 | **Readiness at module scope** | Per-dimension. The product's central claim — one module ready inside an incomplete project — is unexpressible without it. |
+| 7 | **Decomposition decisions** | Accept, rename, split, merge, reject recorded as versioned decisions with provenance, so the boundary choice is reviewable. |
+| 8 | **Split and merge semantics** | What happens to requirements, edges, and readiness when a module divides or combines. Undefined here means silent data loss. |
+| 9 | **Invariant findings** | Dependency cycles, unowned or multiply-owned data, requirements with no verifying test — reported, not silently repaired. |
+| 10 | **Bounded context assembly** | Scoped to one module, pinned to a revision, with trace references. |
+
+Items 4, 5, 6, and 10 are the structural gaps in `../planning/CAPABILITY_MATRIX.md`. Items 7 and 8 are additional and were not previously identified — decomposition is a *decision*, and split/merge is where an unspecified implementation quietly destroys requirements.
+
+A useful intermediate state exists: items 1–5 give modules with structure but no readiness, enough to render the Modules view and derive build order. That is a legitimate milestone. It is not "module support complete."
+
 ## Bounded module context
 
 A user can request a package scoped to one module. It contains the module specification plus everything needed to implement it without reading the whole project: the objectives and customer requirements it satisfies, the interfaces it exposes and consumes with their contracts, the data entities it owns and reads, its screens, its acceptance tests, the decisions and constraints that bind it, and stub summaries of the modules it depends on.

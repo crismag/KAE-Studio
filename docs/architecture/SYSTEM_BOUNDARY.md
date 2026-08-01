@@ -1,6 +1,6 @@
 # System Boundary
 
-Status: approved direction.
+Status: approved direction. Ownership lists corrected by ADR-0006.
 
 ## Component relationship
 
@@ -17,17 +17,19 @@ flowchart TD
 
 ## KAE-Studio owns
 
-- Product projects and workspace preferences.
-- Conversation sessions and ordered messages.
-- Interview orchestration and user-facing phase/state.
-- AI-provider adapters and Studio-specific prompts.
-- Requirements, architecture, plan, and health projections shown to users.
-- Deliverable generation requests, manifests, and export links.
+- Interface state: layout, panels, preferences, unsent composer drafts.
+- AI-provider selection, credentials handling, and Studio-specific prompts.
+- Interview *presentation*: which type is active, how a question is phrased and shown.
+- Requirements, module, architecture, plan, and health projections shown to users — caches, rebuildable from a Memory revision.
+- Artifact generation, delivery-target configuration, and publication (GitHub, local workspace, S3).
 - Product authentication/authorization when added.
-- User-facing failure, retry, and resume behavior.
+- User-facing failure, retry, and resume behavior, including transient send buffers.
+
+**Studio does not own the durable conversation.** Projects, sessions, and ordered messages are KAE-Memory's (ADR-0006). Studio submits messages through the Memory API and reads them back.
 
 ## KAE-Memory owns
 
+- Projects, sessions, and ordered user and assistant messages.
 - Immutable evidence accepted from clients.
 - Extracted knowledge items and types.
 - Knowledge versions, revisions, relationships, and status.
@@ -56,9 +58,9 @@ The boundary must support:
 
 Use UUIDs generated at the owning service.
 
-Studio owns `studio_project_id`, `conversation_id`, `message_id`, and `artifact_id`. Memory owns `memory_project_id`, `evidence_id`, `knowledge_id`, `revision_id`, and `run_id`.
+Studio owns `artifact_id`, `publication_id`, and its delivery-target references. Memory owns `project_id`, `session_id`, `message_id`, `evidence_id`, `knowledge_id`, `revision_id`, and `run_id`.
 
-Studio stores the mapping between `studio_project_id` and `memory_project_id`. Client-origin identifiers such as `message_id` are sent as idempotency/source references, not treated as Memory primary keys.
+Under ADR-0006 there is no separate `studio_project_id` to map: a Studio project *is* a Memory project. Studio may hold a local reference for routing and preferences, but the identity is Memory's. Client-supplied idempotency keys remain source references, not Memory primary keys.
 
 ## Current KAE-Memory UI
 

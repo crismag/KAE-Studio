@@ -2,6 +2,8 @@
 
 Status: product and architecture directive; implementation is not implied. No code exists in this repository yet.
 
+> **Next work is MCP-M1 in KAE-Memory, not Studio implementation.** Do not scaffold a Studio shell yet. See `docs/planning/IMPLEMENTATION_DIRECTIVE.md` Phase 0.
+
 ## Mission
 
 KAE-Studio is an AI-assisted **software definition and context-engineering platform**. It turns discussions, documents, customer inputs, technical constraints, and incomplete ideas into a complete, traceable, implementation-ready project definition, then generates module-level development context for humans and AI coding agents.
@@ -18,8 +20,10 @@ Understand -> Define -> Decompose -> Connect -> Review -> Approve -> Package -> 
 
 ## Product boundary
 
-- **KAE-Studio** owns user interaction, typed discovery interviews, projections and visible views, provider integration, artifact generation, and publication.
-- **KAE-Memory** owns durable engineering knowledge: evidence, the project model and its relationships, revisions, provenance, confirmation, retrieval, readiness, and findings.
+- **KAE-Studio** owns interface state, provider and delivery configuration, interview presentation, projections shown to users, artifact generation, and publication.
+- **KAE-Memory** owns durable engineering knowledge **and the durable conversation**: projects, sessions, ordered messages, evidence, the project model and its relationships, revisions, provenance, confirmation, retrieval, readiness, and findings.
+
+**Studio persists no durable conversation** (ADR-0006). Messages are submitted through the Memory API. Studio holds a transient send buffer only, cleared on acknowledgement. If deleting Studio's store after acknowledgement would lose project history, the boundary has been broken.
 
 > KAE-Studio owns the work experience. KAE-Memory owns what the system durably knows.
 
@@ -29,7 +33,7 @@ Studio communicates with Memory only through a versioned API/client. Studio code
 
 **The project model is the asset.** Typed nodes with stable identifiers (`MOD-APR`, `FR-APR-001`, `OD-011`), typed relationships, provenance, status, and revision. It is Memory-owned knowledge — Studio holds projections, not a second source of truth. See `docs/architecture/PROJECT_MODEL.md`.
 
-**Modules are first-class.** A module has responsibilities, inputs/outputs, requirements, interfaces, data ownership, dependencies, business rules, failure behavior, acceptance criteria, open decisions, and per-dimension implementation readiness. See `docs/architecture/MODULE_SPECIFICATION.md`.
+**Modules are first-class.** A module has responsibilities, inputs/outputs, requirements, interfaces, data ownership, dependencies, business rules, failure behavior, acceptance criteria, open decisions, and per-dimension implementation readiness. **Adding `module` to `KnowledgeKind` does not deliver this** — see the minimum module capability contract in `docs/architecture/MODULE_SPECIFICATION.md`.
 
 **Studio proposes; the user curates.** Especially for module decomposition — the highest-consequence judgment in the definition. Every accept, split, merge, or rejection is a versioned decision with provenance.
 
@@ -47,7 +51,7 @@ Studio communicates with Memory only through a versioned API/client. Studio code
 
 Workspace (default) · Project Definition · Modules · Requirements · Interfaces · Architecture · Dependencies · Plan · Deliverables · Reviews · Memory
 
-Which are functional versus honest placeholders in the first slice is set in `docs/planning/VERTICAL_SLICE.md`.
+Which are functional in the first Studio slice is set in `docs/planning/VERTICAL_SLICE.md` (rewritten 2026-08-01: one module defined well enough to implement, published to one target).
 
 ## Data rules
 
@@ -69,12 +73,9 @@ Never collapse these into one record.
 
 ## Database deployment
 
-One CockroachDB cluster, separate logical databases and users:
+**Whether Studio needs a database at all is an open question** (ADR-0006 removed durable conversation from it). Do not provision one before establishing what Studio-owned state actually requires persistence. See `docs/architecture/DATA_OWNERSHIP.md`.
 
-- `kae_studio`: owned and migrated by KAE-Studio.
-- `kae_memory`: owned and migrated by KAE-Memory.
-
-Studio must not receive credentials that can write `kae_memory`. Cross-service references use stable UUIDs and API contracts, not foreign keys across databases.
+If one is needed: one CockroachDB cluster, separate logical databases (`kae_studio`, `kae_memory`), separate users. **Studio must never receive credentials that can write `kae_memory`** — this holds regardless of where Studio's state lands. Cross-service references use stable UUIDs and API contracts, not foreign keys across databases.
 
 ## Required reading
 
@@ -92,7 +93,7 @@ Studio must not receive credentials that can write `kae_memory`. Cross-service r
 12. `docs/delivery/CONTEXT_PACKAGE.md`
 13. `docs/delivery/ARTIFACT_PUBLISHING.md`
 14. `docs/product/UI_DEFINITION.md`
-15. `docs/decisions/` (ADR-0001 through ADR-0005)
+15. `docs/decisions/` (ADR-0001 through ADR-0006)
 16. `docs/planning/CAPABILITY_MATRIX.md`
 17. `docs/planning/VERTICAL_SLICE.md`
 18. `docs/planning/IMPLEMENTATION_DIRECTIVE.md`
@@ -101,7 +102,8 @@ Studio must not receive credentials that can write `kae_memory`. Cross-service r
 ## Guardrails
 
 - Do not move or copy KAE-Memory domain logic into this repository, and do not reorganize KAE-Memory to suit Studio.
-- Do not maintain an authoritative project model in Studio. User edits become evidence plus revision requests.
+- Do not maintain an authoritative project model **or conversation** in Studio. User edits become evidence plus revision requests.
+- Do not begin Studio implementation before MCP-M1 is demonstrated.
 - Do not couple the UI to Memory's physical schema.
 - **Never resolve an open decision by AI preference to make output look complete.** Propose options with trade-offs; leave it open.
 - Never emit a module specification without its readiness block, and never present `proposed` knowledge as confirmed.
