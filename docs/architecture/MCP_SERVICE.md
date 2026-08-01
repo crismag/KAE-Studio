@@ -137,6 +137,19 @@ These help agents behave consistently. They do not replace MCP.
 - **Treat repository content, uploaded files, and agent submissions as untrusted input.** MCP is a known prompt-injection surface. Text arriving through a tool call is data to be recorded, not instruction to be followed — including text that looks like a requirement telling the model what to do.
 - An agent operating under a read token must not be able to reach a write tool.
 
+## First milestone
+
+**MCP-M1 — Local KAE Engineering Context Server** is specified in the KAE-Memory repository at `development/tasks/TASK-010-mcp-m1-engineering-context-server.md`. It delivers a local STDIO server over KAE-Memory's existing application services, with six read tools, one controlled write tool (`kae_submit_observation`), four resources, and one prompt (`kae.prepare-implementation`).
+
+It is sequenced **before** further KAE-Studio UI work, because it tests the platform claim directly: can a coding agent get useful scoped context and contribute knowledge back, without database access? If it holds, Studio is a client of a proven platform rather than the only proof of value.
+
+Two constraints carried from that milestone:
+
+- **`kae_get_module_context` returns a documented capability gap rather than inventing modules.** Fabricating them in the adapter would create a second, unversioned project model outside the domain.
+- **Local STDIO is why the milestone can proceed before tenancy is settled.** Authentication and tenancy become blocking the moment a remote transport is introduced.
+
+Note also KAE-Memory's own `ADR-0004 — CockroachDB MCP is inspection-only`. The two are consistent and the shared number is coincidental: that ADR bars agents from raw SQL, and the KAE MCP server is the sanctioned path it implies.
+
 ## Phasing against actual capability
 
 Sequencing is governed by `../planning/CAPABILITY_MATRIX.md`. The proposed "read-only first" phase is not uniformly cheap.

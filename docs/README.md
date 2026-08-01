@@ -53,4 +53,5 @@ No document in this package claims any capability is implemented. This repositor
 - Application stack is undecided (ADR-0001 follow-up).
 - Authentication and tenancy are now urgent, not deferrable: ADR-0004 lets external agents connect directly to the platform.
 - Which repository hosts `kae-mcp` is an open follow-up (ADR-0004).
+- MCP-M1 is specified in KAE-Memory (`development/tasks/TASK-010-mcp-m1-engineering-context-server.md`) and is sequenced before further Studio UI work.
 - ADR-0005 (knowledge scopes) is the largest structural change identified so far and is explicitly sequenced after project-scoped capability and tenancy.
