@@ -12,16 +12,16 @@ Anything not needed for that proof is *Later*. Not rejected — simply not defin
 
 ## Current gate
 
-**G1 — MCP-M1 operational.**
+**G2 — Governed acquisition loop.**
 
-G0 is complete: all three repositories baselined, validated, and clean on `main` (§Last verified).
+G0 and G1 are complete with executable proof (§Gate scoreboard, §Last verified).
 
 ## Active work — WIP limit 2
 
 | Issue | Repo | Why these two |
 | --- | --- | --- |
-| [Memory #38](https://github.com/crismag/KAE-Memory/issues/38) — Idempotent evidence ingestion | Memory | Prerequisite for the MCP write tool and for every later retry path. Small, self-contained, protects everything after it. |
-| [Memory #37](https://github.com/crismag/KAE-Memory/issues/37) — Implement the KAE MCP STDIO server | Memory | The gate itself. Already specified (`TASK-010`) and decided (`ADR-0018`); only implementation remains. |
+| [Memory #41](https://github.com/crismag/KAE-Memory/issues/41) — Grounding gate on the knowledge write path | Memory | Extraction currently writes whatever the adapter returns. This is the one control that stops a model inventing a requirement, and it protects every write that follows. |
+| [Memory #40](https://github.com/crismag/KAE-Memory/issues/40) — Acquisition session state | Memory | Without it there is no resumable interview and no cross-client continuity, which G2 is defined by. |
 
 Everything else is Ready or Backlog.
 
@@ -29,7 +29,7 @@ Everything else is Ready or Backlog.
 
 | Blocker | Blocks | Owner |
 | --- | --- | --- |
-| **ADR-0018 not yet accepted** — status is `proposed` | #37 start | Decision |
+| **Root filesystem 99% full** — 1.3 GiB free of 110 GB | `kae_dev` cannot apply migration 0006; CockroachDB refuses index backfill below 5% free. The test cluster is unaffected. | Environment |
 | No demo date fixed | Slice sizing for G7 | Decision |
 | Tenancy and authorization undecided | Remote MCP transport (deferred, not on the Demo V1 path) | Decision |
 
@@ -38,8 +38,8 @@ Everything else is Ready or Backlog.
 | Gate | Status | Evidence required | Blocker | Next action |
 | --- | --- | --- | --- | --- |
 | **G0** Baseline all three repositories | **Done** | Tests and current-state report — §Last verified | — | — |
-| **G1** MCP-M1 operational | **Active** | Claude Code retrieves real memory and submits an observation; a second client sees it | ADR-0018 acceptance | Implement #38, then #37 |
-| **G2** Governed acquisition loop | Ready | Question → answer → evidence → candidate → confirmation, resumable | G1 | #40, #41, #42, #43 |
+| **G1** MCP-M1 operational | **Done** | Seven tools called over real STDIO against real CockroachDB; observation submitted, retry replayed to the same message, second client process read the same state | — | — |
+| **G2** Governed acquisition loop | **Active** | Question → answer → evidence → candidate → confirmation, resumable | — | #41, then #40 |
 | **G3** First-class module model | Backlog | Curated module with membership, dependencies, scoped readiness | G2 | #44 → #45 → #46/#47 |
 | **G4** Package assembly and rendering | Backlog | Project and module packages pinned to a revision, manifests complete | G3 | #48 → #49 → #50 |
 | **G5** Studio real integration | Backlog | Five mock adapters replaced by real service adapters | G2/G3/G4 | Studio #4–#9 |
@@ -54,7 +54,7 @@ The prototype's five interfaces are the integration seams. Each is separately te
 
 | Studio interface | Exists in Memory today | Missing |
 | --- | --- | --- |
-| `ProjectMemoryClient` | Projects, sessions, messages, knowledge confirm | Idempotent submit (#38), interview session state (#40), module decisions (#46), deferral (#40) |
+| `ProjectMemoryClient` | Projects, sessions, messages, knowledge confirm, **idempotent submit** | Interview session state (#40), module decisions (#46), deferral (#40) |
 | `ProjectProjectionService` | Blueprint, knowledge, readiness, findings, trace | Modules (#44), relationships (#45), scoped readiness (#47) |
 | `InterviewProvider` | Briefing via blueprint | Session state (#40), question selection (#43); provider layer is Studio's |
 | `ArtifactService` | Project-wide blueprint generation | Bounded assembly (#48), lineage and staleness (#49), rendering (#50) |
@@ -75,7 +75,7 @@ Multi-tenancy · billing · multiple autonomous expert agents · organization pa
 
 **Not documents, features, commits, or repositories touched. Executable proof of gates.**
 
-Current: **1 of 8 gates has executable proof (G0).**
+Current: **2 of 8 gates have executable proof (G0, G1).**
 
 ## Last verified
 
@@ -83,11 +83,26 @@ Current: **1 of 8 gates has executable proof (G0).**
 
 | Repo | SHA | Validation | Result |
 | --- | --- | --- | --- |
-| KAE-Memory | `8138bc7` | `make lint`, `make typecheck`, `make test` | ruff clean · mypy clean, 73 files · **210 passed, 93% coverage** against real CockroachDB, 118 s |
+| KAE-Memory | `f284151` | `make check` | ruff + format + mypy clean, 82 files · **254 passed, 90% coverage** against real CockroachDB, 159 s |
 | KAE-Studio | `05e56ae` | `tsc -b`, `eslint .`, `vitest run`, `npm run build` | typecheck clean · 0 lint problems · **16 passed** · build 1.5 s |
 | cris-cie-slim | `5693a2f` | `pytest -q --cov` | **284 passed**, 59% overall — `src/cie_slim/kae/` at **0%** |
 
-**MCP-M1 verified as specified but not executable:** no `src/kae_memory/mcp/`, no `mcp` dependency, no `[project.scripts]` entry point.
+**MCP-M1 is now executable and verified**, superseding the G0 finding that it was specified only. `kae-memory-mcp doctor` reports configuration, reachability, and migration state; a real STDIO client enumerated seven tools, four resource templates, and one prompt, and exercised all of them.
+
+Evidence from the end-to-end run:
+
+```text
+1. list_projects      -> 1 project: Ministry Reporting
+2. briefing           -> revision 3, readiness 0%
+3. open_decisions     -> 2 unresolved
+4. readiness          -> scope=project module_scope_available=False
+5. search             -> embedder=deterministic semantic_relevance=False
+6. module_context     -> capability_unavailable: 5 missing capabilities named
+7. submit_observation -> replay=False then replay=True, same message: True
+8. SECOND CLIENT      -> revision 3 (continuity across a separate process)
+```
+
+Line 6 is the honest capability gap working as designed, not a failure. Line 5 is the embedder honesty rule. Line 8 is the continuity proof.
 
 ## Board setup — not yet created
 
