@@ -1,0 +1,132 @@
+@import 'tailwindcss';
+
+/*
+ * KAE-Studio design tokens.
+ *
+ * Restrained neutral foundation with a single accent (slate-teal). Semantic
+ * colours are used sparingly and never as the only signal — every state that
+ * carries colour also carries a label or icon.
+ */
+
+@theme {
+  /* Neutral foundation — cool grey, low chroma. */
+  --color-canvas: oklch(98.4% 0.002 250);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-sunken: oklch(96.8% 0.003 250);
+  --color-surface-raised: oklch(100% 0 0);
+
+  --color-line: oklch(91.5% 0.004 250);
+  --color-line-strong: oklch(85% 0.006 250);
+
+  --color-ink: oklch(22% 0.012 250);
+  --color-ink-muted: oklch(46% 0.011 250);
+  --color-ink-subtle: oklch(58% 0.009 250);
+
+  /* Single accent. */
+  --color-accent: oklch(52% 0.086 205);
+  --color-accent-hover: oklch(46% 0.09 205);
+  --color-accent-soft: oklch(95.5% 0.021 205);
+  --color-accent-line: oklch(84% 0.04 205);
+  --color-accent-ink: oklch(38% 0.075 205);
+
+  /* Semantic — used sparingly. */
+  --color-confirmed: oklch(52% 0.077 155);
+  --color-confirmed-soft: oklch(95.8% 0.025 155);
+  --color-confirmed-line: oklch(84% 0.048 155);
+
+  --color-attention: oklch(60% 0.106 75);
+  --color-attention-soft: oklch(96.5% 0.033 75);
+  --color-attention-line: oklch(85% 0.06 75);
+
+  --color-blocking: oklch(53% 0.128 25);
+  --color-blocking-soft: oklch(96.4% 0.021 25);
+  --color-blocking-line: oklch(86% 0.05 25);
+
+  --color-pending: oklch(55% 0.03 265);
+  --color-pending-soft: oklch(96.4% 0.008 265);
+  --color-pending-line: oklch(87% 0.016 265);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --radius-panel: 0.625rem;
+
+  --shadow-panel: 0 1px 2px oklch(22% 0.012 250 / 0.05), 0 1px 3px oklch(22% 0.012 250 / 0.04);
+  --shadow-raised: 0 4px 12px oklch(22% 0.012 250 / 0.08), 0 1px 3px oklch(22% 0.012 250 / 0.05);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible focus everywhere; never removed without replacement. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 600;
+    letter-spacing: -0.011em;
+    color: var(--color-ink);
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+  }
+}
+
+@layer utilities {
+  .kae-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  .kae-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .kae-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  .kae-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -12,4 +12,22 @@ Understand -> Define -> Decompose -> Connect -> Review -> Approve -> Package -> 
 
 Durable knowledge, provenance, revision, and readiness come from KAE-Memory behind a versioned API boundary.
 
-**Status: documentation only.** No application code exists yet. See [docs/README.md](docs/README.md) for the document set and [CLAUDE.md](CLAUDE.md) for the governing context.
+## Repository status
+
+**Documentation is the deliverable; the application is an experience prototype.**
+
+- [docs/](docs/) — the governing product and architecture definition. See [docs/README.md](docs/README.md) and [CLAUDE.md](CLAUDE.md).
+- `src/` — a **frontend prototype only**, backed by deterministic mock adapters. No AI provider, KAE-Memory instance, database, or publishing target is contacted. See [PROTOTYPE_NOTES.md](PROTOTYPE_NOTES.md).
+
+## Running the prototype
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm run build      # static output in dist/, deployable to shared hosting
+npm test           # unit and component tests
+npm run lint
+npm run typecheck
+```
+
+Uses hash routing and a relative base so `dist/` works from any directory without server rewrite rules.
