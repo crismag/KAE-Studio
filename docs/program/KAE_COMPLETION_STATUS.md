@@ -23,27 +23,15 @@ A user defines one real project in KAE-Studio through a governed interview. KAE-
 | **B** Embedding replacement | T6–T11 | **Complete** — Titan `titan-embed-text-v2:0`, 32 chunks migrated |
 | **C** Knowledge review surfaces | T11B, T12–T15 | **Complete with documented limitations** |
 | **D** Clarification surfaces | T16, T17, T18 | **Complete** |
-| **E** Ingestion and assembly | **T19–T23** | **Open — the frontier** |
+| **E** Ingestion and assembly | T19–T23 | **Complete** — Demo V1 scenario passes end to end |
 | **F** Project focus and default scope | T25.1–T25.4 | Deferred |
 | **G** Observation classification | T24.1–T24.5 | Deferred, high priority |
 
-**18 of ~25 targets delivered.**
+**23 of ~25 targets delivered.**
 
 ## Pending work
 
-### Now — Phase E, the frontier
-
-| Target | Work | Why it matters |
-| --- | --- | --- |
-| **T19** | `kae_ingest_document` | Material other than chat becomes evidence |
-| **T20** | Connect ingestion to observations and proposed knowledge | Ingested text has to become reviewable knowledge, not a blob |
-| **T21** | `kae_assemble_context` | **The load-bearing one.** No package exists without bounded assembly |
-| **T22** | Compact manifests and external artifacts | Lineage, hashes, and the files a coding agent reads |
-| **T23** | End-to-end MCP workflow test | Proves the loop rather than its parts |
-
-T21 and T22 are what the earlier G4 issues (#48–#50) described. Same work, one register.
-
-### Next — finish Phase A
+### Now — finish Phase A
 
 | Target | Work |
 | --- | --- |
@@ -75,12 +63,12 @@ These were the G3/G5/G6/G7 issues. They are real Demo V1 requirements with no T-
 | **G1** MCP operational | **Done** | 13 tools over STDIO; Claude Code connected |
 | **G2** Governed acquisition loop | **Done** | Phases C + D — create, confirm, reject, correct, clarify, with audit trail |
 | **G3** First-class module model | Open | No T-number yet |
-| **G4** Package assembly | **In progress** | T21, T22 |
+| **G4** Package assembly | **Done** | Bounded assembly pinned to a revision, hashed, with a deterministic package description |
 | **G5** Studio integration | Open | Prototype complete, adapters still mocked |
 | **G6** Publish and consume | Open | |
 | **G7** End-to-end demonstration | Open | T23 covers the MCP half |
 
-**4 of 8 gates have executable proof.**
+**5 of 8 gates have executable proof.**
 
 ## Boundary decisions
 
@@ -101,10 +89,30 @@ Multi-tenancy · billing · multiple autonomous expert agents · organization pa
 
 ## Progress measure
 
-**Executable proof, not documents or commits.** 18 of ~25 T-targets; 4 of 8 product gates.
+**Executable proof, not documents or commits.** 23 of ~25 T-targets; 5 of 8 product gates.
+
+## Phase E — what it delivered
+
+`kae_ingest_document` and `kae_assemble_context` on the MCP surface, plus a
+deterministic package description and the Demo V1 acceptance scenario.
+
+The application services already existed and were tested; what was missing was
+the surface. The work was wiring, and the value is in what each response
+refuses to claim:
+
+- Ingestion keeps three facts apart — text recorded, extraction **queued**,
+  knowledge unchanged. An unread remainder is stated rather than dropped.
+- Draining the queue yields **candidates**, each tracing to the stored span it
+  came from. A document cannot confirm its own contents.
+- Assembly is bounded by purpose, pinned to a revision, and hashed. The
+  manifest always carries the confirmation split and every unresolved gap.
+- Candidates get their own `unconfirmed` artifact rather than being mixed into
+  a confirmed area, so the boundary is a file boundary.
+
+**792 tests, 92% coverage on PostgreSQL**, ruff + format + mypy clean.
 
 ## Last verified
 
-**2026-08-04.** KAE-Memory `ef01372` + fixes. `kae-memory-mcp doctor` against PostgreSQL: provider `postgresql`, vector `pgvector`, migrations `0010`, 3 projects, 13 tools, 4 resources, 1 prompt — **ready to serve**. Claude Code: **✓ Connected**.
+**2026-08-04.** KAE-Memory `3efe6e1` (Phase E merged). `kae-memory-mcp doctor` against PostgreSQL: provider `postgresql`, vector `pgvector`, migrations `0010`, 3 projects, 13 tools, 4 resources, 1 prompt — **ready to serve**. Claude Code: **✓ Connected**.
 
 Outstanding: issues #37–#53 need closing (permission); the Ministry Reporting sample sits in CockroachDB `kae_dev`, not the default PostgreSQL.
