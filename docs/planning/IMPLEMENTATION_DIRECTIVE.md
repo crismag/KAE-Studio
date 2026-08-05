@@ -41,11 +41,11 @@ Evidence must cite repository paths, migrations, tests, or callable endpoints. D
 
 ## Implementation order
 
-**MCP-M1 comes first.** Studio implementation does not begin until the platform claim is demonstrated. Do not scaffold a Studio shell before Phase 4.
+**MCP-M1 and the Studio prototype are now demonstrated.** The remaining Studio implementation work starts by tightening the production contract instead of adding broader mock behavior. Do not replace mock adapters route-by-route until the required Memory HTTP operation is verified or explicitly added to the contract.
 
 ### Phase 0: MCP-M1 in KAE-Memory
 
-Implement the local STDIO server specified in KAE-Memory's `development/tasks/TASK-010-mcp-m1-engineering-context-server.md`. Install it in Claude Code and in Codex or Cursor. Demonstrate real Memory retrieval, submit one observation, and verify it persists across clients.
+Complete. The program register records KAE-Memory Phase E merged on 2026-08-04, `kae-memory-mcp doctor` passing against PostgreSQL, 13 tools, 4 resources, 1 prompt, and Claude Code connected. Keep future MCP work in KAE-Memory; Studio consumes Memory through HTTP contracts.
 
 ### Phase 1: Evaluate the demonstration
 
@@ -55,15 +55,15 @@ Record what worked, what the agents actually needed, and which tool responses we
 
 Confirm ADR-0006 in practice. Determine what state Studio genuinely owns and whether it needs a database at all. Establish configuration boundaries and secret handling.
 
-### Phase 3: Fill only the Memory gaps the first Studio slice needs
+### Phase 3: Freeze the first Studio HTTP contract
 
-From the capability matrix, in order: idempotent evidence ingestion; `KnowledgeKind` and `RelationshipType` extension; the relationship write and traversal API; module-scoped readiness. Contract-test each.
+Use `PRODUCT_CONTRACT_ALIGNMENT.md` and `STUDIO_PORT_DISPOSITION.md` to split prototype ports into Memory HTTP, Studio orchestration, Studio projection, Studio rendering, and Studio publication responsibilities. Contract-test each frozen Memory operation.
 
-Do not implement the full project model. Implement what the slice in `VERTICAL_SLICE.md` requires.
+Do not implement the full project model. Keep module curation and module package behavior visibly unavailable in production mode until first-class modules, relationship write/traversal, and module-scoped readiness exist.
 
 ### Phase 4: Studio shell
 
-Scaffold only what the chosen stack needs. Workspace as the default project view. Modules, Requirements, Deliverables, and Reviews as destinations. Mark future destinations honestly.
+Complete as a frontend prototype. Keep the existing shell and routes, but replace deterministic adapters only where the Phase 3 contract has executable proof. Workspace remains the default project view. Future or unsupported destinations stay honest about their blockers.
 
 ### Phase 5: Connect Studio to Memory and one provider
 

@@ -1,8 +1,8 @@
 # KAE-Studio to KAE-Memory API Contract
 
-Status: minimum required contract; verify against existing KAE-Memory APIs before implementation.
+Status: **candidate consumer contract**. Verify every operation against current KAE-Memory HTTP routes, schemas, migrations, and tests before implementation. The Studio port disposition in `../planning/STUDIO_PORT_DISPOSITION.md` is the current method-level companion to this contract.
 
-This document has two parts. **Minimum first-slice operations** are the evidence/knowledge/readiness basics. **Project-model operations** are required by ADR-0002 and are substantially more demanding — treat them as proposed until the capability matrix proves what KAE-Memory already provides.
+This document has two parts. **Minimum first-slice operations** are the evidence/knowledge/readiness basics that should be frozen first. **Project-model operations** are required by ADR-0002 and are substantially more demanding — treat them as proposed until the capability matrix proves what KAE-Memory already provides.
 
 ## Contract principles
 
@@ -180,5 +180,7 @@ Studio should not expose raw internal exceptions to the browser.
 
 ## Compatibility
 
-The first Studio client can live in a package/module named `kae_memory_client`. It owns HTTP serialization, authentication, retries, timeouts, correlation IDs, and response validation. Application code calls this client interface rather than raw endpoints.
+The first Studio client can live in a package/module named `kae_memory_client`. It owns HTTP serialization, authentication, retries, timeouts, correlation IDs, idempotency identifiers, pagination handling, safe error mapping, API-version compatibility, and response validation. Application code calls this client interface rather than raw endpoints.
+
+Freeze only the operations identified in `../planning/STUDIO_PORT_DISPOSITION.md` for the first integration slice. Keep module curation, module-bounded packages, durable deliverables, and publication disabled or mocked with explicit labels until their Memory and Studio-side execution contracts exist.
 

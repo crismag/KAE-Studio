@@ -1,6 +1,8 @@
 # Joint Capability Matrix: Studio Needs vs. KAE-Memory Today
 
-Status: **evidence-based analysis of KAE-Memory at commit `de37cc4` (branch `feat/local-development-and-enablement`), 2026-08-01.** No implementation is proposed or authorized by this document.
+Status: **historical evidence-based analysis of KAE-Memory at commit `de37cc4` (branch `feat/local-development-and-enablement`), 2026-08-01.** The program register now records newer KAE-Memory work through 2026-08-04, so refresh this matrix before implementing a real Studio HTTP adapter. No implementation is proposed or authorized by this document.
+
+See `STUDIO_PORT_DISPOSITION.md` for the current Studio-side method disposition that narrows the first integration slice while this matrix is refreshed.
 
 ## Method
 
@@ -125,13 +127,15 @@ Gap severity: **None** (usable as-is) · **Additive** (extend an existing vocabu
 ## Recommended sequence
 
 1. ~~Record the conversation-ownership decision~~ — done, ADR-0006.
-2. Fix idempotent evidence ingestion (finding 4) — small, and a stated acceptance criterion.
-3. Extend `KnowledgeKind` and `RelationshipType` (finding 2) — cheap, additive, unblocks the model.
-4. Build the relationship write + traversal API with contract tests (finding 3a) — the highest-leverage change.
-5. Scope readiness to modules (finding 3b).
-6. Add purpose/scope-bounded context assembly (finding 3c).
-7. Add artifact and publication records, reusing the staleness pattern (finding 5).
-8. Change-impact analysis last — it depends on everything above.
+2. Refresh this matrix against current KAE-Memory code, routes, migrations, tests, and MCP/HTTP surfaces.
+3. Freeze the first Studio HTTP slice from `STUDIO_PORT_DISPOSITION.md`: project selection, bounded conversation reads, idempotent message/evidence submission, processing state, briefing, readiness, findings, and revision-pinned project context assembly.
+4. Fix idempotent evidence ingestion if the refreshed audit still finds it missing — small, and a stated acceptance criterion.
+5. Extend `KnowledgeKind` and `RelationshipType` only after the refreshed audit confirms the current vocabulary gap.
+6. Build the relationship write + traversal API with contract tests (finding 3a) — the highest-leverage module-model change.
+7. Scope readiness to modules (finding 3b).
+8. Add purpose/scope-bounded module context assembly (finding 3c).
+9. Add artifact and publication records, reusing the staleness pattern (finding 5).
+10. Change-impact analysis last — it depends on everything above.
 
 Under ADR-0004, a **Phase 0 read-only MCP server** can proceed in parallel with steps 1–4, since it needs nothing that does not already exist. Authentication and tenancy must be settled before it is exposed outside a trusted network.
 
