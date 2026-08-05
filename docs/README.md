@@ -29,7 +29,8 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `decisions/ADR-0004-mcp-access-layer.md` | MCP as the agent access layer, owned by KAE-Memory |
 | `decisions/ADR-0005-knowledge-scopes-and-patterns.md` | Multi-scope knowledge and the reusable pattern library |
 | `decisions/ADR-0006-memory-owns-durable-conversation.md` | KAE-Memory owns durable projects, sessions, and messages |
-| `planning/CAPABILITY_MATRIX.md` | Evidence-based Studio-need vs. KAE-Memory analysis, with ownership per gap |
+| `planning/CAPABILITY_MATRIX.md` | Historical evidence-based Studio-need vs. KAE-Memory analysis; regenerate before implementation |
+| `planning/PRODUCT_CONTRACT_ALIGNMENT.md` | Current task context for reconciling prototype ports with real Memory HTTP contracts |
 | `planning/VERTICAL_SLICE.md` | First demonstrable product flow and acceptance criteria |
 | `planning/IMPLEMENTATION_DIRECTIVE.md` | Work order and instructions for Claude |
 | `ui/UI_GENERATION_CONTEXT.md` | Governing brief for KAE-Studio's own interface |
@@ -44,15 +45,15 @@ Note the distinction between the two UI documents: `product/UI_DEFINITION.md` co
 - **Implemented**: code exists and has relevant automated verification.
 - **Demonstrated**: the capability was exercised end to end in the target environment.
 
-No document in this package claims any capability is implemented. This repository currently contains documentation only.
+Implementation status must be verified independently. The repository now includes a frontend experience prototype backed by deterministic mock adapters; it is not a demonstrated KAE-Memory integration.
 
 ## Open items
 
 - Whether KAE-Studio needs its own database. ADR-0006 removed durable conversation from it; decide after Studio's real persistence requirements are known.
 - Demo date, which would let the first Studio slice be sized against a deadline rather than a capability boundary.
-- The KAE-Memory capability matrix now exists (`planning/CAPABILITY_MATRIX.md`, 2026-08-01). Three structural gaps are identified: relationship write/traversal API, scoped readiness, and purpose-bounded context assembly.
-- Application stack is undecided (ADR-0001 follow-up).
+- `planning/CAPABILITY_MATRIX.md` is a 2026-08-01 snapshot and predates major KAE-Memory MCP work. Regenerate it from current Memory code and interfaces using `planning/PRODUCT_CONTRACT_ALIGNMENT.md`.
+- The frontend prototype uses React, TypeScript, and Vite; the trusted backend/runtime architecture for provider orchestration and publication remains undecided.
 - Authentication and tenancy are now urgent, not deferrable: ADR-0004 lets external agents connect directly to the platform.
 - Which repository hosts `kae-mcp` is an open follow-up (ADR-0004).
-- MCP-M1 is specified in KAE-Memory (`development/tasks/TASK-010-mcp-m1-engineering-context-server.md`) and is sequenced before further Studio UI work.
+- MCP-M1 and the Studio experience prototype now exist. The next boundary is real HTTP contract alignment; Studio must not consume MCP as its browser transport.
 - ADR-0005 (knowledge scopes) is the largest structural change identified so far and is explicitly sequenced after project-scoped capability and tenancy.
