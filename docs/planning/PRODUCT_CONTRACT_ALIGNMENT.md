@@ -136,3 +136,12 @@ Regenerate the capability matrix from current KAE-Memory, then produce a
 method-by-method disposition for `src/services/interfaces.ts`. Freeze only the
 ports needed for project creation through first proposal review before writing
 the real HTTP adapter.
+
+## Current disposition artifact
+
+`STUDIO_PORT_DISPOSITION.md` is the first Studio-local disposition of the five
+prototype ports. It freezes ownership and first-slice actions without claiming
+that unavailable module, deliverable, or publication behavior is backed by
+KAE-Memory HTTP. Treat it as the checklist for the next implementation pass,
+then refresh it after the KAE-Memory capability audit is rerun against current
+code.
