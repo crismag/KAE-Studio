@@ -22,6 +22,12 @@ export function SignInGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState('')
   const [backend, setBackend] = useState<{ memory_reachable?: boolean; memory_url?: string }>({})
 
+  // Bumped to re-run the check. The gate ran once on mount and never again, so
+  // a backend restart of a few seconds pinned "unreachable" until someone
+  // thought to reload — and the screen offered no reason to think that would
+  // help.
+  const [attempt, setAttempt] = useState(0)
+
   useEffect(() => {
     let cancelled = false
     async function check() {
@@ -42,7 +48,12 @@ export function SignInGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
+
+  function retry() {
+    setState('checking')
+    setAttempt((n) => n + 1)
+  }
 
   async function signIn(event: React.FormEvent) {
     event.preventDefault()
@@ -71,6 +82,12 @@ export function SignInGate({ children }: { children: ReactNode }) {
           Nothing was loaded, and nothing on screen would be project truth. Expected it at{' '}
           <code>{API || '(same origin)'}</code>.
         </p>
+        <p style={{ opacity: 0.6, maxWidth: 460, fontSize: 13, marginTop: 8 }}>
+          A restart looks exactly like this for the few seconds it takes. Nothing was written.
+        </p>
+        <button type="button" onClick={retry} style={{ marginTop: 14, padding: '8px 14px', borderRadius: 6 }}>
+          Try again
+        </button>
       </Centered>
     )
   }
