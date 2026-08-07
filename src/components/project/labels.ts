@@ -31,4 +31,12 @@ export const CATEGORY_LABEL: Record<string, string> = {
   operational: 'Operational requirements',
   quality: 'Quality expectations',
   business_rule: 'Business rules',
+  user_need: 'Users and stakeholders',
+  constraint: 'Constraints',
+  assumption: 'Assumptions',
+  decision: 'Decisions',
+  // Last, and named as a question rather than a requirement. These are the
+  // model reporting what it could not determine — the opposite of something the
+  // project has decided.
+  open_question: 'Open questions',
 }

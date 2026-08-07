@@ -125,8 +125,26 @@ export interface ProjectDefinition {
 
 /* ---------------------------------------------------------------- requirements */
 
+/**
+ * What a record *is*, independent of what state it is in.
+ *
+ * The last four exist because KAE-Memory types its knowledge and the interface
+ * has to keep that distinction. A question, a persona and an assumption are not
+ * requirements, and listing them as "proposed functional requirements" asks a
+ * reader to reclassify every row themselves before they can act on any of it.
+ */
 export type RequirementCategory =
-  'functional' | 'integration' | 'security' | 'operational' | 'quality' | 'business_rule'
+  | 'functional'
+  | 'integration'
+  | 'security'
+  | 'operational'
+  | 'quality'
+  | 'business_rule'
+  | 'user_need'
+  | 'constraint'
+  | 'assumption'
+  | 'decision'
+  | 'open_question'
 
 export interface Requirement {
   id: string

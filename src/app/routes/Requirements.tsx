@@ -22,10 +22,17 @@ import type { AcceptanceTest, ProjectModule, Requirement } from '@/domain/types'
 const CATEGORY_ORDER: Requirement['category'][] = [
   'functional',
   'business_rule',
+  'quality',
+  'constraint',
+  'user_need',
   'integration',
   'security',
-  'quality',
   'operational',
+  'decision',
+  'assumption',
+  // Deliberately last. A question is not a requirement, and putting it among
+  // them was the single most confusing thing on this page.
+  'open_question',
 ]
 
 function RequirementRow({
@@ -148,6 +155,21 @@ export function Requirements() {
   }
 
   const filtered = projection.requirements.filter((r) => filter === 'all' || r.status === filter)
+
+  // Questions counted separately from requirements, on purpose. A summary that
+  // says "6 requirements, 4 awaiting review" when two of them are things the
+  // model could not determine is overstating what the project has established.
+  const questions = projection.requirements.filter((r) => r.category === 'open_question')
+  const requirements = projection.requirements.filter((r) => r.category !== 'open_question')
+  const summary = [
+    `${requirements.length} requirement${requirements.length === 1 ? '' : 's'}`,
+    `${requirements.filter((r) => r.status === 'confirmed').length} confirmed`,
+    `${requirements.filter((r) => r.status === 'proposed').length} awaiting review`,
+    ...(questions.length > 0 ? [`${questions.length} open question${questions.length === 1 ? '' : 's'}`] : []),
+    ...(requirements.filter((r) => r.verifiedBy.length === 0).length > 0
+      ? [`${requirements.filter((r) => r.verifiedBy.length === 0).length} without verification`]
+      : []),
+  ].join(' · ')
   const counts = {
     all: projection.requirements.length,
     confirmed: projection.requirements.filter((r) => r.status === 'confirmed').length,
@@ -159,7 +181,7 @@ export function Requirements() {
   return (
     <PageLayout
       title="Requirements"
-      lead="What must be true for this project to be correct. Each requirement carries a stable identifier, the module that implements it, and the tests that verify it."
+      lead="What this project must do and the conditions it must satisfy. Review proposed items, resolve open questions, assign ownership, and define how each confirmed requirement will be verified."
       actions={
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by status">
           {(['all', 'confirmed', 'proposed', 'contested', 'rejected'] as const).map((key) => (
@@ -179,6 +201,8 @@ export function Requirements() {
       }
     >
       <div className="space-y-6">
+        <p className="text-[12.5px] leading-relaxed text-ink-muted">{summary}</p>
+
         {CATEGORY_ORDER.map((category) => {
           const items = filtered.filter((r) => r.category === category)
           if (items.length === 0) return null

@@ -20,6 +20,7 @@ import type {
   ProjectProjection,
   PublishTarget,
   PublishTargetKind,
+  Requirement,
 } from '@/domain/types'
 import type {
   ArtifactPublisher,
@@ -121,7 +122,9 @@ function toProjection(raw: BackendProjection): ProjectProjection {
     },
     requirements: statements.map((s) => ({
       id: s.id,
-      category: 'functional' as const,
+      // Unrecognised kinds land in `functional` rather than being dropped: a
+      // new Memory kind should look mislabelled, not disappear.
+      category: CATEGORY_FOR_KIND[s.kind] ?? 'functional',
       statement: s.text,
       // `validated` is Memory's word for confirmed by a person. Anything else
       // is a candidate, and the distinction must survive into the UI.
@@ -179,6 +182,28 @@ function toProjection(raw: BackendProjection): ProjectProjection {
     },
     recentChanges: [],
   }
+}
+
+/**
+ * Memory's knowledge kind → what this interface calls the record's type.
+ *
+ * The distinction was being thrown away: every derived item arrived as
+ * `functional`, so a persona, a performance target and a question the model
+ * could not answer all rendered as "proposed functional requirement". The page
+ * then asked the reader to reclassify each row before acting on any of it.
+ *
+ * Memory already types these correctly. Nothing here decides anything — it
+ * translates a vocabulary the product owns into one the page can label.
+ */
+const CATEGORY_FOR_KIND: Record<string, Requirement['category']> = {
+  requirement: 'functional',
+  goal: 'functional',
+  rule: 'business_rule',
+  constraint: 'constraint',
+  actor: 'user_need',
+  decision: 'decision',
+  assumption: 'assumption',
+  unknown: 'open_question',
 }
 
 /** Memory's knowledge kinds, in words a reader of the review page can use. */

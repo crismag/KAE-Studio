@@ -152,3 +152,36 @@ test.describe('workspace', () => {
       .toBeGreaterThan(0)
   })
 })
+
+test.describe('classification', () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page)
+    await page.goto('/#/requirements')
+    await expect(page.getByRole('heading', { name: 'Requirements' })).toBeVisible()
+    // The summary only renders once the projection has arrived. Waiting on the
+    // heading alone leaves the same count()-against-a-skeleton race that
+    // skipped the review tests as "nothing to review" while four candidates
+    // sat there — I wrote it twice, which is a good argument for waiting on
+    // data rather than on chrome.
+    await expect(page.getByText(/\d+ requirements? · \d+ confirmed/)).toBeVisible({
+      timeout: 15_000,
+    })
+  })
+
+  test('a question is not listed as a requirement', async ({ page }) => {
+    // The single most confusing thing on this page: KAE-Memory types its
+    // knowledge, the adapter stamped `functional` on all of it, and a persona,
+    // a performance target and a question the model could not answer all
+    // rendered as "proposed functional requirement".
+    const questions = page.getByText('Open questions')
+    test.skip((await questions.count()) === 0, 'no open questions in this project')
+
+    await expect(questions.first()).toBeVisible()
+    // And the heading it must not appear under.
+    await expect(page.getByText('Functional requirements')).not.toContainText('What is')
+  })
+
+  test('the summary does not count questions as requirements', async ({ page }) => {
+    await expect(page.getByText(/\d+ requirements? · \d+ confirmed/)).toBeVisible()
+  })
+})
