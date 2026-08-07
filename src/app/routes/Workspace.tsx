@@ -404,6 +404,12 @@ export function Workspace() {
   // not written at all, so this is the only place it can be seen.
   const lastTurn = sendMessage.data?.turn.assistantMessage
   const advisory = lastTurn && !lastTurn.question ? lastTurn.body : null
+
+  // How the last turn was produced. The reply itself arrives through the
+  // transcript, which is read back from Memory and carries no interviewing
+  // metadata — so this is the only place it can be shown, and it is shown for
+  // the latest turn only rather than pretending the whole history has it.
+  const provenance = lastTurn?.understanding?.points ?? []
   const [contextOpen, setContextOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -485,6 +491,12 @@ export function Workspace() {
                 send, the backend would answer 200, and the screen showed
                 nothing at all. This says what happened without pretending to be
                 part of the record. */}
+            {!sendMessage.isPending && provenance.length > 0 && (
+              <p className="text-[11.5px] leading-relaxed text-ink-subtle" role="status">
+                {provenance.join(' · ')}
+              </p>
+            )}
+
             {!sendMessage.isPending && advisory && (
               <p
                 className="border-l-2 border-line pl-3 text-[12.5px] leading-relaxed text-ink-muted"

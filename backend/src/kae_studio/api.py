@@ -25,10 +25,12 @@ from uuid import uuid4
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .config import Settings
+from .interviewer import InterviewUnavailable, Interviewer
 from .memory_client import MODULE_GAP, MemoryClient, MemoryRefused, MemoryUnavailable
 from .security import SESSION_COOKIE, SESSION_MAX_AGE, Operator, Sessions, require_operator
 
@@ -46,6 +48,12 @@ class AnswerIn(BaseModel):
     disposition: str = "answered"
 
 
+class TurnIn(BaseModel):
+    """The message the turn responds to. CIE records it as evidence itself."""
+
+    body: str = Field(min_length=1)
+
+
 class ReviewIn(BaseModel):
     reason: str = ""
     #: The version the reviewer had on screen. Memory refuses a rejection that
@@ -60,6 +68,11 @@ def create_app(settings: Settings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
         app.state.memory = MemoryClient(settings.memory_base_url, settings.memory_token)
+        # Built once. Constructing an interviewer per request would rebuild a
+        # Memory client on every turn for no gain.
+        app.state.interviewer = Interviewer(
+            memory_url=settings.memory_base_url, memory_token=settings.memory_token
+        )
         yield
         await app.state.memory.aclose()
 
@@ -243,88 +256,59 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post("/api/projects/{project_id}/turn")
     async def turn(
-        project_id: str, request: Request, operator: Operator = Depends(require_operator)
+        project_id: str, request: Request, body: TurnIn, operator: Operator = Depends(require_operator)
     ) -> Any:
-        """Produce the assistant's turn, and record it as part of the conversation.
+        """Produce the assistant's turn through CIE, and record it.
 
-        The reply is **KAE-Memory's clarification queue**: real questions derived
-        from this project's gaps, ranked by severity. It is not an acquisition
-        intelligence and does not read what was just said — CIE is not wired.
-        The response says so rather than implying a conversational partner that
-        does not exist.
+        **Studio decides nothing about the conversation.** CIE reads the project
+        from Memory, reads what was just said, chooses how to investigate, and
+        returns the move. What arrives here is transported and rendered.
 
-        The turn is written back to Memory because conversation is Memory-owned
-        (ADR-0006). An assistant reply that lived only in the browser would
-        vanish on reload, and the transcript would disagree with what the
-        project durably holds.
+        This replaced a walk through Memory's clarification queue. That was an
+        honest stopgap and it was not an interview: it returned the next
+        structural gap in severity order, worded for a machine, without reading
+        the answer. Two different answers produced the same next question.
+
+        The move is written back as an agent message because conversation is
+        Memory-owned (ADR-0006). CIE deliberately does not record it — whether an
+        assistant turn belongs in the transcript is a product decision.
         """
+
+        interviewer: Interviewer | None = request.app.state.interviewer
+        if interviewer is None:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "no interviewer is configured for this deployment",
+            )
+
+        try:
+            move = await run_in_threadpool(
+                interviewer.turn, project_id, body.body, actor=operator.name
+            )
+        except InterviewUnavailable as error:
+            # Surfaced as unavailable, never as a reply. A fallback that reads
+            # like a turn is indistinguishable from one, in the transcript and
+            # to the person reading it.
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from None
 
         client = memory(request)
         session_id = await _session_for(client, project_id)
-
-        # Ask for several, not one. `limit=1` always returns the same
-        # highest-severity question, and its idempotency key is derived from the
-        # clarification id — so Memory correctly stored it once and replayed it
-        # forever after. Every later turn answered 200, wrote nothing, and the
-        # operator saw silence: message sent, no reply, no error anywhere.
-        questions = await client.clarifications(project_id, limit=10)
-        items = questions.get("questions", []) if isinstance(questions, dict) else []
-
-        stored = await client.messages(session_id)
-        transcript = stored if isinstance(stored, list) else stored.get("results", [])
-        already_asked = {
-            m.get("content") for m in transcript if m.get("actor_type") == "agent"
-        }
-
-        question = next((q for q in items if q["question"] not in already_asked), None)
-
-        source_note = (
-            "This is KAE-Memory's clarification queue, derived from this project's "
-            "gaps — not a conversational model. Acquisition intelligence (CIE) is "
-            "not wired yet."
-        )
-
-        if question:
-            await client.post_message(
-                session_id,
-                question["question"],
-                "kae",
-                f"studio-turn-{question['clarification_id']}",
-                actor_type="agent",
-                message_type="question",
-            )
-            return {
-                "question": question["question"],
-                "clarificationId": question["clarification_id"],
-                "severity": question["severity"],
-                "source": "kae-memory-clarifications",
-                "note": source_note,
-            }
-
-        # Nothing new to ask, and that is a real state rather than a failure: the
-        # queue is derived from gaps, and it does not move because someone typed
-        # again. It moves when a question is answered or knowledge is confirmed.
-        #
-        # Returned as a note and deliberately **not** written to Memory. A filler
-        # message per turn would put words in the evidence log that nobody said
-        # and no gap produced, which is the confusion this whole review surface
-        # exists to prevent.
-        exhausted = (
-            f"Recorded. I have no new question — all {len(items)} open clarification(s) "
-            "are already in this conversation. The queue is derived from the project's "
-            "gaps, so it advances when one is answered or a candidate is confirmed, "
-            "not when another message arrives."
-            if items
-            else "Recorded. KAE-Memory reports no open clarifications for this project."
+        await client.post_message(
+            session_id,
+            move.text,
+            "kae",
+            f"studio-turn-{uuid4()}",
+            actor_type="agent",
+            message_type="question",
         )
 
         return {
-            "question": None,
-            "clarificationId": None,
-            "severity": None,
-            "openQuestionCount": len(items),
-            "source": "kae-memory-clarifications",
-            "note": f"{exhausted} {source_note}",
+            "move": move.text,
+            # Carried so a turn can be reviewed against the interview rubric
+            # afterwards, and so "why did it ask that" has an answer.
+            "skill": move.skill,
+            "subject": move.subject,
+            "source": "cie",
         }
 
     @app.get("/api/projects/{project_id}/clarifications")

@@ -51,11 +51,13 @@ export function useSendMessage() {
 
   return useMutation({
     mutationFn: async (body: string) => {
-      const idempotencyKey = `studio-message-${Date.now()}`
-      const { result } = await memory.submitMessage(PROJECT_ID, body, idempotencyKey)
-      await queryClient.invalidateQueries({ queryKey: ['messages', PROJECT_ID] })
+      // One post, not two. CIE records the message itself as the first act of a
+      // turn — before it reads anything, so a provider failure still leaves the
+      // sentence durable. Calling `submitMessage` as well would store it twice,
+      // and Memory is append-only: two pieces of evidence for one thing said
+      // once, and every count downstream wrong.
       const turn = await interview.respondTo(PROJECT_ID, body)
-      return { result, turn }
+      return { result: { accepted: true, memoryRevision: 0 }, turn }
     },
     onSuccess: async () => {
       await Promise.all([

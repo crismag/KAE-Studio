@@ -138,17 +138,31 @@ test.describe('workspace', () => {
     await page.goto('/#/workspace')
   })
 
-  test('a sent message is answered, or says why it is not', async ({ page }) => {
+  test('a sent message produces a reply that was not there before', async ({ page }) => {
+    const replies = page.getByRole('article')
+    const before = await replies.count()
+
     const composer = page.getByRole('textbox').first()
     await composer.fill('The inbox should group tasks by the day they are due.')
     await composer.press('Enter')
 
-    // Either a new question or the advisory line. The failure this replaces was
-    // neither: the turn answered 200, wrote nothing new because the reply was
-    // idempotent on a clarification already asked, and the screen showed
-    // silence with no error anywhere.
+    // Counted, not matched. An earlier version looked for the clarification
+    // queue's wording and passed on text already in the transcript from a
+    // previous run — green, and testing nothing. A new reply is one that was
+    // not there a moment ago, whatever it says.
+    await expect.poll(async () => replies.count(), { timeout: 60_000 }).toBeGreaterThan(before)
+  })
+
+  test('the reply says which interviewing skill produced it', async ({ page }) => {
+    // Diagnostic, not decoration: a turn that cannot say how it was produced
+    // cannot be reviewed against the interview rubric afterwards.
+
+    const composer = page.getByRole('textbox').first()
+    await composer.fill('It is only ever me, on my own phone.')
+    await composer.press('Enter')
+
     await expect
-      .poll(async () => page.getByText(/Discuss |Recorded\./).count(), { timeout: 30_000 })
+      .poll(async () => page.getByText(/Interviewing skill: /).count(), { timeout: 60_000 })
       .toBeGreaterThan(0)
   })
 })

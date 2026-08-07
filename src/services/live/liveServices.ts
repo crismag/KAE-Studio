@@ -315,24 +315,37 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     // Named honestly in the status bar. This is Memory's clarification queue,
     // not an acquisition intelligence, and a UI that implied otherwise would be
     // overstating what the deployment can do.
-    describe: () => ({ name: 'KAE-Memory clarifications', mode: 'live' }),
-    respondTo: async (projectId): Promise<InterviewTurn> => {
-      // Does not re-post the message. `submitMessage` already recorded it, and
-      // this asks only for the next question.
-      const result = await call<{ question: string | null; note: string }>(
-        `/api/projects/${resolve(projectId)}/turn`,
-        { method: 'POST' },
-      )
+    describe: () => ({ name: 'CIE', mode: 'live' }),
+    respondTo: async (projectId, body): Promise<InterviewTurn> => {
+      // The message goes with the turn now. CIE records it as evidence itself,
+      // before reading anything — so a provider failure mid-turn still leaves
+      // what the person said durable.
+      const result = await call<{
+        move: string
+        skill: string
+        subject: string
+        source: string
+      }>(`/api/projects/${resolve(projectId)}/turn`, {
+        method: 'POST',
+        body: JSON.stringify({ body }),
+      })
       const session = await memory.getInterviewSession(projectId)
       return {
         assistantMessage: {
           id: `turn-${Date.now()}`,
           author: 'assistant',
-          body: result.question ?? result.note,
+          body: result.move,
           createdAt: new Date().toISOString(),
           syncState: 'acknowledged',
-          question: result.question ?? undefined,
-          understanding: { heading: 'How this reply was produced', points: [result.note] },
+          // Diagnostic, not decoration: which interviewing skill produced this
+          // turn is what makes it reviewable afterwards.
+          understanding: {
+            heading: 'How this reply was produced',
+            points: [
+              `Interviewing skill: ${result.skill}`,
+              ...(result.subject ? [`Subject: ${result.subject}`] : []),
+            ],
+          },
         } as ConversationMessage,
         session,
       }
