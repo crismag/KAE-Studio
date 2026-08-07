@@ -105,6 +105,18 @@ export function useDeferDecision() {
  * clicks, and against a live KAE-Memory it would have written the opposite of
  * what the operator pressed, into the durable record, silently.
  */
+/** Provenance for one statement, fetched only when someone expands the row —
+ *  a trace per requirement on every page load would be a request storm for
+ *  information almost nobody opens. */
+export function useKnowledgeTrace(knowledgeId: string) {
+  const { memory } = useServices()
+  return useQuery({
+    queryKey: ['trace', PROJECT_ID, knowledgeId],
+    queryFn: () => memory.knowledgeTrace(PROJECT_ID, knowledgeId),
+    staleTime: Infinity,
+  })
+}
+
 export function useRejectFinding() {
   const { memory } = useServices()
   const queryClient = useQueryClient()

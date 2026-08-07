@@ -292,6 +292,9 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       return accepted()
     },
 
+    knowledgeTrace: (id, knowledgeId) =>
+      call(`/api/projects/${resolve(id)}/knowledge/${knowledgeId}/trace`),
+
     confirmFinding: async (id, findingId) => {
       await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/confirm`, { method: 'POST' })
       return accepted()

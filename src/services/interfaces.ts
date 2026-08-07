@@ -60,6 +60,9 @@ export interface ProjectMemoryClient {
     decisionId: string,
     deferred: boolean,
   ): Promise<MemoryWriteResult>
+  /** Stored provenance for one statement. Recorded evidence, never a generated
+   *  explanation — the two are indistinguishable on screen, so only one is shown. */
+  knowledgeTrace(projectId: string, knowledgeId: string): Promise<KnowledgeTrace>
   confirmFinding(projectId: string, findingId: string): Promise<MemoryWriteResult>
   /** Reject a candidate, with the reason. Separate from confirm on purpose:
    *  they are opposite acts on the durable record, and one method serving both
@@ -70,6 +73,13 @@ export interface ProjectMemoryClient {
     reason: string,
     expectedVersion: number,
   ): Promise<MemoryWriteResult>
+}
+
+export interface KnowledgeTrace {
+  kind: string
+  lifecycle: string
+  source_message_ids?: string[]
+  produced_by_run_id?: string | null
 }
 
 export type ModuleDecision =

@@ -123,6 +123,17 @@ class MemoryClient:
     async def setup_state(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}/setup")
 
+    async def trace(self, knowledge_id: str) -> Any:
+        """Where a statement came from.
+
+        Memory already records this; Studio simply had no way to show it. The
+        answer to "why does KAE believe this" is stored provenance, not a model
+        explaining itself after the fact — and the difference is the whole
+        reason to surface it.
+        """
+
+        return await self._request("GET", f"/v1/knowledge/{knowledge_id}/trace")
+
     async def deliverables(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}/deliverables")
 

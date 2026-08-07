@@ -199,3 +199,45 @@ test.describe('classification', () => {
     await expect(page.getByText(/\d+ requirements? · \d+ confirmed/)).toBeVisible()
   })
 })
+
+test.describe('understanding what is on the page', () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page)
+    await page.goto('/#/requirements')
+    await expect(page.getByText(/\d+ requirements? · \d+ confirmed/)).toBeVisible({
+      timeout: 15_000,
+    })
+  })
+
+  test('the storage id is not the first thing on a row', async ({ page }) => {
+    // U2. A UUID in the leftmost column is where a reader looks first, and it
+    // told them nothing. What the item *is* belongs there.
+    const rows = page.getByRole('listitem')
+    test.skip((await rows.count()) === 0, 'no requirements in this project')
+
+    await expect(rows.first()).not.toContainText(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
+    )
+  })
+
+  test('a row can say where it came from', async ({ page }) => {
+    // U3. Recorded provenance, not a generated explanation.
+    const trigger = page.getByRole('button', { name: /Source & reasoning/ }).first()
+    test.skip((await trigger.count()) === 0, 'no requirements in this project')
+
+    await trigger.click()
+    await expect(page.getByText(/Derived from|Provenance could not be read/)).toBeVisible({
+      timeout: 15_000,
+    })
+  })
+
+  test('the page can explain itself without a permanent panel', async ({ page }) => {
+    // U8. Collapsed by default: an instruction block read once occupies the top
+    // of the page forever for everyone who already knows.
+    const explainer = page.getByText('Nothing here is true because KAE said so.')
+    await expect(explainer).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'How this page works' }).click()
+    await expect(explainer).toBeVisible()
+  })
+})

@@ -244,6 +244,10 @@ class MockProjectMemoryClient implements ProjectMemoryClient {
     return delay({ accepted: true, memoryRevision: state.memoryRevision })
   }
 
+  knowledgeTrace(_projectId: string, _knowledgeId: string) {
+    return delay({ kind: 'rule', lifecycle: 'proposed', source_message_ids: ['fixture'] })
+  }
+
   confirmFinding(_projectId: string, findingId: string): Promise<MemoryWriteResult> {
     state.confirmedFindingIds.add(findingId)
     state.memoryRevision += 1

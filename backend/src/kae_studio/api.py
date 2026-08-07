@@ -367,6 +367,22 @@ def create_app(settings: Settings) -> FastAPI:
             project_id, knowledge_id, operator.name, body.reason, body.expected_version
         )
 
+    @app.get("/api/projects/{project_id}/knowledge/{knowledge_id}/trace")
+    async def trace(
+        project_id: str,
+        knowledge_id: str,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """The evidence behind a statement.
+
+        Passed through unchanged. Studio does not summarise provenance: a
+        rendering that paraphrased the evidence would be a model's account of
+        the record standing in for the record.
+        """
+
+        return await memory(request).trace(knowledge_id)
+
     @app.get("/api/projects/{project_id}/deliverables")
     async def deliverables(
         project_id: str, request: Request, _: Operator = Depends(require_operator)
