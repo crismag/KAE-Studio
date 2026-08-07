@@ -46,7 +46,10 @@ export function useProject() {
  * as durable state of its own.
  */
 export function useSendMessage() {
-  const { memory, interview } = useServices()
+  // `memory` is deliberately not taken. This used to post the message and then
+  // ask for a turn; CIE now records it itself, and holding a reference to the
+  // client that could post it again is how the duplicate comes back.
+  const { interview } = useServices()
   const queryClient = useQueryClient()
 
   return useMutation({

@@ -78,9 +78,7 @@ const PINNED = import.meta.env.VITE_PROJECT_ID as string | undefined
  */
 function useResolvedProject(): { id?: string; state: 'resolving' | 'ready' | 'none' } {
   const [id, setId] = useState<string | undefined>(PINNED)
-  const [state, setState] = useState<'resolving' | 'ready' | 'none'>(
-    PINNED ? 'ready' : 'resolving',
-  )
+  const [state, setState] = useState<'resolving' | 'ready' | 'none'>(PINNED ? 'ready' : 'resolving')
 
   useEffect(() => {
     if (PINNED || !LIVE) return
@@ -114,8 +112,7 @@ function Live() {
       <Centered>
         <p>No project exists yet in this deployment.</p>
         <p style={{ opacity: 0.7, fontSize: 13, marginTop: 8 }}>
-          Nothing is wrong — there is simply nothing to show. Create one through the API and
-          reload.
+          Nothing is wrong — there is simply nothing to show. Create one through the API and reload.
         </p>
       </Centered>
     )

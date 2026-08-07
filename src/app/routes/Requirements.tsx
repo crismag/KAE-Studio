@@ -152,12 +152,13 @@ function HowThisPageWorks() {
           <p>
             <strong className="text-ink">Type and status are separate.</strong> A row&rsquo;s label
             says what it <em>is</em> — a requirement, a rule, a constraint, an open question. Its
-            badge says how firmly it is held. An open question is not a requirement KAE is proposing;
-            it is something it could not determine and declined to guess.
+            badge says how firmly it is held. An open question is not a requirement KAE is
+            proposing; it is something it could not determine and declined to guess.
           </p>
           <p>
-            <strong className="text-ink">Rejected items stay.</strong> What a project decided against
-            is part of what it knows, so a rejection is kept and filterable rather than deleted.
+            <strong className="text-ink">Rejected items stay.</strong> What a project decided
+            against is part of what it knows, so a rejection is kept and filterable rather than
+            deleted.
           </p>
           <p>
             <strong className="text-ink">Readiness measures agreement, not effort.</strong> It moves
@@ -291,9 +292,9 @@ function RequirementRow({
 
 export function Requirements() {
   const { data: projection, isLoading } = useProjection()
-  const [filter, setFilter] = useState<
-    'all' | 'confirmed' | 'proposed' | 'contested' | 'rejected'
-  >('all')
+  const [filter, setFilter] = useState<'all' | 'confirmed' | 'proposed' | 'contested' | 'rejected'>(
+    'all',
+  )
 
   if (isLoading || !projection) {
     return (
@@ -314,7 +315,9 @@ export function Requirements() {
     `${requirements.length} requirement${requirements.length === 1 ? '' : 's'}`,
     `${requirements.filter((r) => r.status === 'confirmed').length} confirmed`,
     `${requirements.filter((r) => r.status === 'proposed').length} awaiting review`,
-    ...(questions.length > 0 ? [`${questions.length} open question${questions.length === 1 ? '' : 's'}`] : []),
+    ...(questions.length > 0
+      ? [`${questions.length} open question${questions.length === 1 ? '' : 's'}`]
+      : []),
     ...(requirements.filter((r) => r.verifiedBy.length === 0).length > 0
       ? [`${requirements.filter((r) => r.verifiedBy.length === 0).length} without verification`]
       : []),

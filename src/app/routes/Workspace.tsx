@@ -299,7 +299,13 @@ function WhyThisQuestion({ points }: { points: string[] }) {
   return (
     <p className="text-[11.5px] leading-relaxed text-ink-subtle">
       KAE asked this because {reason}
-      {area && <> — it is working on <span className="text-ink-muted">{area}</span></>}.
+      {area && (
+        <>
+          {' '}
+          — it is working on <span className="text-ink-muted">{area}</span>
+        </>
+      )}
+      .
     </p>
   )
 }

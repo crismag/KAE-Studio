@@ -80,7 +80,10 @@ describe('Requirements', () => {
 
     expect(screen.queryByText(/Reports should be approved before publication\./)).toBeNull()
 
-    await user.click(screen.getAllByRole('button', { name: /why this is here/i })[0])
+    // "Source & reasoning" since U3. It was "Why this is here", and that rename
+    // broke this test for six days because nothing ran it — see the CI workflow
+    // added alongside this fix.
+    await user.click(screen.getAllByRole('button', { name: /source & reasoning/i })[0])
 
     expect(
       await screen.findByText(/“We need a way for ministry leaders to submit monthly reports\.”/),

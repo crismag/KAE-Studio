@@ -68,7 +68,9 @@ export function SignInGate({ children }: { children: ReactNode }) {
       setPassword('')
       setState('signed-in')
     } else {
-      setError(response.status === 401 ? 'Incorrect password.' : `Sign-in failed (${response.status}).`)
+      setError(
+        response.status === 401 ? 'Incorrect password.' : `Sign-in failed (${response.status}).`,
+      )
     }
   }
 
@@ -85,7 +87,11 @@ export function SignInGate({ children }: { children: ReactNode }) {
         <p style={{ opacity: 0.6, maxWidth: 460, fontSize: 13, marginTop: 8 }}>
           A restart looks exactly like this for the few seconds it takes. Nothing was written.
         </p>
-        <button type="button" onClick={retry} style={{ marginTop: 14, padding: '8px 14px', borderRadius: 6 }}>
+        <button
+          type="button"
+          onClick={retry}
+          style={{ marginTop: 14, padding: '8px 14px', borderRadius: 6 }}
+        >
           Try again
         </button>
       </Centered>

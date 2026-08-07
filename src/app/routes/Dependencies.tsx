@@ -64,11 +64,10 @@ export function Dependencies() {
     return (
       <PageLayout title="Dependencies">
         <EmptyState title="No module graph for this project">
-          Dependencies are drawn between modules, and this project has none that
-          Studio can see. KAE-Memory exposes the module graph over MCP only —
-          its consumer is a coding agent implementing one module, and Studio's
-          curation flow is a separate contract that has not been reconciled yet.
-          Nothing is missing from the project; this view has nothing to draw.
+          Dependencies are drawn between modules, and this project has none that Studio can see.
+          KAE-Memory exposes the module graph over MCP only — its consumer is a coding agent
+          implementing one module, and Studio's curation flow is a separate contract that has not
+          been reconciled yet. Nothing is missing from the project; this view has nothing to draw.
         </EmptyState>
       </PageLayout>
     )

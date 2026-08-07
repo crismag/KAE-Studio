@@ -30,7 +30,9 @@ export function RouteError() {
   const isCapability = error instanceof Error && error.name === 'CapabilityUnavailable'
 
   return (
-    <EmptyState title={isCapability ? 'Not available in this deployment' : 'This view could not render'}>
+    <EmptyState
+      title={isCapability ? 'Not available in this deployment' : 'This view could not render'}
+    >
       <p className="mb-2">{detail}</p>
       {!isCapability && (
         <p className="opacity-75">

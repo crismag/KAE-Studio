@@ -1,0 +1,67 @@
+# Studio had no CI. That is how a control renamed in one commit left its unit
+# test asserting on a button that no longer existed, green in nobody's terminal,
+# for six days — alongside two type errors and an unused import, all from the
+# same change.
+#
+# The scripts existed the whole time. What was missing was anything that ran
+# them when it mattered rather than when someone remembered.
+#
+# **The browser suite is deliberately absent.** `e2e/` drives a real Studio
+# against a real KAE-Memory and writes to a real project — that is the point of
+# it, and it is why it found faults the API could not show. There is nothing
+# here for it to talk to, and a mocked stand-in would pass on precisely the
+# defects it exists to catch. It runs against a live stack; see `scripts/dev.sh`.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # Ordered cheapest-first so a formatting slip does not wait on a build.
+      - name: Format
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      # `tsc -b`, not `tsc --noEmit`. They read different configuration and can
+      # disagree: the build config caught an interface a dead adapter no longer
+      # satisfied while the bare invocation passed.
+      - name: Types
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # `--no-deps`, because `cris-cie-slim` is a private sibling repository
+      # and a plain install would try to resolve it from PyPI and fail.
+      #
+      # That works because of what these tests reach: `config` and `security`,
+      # neither of which imports CIE. `api` does, at module level and through
+      # `interviewer` — so if a test ever imports the app, this step starts
+      # failing and the honest fix is to check CIE out here, not to loosen the
+      # dependency.
+      - run: pip install -e . --no-deps && pip install fastapi itsdangerous pytest
+      - run: python -m pytest tests -q
