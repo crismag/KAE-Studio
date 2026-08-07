@@ -82,6 +82,11 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # produce. Memory keeps rejected items for provenance; that is a reason
         # to retain them, not to re-ask about them.
         "proposed": [s for s in statements if s["lifecycle"] not in _DECIDED],
+        # Kept out of review and still visible. Memory retains a rejected item
+        # for provenance, and hiding it from Studio entirely made "what did we
+        # decide against, and is it back?" unanswerable from the product — which
+        # is most of what a review surface is for.
+        "rejected": [s for s in statements if s["lifecycle"] == "rejected"],
         "health": _health(readiness_data),
         "openQuestions": _questions(clarification_data),
         "blockers": _listing(blocker_data),

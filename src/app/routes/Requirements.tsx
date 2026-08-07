@@ -135,7 +135,9 @@ function RequirementRow({
 
 export function Requirements() {
   const { data: projection, isLoading } = useProjection()
-  const [filter, setFilter] = useState<'all' | 'confirmed' | 'proposed' | 'contested'>('all')
+  const [filter, setFilter] = useState<
+    'all' | 'confirmed' | 'proposed' | 'contested' | 'rejected'
+  >('all')
 
   if (isLoading || !projection) {
     return (
@@ -151,6 +153,7 @@ export function Requirements() {
     confirmed: projection.requirements.filter((r) => r.status === 'confirmed').length,
     proposed: projection.requirements.filter((r) => r.status === 'proposed').length,
     contested: projection.requirements.filter((r) => r.status === 'contested').length,
+    rejected: projection.requirements.filter((r) => r.status === 'rejected').length,
   }
 
   return (
@@ -159,7 +162,7 @@ export function Requirements() {
       lead="What must be true for this project to be correct. Each requirement carries a stable identifier, the module that implements it, and the tests that verify it."
       actions={
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by status">
-          {(['all', 'confirmed', 'proposed', 'contested'] as const).map((key) => (
+          {(['all', 'confirmed', 'proposed', 'contested', 'rejected'] as const).map((key) => (
             <Button
               key={key}
               variant={filter === key ? 'subtle' : 'ghost'}

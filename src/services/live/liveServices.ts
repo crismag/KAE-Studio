@@ -82,6 +82,7 @@ interface BackendProjection {
   project: { id: string; name: string; phase: string; memoryRevision: number; createdAt: string }
   confirmed: BackendStatement[]
   proposed: BackendStatement[]
+  rejected: BackendStatement[]
   health: { percentage: number; advisory: boolean; status: string; areas: unknown[] }
   openQuestions: { id: string; question: string; severity: string; disposition: string }[]
   blockers: unknown[]
@@ -92,7 +93,9 @@ interface BackendProjection {
 }
 
 function toProjection(raw: BackendProjection): ProjectProjection {
-  const statements = [...raw.confirmed, ...raw.proposed]
+  // Rejected last: the list reads top-down from settled, to open, to declined,
+  // and a decision already taken should not sit above one still waiting.
+  const statements = [...raw.confirmed, ...raw.proposed, ...(raw.rejected ?? [])]
 
   return {
     project: {
@@ -122,7 +125,11 @@ function toProjection(raw: BackendProjection): ProjectProjection {
       statement: s.text,
       // `validated` is Memory's word for confirmed by a person. Anything else
       // is a candidate, and the distinction must survive into the UI.
-      status: (s.lifecycle === 'validated' ? 'confirmed' : 'proposed') as never,
+      status: (s.lifecycle === 'validated'
+        ? 'confirmed'
+        : s.lifecycle === 'rejected'
+          ? 'rejected'
+          : 'proposed') as never,
       satisfies: [],
       verifiedBy: [],
       updatedAt: s.updatedAt,
