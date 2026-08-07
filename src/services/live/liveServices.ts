@@ -84,7 +84,21 @@ interface BackendProjection {
   confirmed: BackendStatement[]
   proposed: BackendStatement[]
   rejected: BackendStatement[]
-  health: { percentage: number; advisory: boolean; status: string; areas: unknown[] }
+  health: {
+    percentage: number
+    advisory: boolean
+    status: string
+    areas: {
+      key: string
+      name: string
+      confirmed: number
+      proposed: number
+      required: number
+      state: string
+      mandatory: boolean
+      contradicted: boolean
+    }[]
+  }
   openQuestions: { id: string; question: string; severity: string; disposition: string }[]
   blockers: unknown[]
   contradictions: { count: number; listable: boolean; reason: string }
@@ -172,7 +186,27 @@ function toProjection(raw: BackendProjection): ProjectProjection {
       // Readiness is advisory in KAE and the wording says so. A bare percentage
       // gets read as a gate, which is the one thing it is built not to be.
       summary: `${raw.health.percentage}% understood (advisory — never a gate). ${raw.contradictions.count} unresolved contradiction(s).`,
-      coverage: [],
+      // What "sufficiently defined" means for each area, in the terms Memory
+      // uses: how many confirmed items it holds against how many it needs.
+      // A state alone ('missing', 'partial') colours a row; the counts let a
+      // person act on it.
+      coverage: (raw.health.areas ?? []).map((a) => ({
+        key: a.key,
+        name: a.name,
+        state: (a.state === 'satisfied'
+          ? 'strong'
+          : a.state === 'partial'
+            ? 'forming'
+            : a.proposed > 0
+              ? 'thin'
+              : 'missing') as never,
+        detail:
+          a.state === 'satisfied'
+            ? `${a.confirmed} confirmed — enough for now`
+            : a.proposed > 0
+              ? `${a.confirmed} of ${a.required} confirmed · ${a.proposed} awaiting review`
+              : `${a.confirmed} of ${a.required} confirmed`,
+      })),
       blockingDecisionIds: [],
       recommendedNext: [
         ...raw.preliminary.warnings,

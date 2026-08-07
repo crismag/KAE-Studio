@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import * as Collapsible from '@radix-ui/react-collapsible'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   ArrowRight,
+  HelpCircle,
   Clock,
   CornerDownLeft,
   Loader2,
@@ -188,7 +190,13 @@ const COVERAGE_TONE = {
   missing: 'bg-line-strong',
 } as const
 
-function CoverageSection({ projection }: { projection: ProjectProjection }) {
+function CoverageSection({
+  projection,
+  onDiscuss,
+}: {
+  projection: ProjectProjection
+  onDiscuss?: (area: string) => void
+}) {
   return (
     <ul className="space-y-2">
       {projection.health.coverage.map((topic) => (
@@ -203,6 +211,17 @@ function CoverageSection({ projection }: { projection: ProjectProjection }) {
               <span className="ml-1.5 font-normal capitalize text-ink-subtle">{topic.state}</span>
             </p>
             <p className="text-[11.5px] leading-snug text-ink-subtle">{topic.detail}</p>
+            {/* U4. Back into the conversation with the subject named, rather
+                than a second editing surface beside the one that works. */}
+            {onDiscuss && topic.state !== 'strong' && (
+              <button
+                type="button"
+                onClick={() => onDiscuss(topic.name)}
+                className="mt-0.5 text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
+              >
+                Discuss this
+              </button>
+            )}
           </div>
         </li>
       ))}
@@ -233,7 +252,103 @@ function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
   )
 }
 
-function ContextPanelContent() {
+/**
+ * U3 — why KAE asked what it asked, in a person's words.
+ *
+ * CIE returns the interviewing skill it chose (`handle_non_answer`,
+ * `follow_thread`) and the subject it chose (`area:users_and_stakeholders`).
+ * Those are the reason; they are just not written for a reader. This translates
+ * them and does not invent anything — no rationale is generated here, because a
+ * generated explanation of a model's choice is a second guess presented as an
+ * account.
+ *
+ * If CIE later returns prose reasoning of its own, this is where it goes and
+ * this map disappears.
+ */
+const WHY: Record<string, string> = {
+  clarify: 'that answer could mean more than one thing',
+  deepen: 'the answer is right but too thin to build from',
+  separate_need_from_solution: 'a mechanism was described before the need behind it',
+  identify_people: 'who this affects is still undefined',
+  test_assumption: 'something is being treated as settled that has not been established',
+  surface_exceptions: 'the happy path is clear and the exceptions are not',
+  explore_constraints: 'the limits that bound this are not recorded',
+  reconcile_contradiction: 'this conflicts with something already recorded',
+  derive_acceptance: 'nothing yet says how you would know this was met',
+  reflect_for_confirmation: 'enough has accumulated to be worth confirming',
+  challenge_premature_design: 'the conversation moved to design before the problem was settled',
+  handle_non_answer: 'the last reply did not answer the question',
+  follow_thread: 'you raised something more important than the current subject',
+  acknowledge_sufficiency: 'this subject is established well enough',
+}
+
+function areaLabel(subject: string): string {
+  const key = subject.replace(/^area:/, '')
+  return key ? key.replace(/_/g, ' ') : ''
+}
+
+function WhyThisQuestion({ points }: { points: string[] }) {
+  // The turn carries `Interviewing skill: x` and optionally `Subject: y`.
+  const skill = points.find((p) => p.startsWith('Interviewing skill:'))?.split(': ')[1] ?? ''
+  const subject = points.find((p) => p.startsWith('Subject:'))?.split(': ')[1] ?? ''
+  const reason = WHY[skill]
+  if (!reason) return null
+
+  const area = areaLabel(subject)
+
+  return (
+    <p className="text-[11.5px] leading-relaxed text-ink-subtle">
+      KAE asked this because {reason}
+      {area && <> — it is working on <span className="text-ink-muted">{area}</span></>}.
+    </p>
+  )
+}
+
+/**
+ * U8 — the four words a first-time reader has to guess at, explained on demand.
+ *
+ * Collapsed. A permanent panel of definitions is read once and then occupies
+ * the sidebar forever for everyone who already knows.
+ */
+function WhatTheseMean() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Collapsible.Root open={open} onOpenChange={setOpen}>
+      <Collapsible.Trigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
+        >
+          <HelpCircle className="size-3" aria-hidden="true" />
+          What do these mean?
+        </button>
+      </Collapsible.Trigger>
+      <Collapsible.Content>
+        <div className="mt-2 space-y-1.5 text-[11.5px] leading-relaxed text-ink-muted">
+          <p>
+            <strong className="text-ink">Confirmed</strong> — you agreed to it. Only confirmed
+            knowledge counts here.
+          </p>
+          <p>
+            <strong className="text-ink">Awaiting review</strong> — KAE derived it from what you
+            said. It is a candidate until you accept it.
+          </p>
+          <p>
+            <strong className="text-ink">0 of 1 confirmed</strong> — how many agreed statements this
+            area needs before it is defined enough to build from.
+          </p>
+          <p>
+            Nothing here blocks you. Sparse answers and open questions are fine — this is a picture
+            of what is known, not a form to complete.
+          </p>
+        </div>
+      </Collapsible.Content>
+    </Collapsible.Root>
+  )
+}
+
+function ContextPanelContent({ onDiscuss }: { onDiscuss?: (area: string) => void }) {
   const { data: projection } = useProjection()
   if (!projection) return null
 
@@ -256,7 +371,10 @@ function ContextPanelContent() {
           <span className="text-[11.5px] text-ink-subtle">{projection.health.phase}</span>
         </PanelHeader>
         <PanelBody>
-          <CoverageSection projection={projection} />
+          <CoverageSection projection={projection} onDiscuss={onDiscuss} />
+          <div className="mt-3 border-t border-line pt-2">
+            <WhatTheseMean />
+          </div>
         </PanelBody>
       </Panel>
 
@@ -418,6 +536,10 @@ export function Workspace() {
     if (el) el.scrollTop = el.scrollHeight
   }, [messages?.length, sendMessage.isPending])
 
+  const discuss = (area: string) => {
+    setDraft(`Let's talk about ${area.toLowerCase()}.`)
+  }
+
   const handleSuggestion = (text: string) => {
     if (text.endsWith('?')) {
       setDraft(text)
@@ -492,9 +614,7 @@ export function Workspace() {
                 nothing at all. This says what happened without pretending to be
                 part of the record. */}
             {!sendMessage.isPending && provenance.length > 0 && (
-              <p className="text-[11.5px] leading-relaxed text-ink-subtle" role="status">
-                {provenance.join(' · ')}
-              </p>
+              <WhyThisQuestion points={provenance} />
             )}
 
             {!sendMessage.isPending && advisory && (
@@ -525,7 +645,7 @@ export function Workspace() {
 
       {/* Desktop context panel */}
       <aside className="hidden w-[352px] shrink-0 overflow-y-auto border-l border-line bg-canvas px-4 py-4 kae-scrollbar xl:block">
-        <ContextPanelContent />
+        <ContextPanelContent onDiscuss={discuss} />
       </aside>
 
       {/* Context drawer below xl */}
@@ -547,7 +667,7 @@ export function Workspace() {
                 </Button>
               </Dialog.Close>
             </div>
-            <ContextPanelContent />
+            <ContextPanelContent onDiscuss={discuss} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

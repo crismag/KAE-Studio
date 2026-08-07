@@ -156,16 +156,17 @@ test.describe('workspace', () => {
     await expect.poll(async () => replies.count(), { timeout: 60_000 }).toBeGreaterThan(before)
   })
 
-  test('the reply says which interviewing skill produced it', async ({ page }) => {
-    // Diagnostic, not decoration: a turn that cannot say how it was produced
-    // cannot be reviewed against the interview rubric afterwards.
+  test('the reply says why KAE asked it, in words', async ({ page }) => {
+    // The skill name used to be printed raw. `handle_non_answer` is the reason
+    // and is not a sentence, so it is translated — a reader should not have to
+    // learn CIE's vocabulary to understand why they are being asked something.
 
     const composer = page.getByRole('textbox').first()
     await composer.fill('It is only ever me, on my own phone.')
     await composer.press('Enter')
 
     await expect
-      .poll(async () => page.getByText(/Interviewing skill: /).count(), { timeout: 60_000 })
+      .poll(async () => page.getByText(/KAE asked this because/).count(), { timeout: 60_000 })
       .toBeGreaterThan(0)
   })
 })

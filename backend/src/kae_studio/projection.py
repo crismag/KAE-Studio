@@ -218,12 +218,25 @@ def _health(readiness: Any) -> dict[str, Any]:
         "percentage": readiness.get("percentage", 0) if isinstance(readiness, dict) else 0,
         "advisory": True,
         "status": readiness.get("status", "unknown") if isinstance(readiness, dict) else "unknown",
+        # Memory's field names, read correctly. These were `area_key` and
+        # `satisfied`, which exist in neither payload — so every area arrived
+        # with an empty key and was permanently unsatisfied, and nothing noticed
+        # because an empty string and a false render as plausibly as real values.
+        #
+        # `minimum_confirmed` is what makes an area's state explicable rather
+        # than merely coloured: "one confirmed item, two needed" is a sentence a
+        # person can act on, and dropping it left the UI able to say only that
+        # something was incomplete.
         "areas": [
             {
-                "key": a.get("area_key", ""),
+                "key": a.get("key", ""),
                 "name": a.get("name", ""),
                 "confirmed": a.get("confirmed_count", 0),
-                "satisfied": a.get("satisfied", False),
+                "proposed": a.get("proposed_count", 0),
+                "required": a.get("minimum_confirmed", 0),
+                "state": a.get("state", ""),
+                "mandatory": a.get("mandatory", False),
+                "contradicted": a.get("contradicted", False),
             }
             for a in areas
             if isinstance(a, dict)
