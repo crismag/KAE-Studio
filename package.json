@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "screenshots": "node scripts/capture-screenshots.mjs"
+    "screenshots": "node scripts/capture-screenshots.mjs",
+    "dev:full": "./scripts/dev.sh"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.3",
