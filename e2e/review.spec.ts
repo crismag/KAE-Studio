@@ -27,6 +27,19 @@ const LIVE = process.env.STUDIO_WEB !== ''
 
 test.skip(!LIVE, 'set STUDIO_WEB to a running Studio to run against the live stack')
 
+/**
+ * Sign in, then open a project this suite owns.
+ *
+ * The suite writes real messages to a real Memory, which is deliberate and is
+ * why it caught faults an API test could not. What was not deliberate is
+ * *where* it wrote: Studio opened whichever project came back first, so twelve
+ * runs of one test sentence landed in the project a person was looking at, and
+ * the resulting jumble was reported as cross-project leakage. It was this file.
+ *
+ * ES-1 gives Studio a picker, so the suite now names its own project and the
+ * pollution stops being anyone else's problem. One project per run: a shared
+ * one accumulates until the assertions about counts stop meaning anything.
+ */
 async function signIn(page: Page) {
   // The session comes from auth.setup.ts. This waits for the shell and only
   // signs in if something has expired — it must not re-authenticate routinely,
@@ -35,19 +48,34 @@ async function signIn(page: Page) {
 
   const field = page.getByPlaceholder('Operator password')
   const shell = page.getByRole('link', { name: 'Workspace' })
+  const picker = page.getByRole('heading', { name: 'Choose a project' })
 
   // Wait for the gate to *settle* before deciding. It renders "Checking
   // Studio…" first, so asking whether the password field is visible the moment
   // the page loads answers "no" for a reason that has nothing to do with being
   // signed in — and every test then ran unauthenticated against the sign-in
   // screen. The bug was in this helper, and it looked exactly like a broken app.
-  await expect(field.or(shell).first()).toBeVisible({ timeout: 15_000 })
+  //
+  // Three screens can be correct here, not two: since ES-1 the picker sits
+  // between sign-in and the shell. Omitting it from this wait is what made
+  // every test fail with "element not found" while the picker was on screen,
+  // patiently waiting to be used.
+  await expect(field.or(picker).or(shell).first()).toBeVisible({ timeout: 15_000 })
 
   if (await field.isVisible()) {
     await field.fill(process.env.STUDIO_PASSWORD ?? '')
     await page.getByRole('button', { name: 'Sign in' }).click()
   }
-  await expect(shell).toBeVisible({ timeout: 15_000 })
+
+  // Normally already chosen: auth.setup.ts creates the run's project and its
+  // storage state carries the preference. This is the recovery path for a
+  // context that lost it.
+  if (await picker.isVisible()) {
+    await page.getByPlaceholder('Project name').fill(`e2e recovery ${new Date().toISOString()}`)
+    await page.getByRole('button', { name: 'Create project' }).click()
+  }
+
+  await expect(shell).toBeVisible({ timeout: 20_000 })
 }
 
 test.describe('the operator can reach the application', () => {
@@ -140,6 +168,14 @@ test.describe('reviews', () => {
 })
 
 test.describe('workspace', () => {
+  // These two send a real message and wait for a real model to answer. The
+  // per-test default is 30s, which is *shorter than the poll inside the test* —
+  // so the test died before its own wait expired, and reported a missing
+  // element rather than a slow one. Passing in isolation and failing in the
+  // suite is the signature: two turns queued behind each other exceed what one
+  // turn comfortably fits in.
+  test.setTimeout(150_000)
+
   test.beforeEach(async ({ page }) => {
     await signIn(page)
     await page.goto('./#/workspace')
@@ -199,8 +235,18 @@ test.describe('classification', () => {
     test.skip((await questions.count()) === 0, 'no open questions in this project')
 
     await expect(questions.first()).toBeVisible()
-    // And the heading it must not appear under.
-    await expect(page.getByText('Functional requirements')).not.toContainText('What is')
+
+    // And the heading it must not appear under — if that heading exists at all.
+    //
+    // `not.toContainText` fails on a locator matching nothing, so asserting it
+    // unconditionally turned "this project has questions and no requirements"
+    // into a failure. That state was unreachable while the suite ran against a
+    // project stuffed with both; a project of its own reaches it on the first
+    // run. A question cannot be filed under a heading that is not rendered.
+    const functional = page.getByText('Functional requirements')
+    if ((await functional.count()) > 0) {
+      await expect(functional).not.toContainText('What is')
+    }
   })
 
   test('the summary does not count questions as requirements', async ({ page }) => {

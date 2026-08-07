@@ -291,8 +291,16 @@ function WhyThisQuestion({ points }: { points: string[] }) {
   // The turn carries `Interviewing skill: x` and optionally `Subject: y`.
   const skill = points.find((p) => p.startsWith('Interviewing skill:'))?.split(': ')[1] ?? ''
   const subject = points.find((p) => p.startsWith('Subject:'))?.split(': ')[1] ?? ''
-  const reason = WHY[skill]
-  if (!reason) return null
+  if (!skill) return null
+
+  // An unmapped skill still gets a sentence. CIE chooses its skills freely --
+  // that is the point of skills-not-scripts -- so this table will fall behind
+  // it, and returning null meant the explanation vanished entirely the moment
+  // it did. A reader would see no reason and conclude there was none.
+  //
+  // Naming the raw skill is worse prose and better information, and it makes
+  // the gap visible to whoever has to add the missing line.
+  const reason = WHY[skill] ?? `it is working through ${skill.replace(/_/g, ' ')}`
 
   const area = areaLabel(subject)
 

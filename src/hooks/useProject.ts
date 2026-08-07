@@ -3,38 +3,45 @@ import { useServices } from '@/hooks/useServices'
 import type { ModuleDecision } from '@/services/interfaces'
 import type { PublishTargetKind } from '@/domain/types'
 
-/** The prototype operates on one sample project. */
+/**
+ * The mock fixture's project id.
+ *
+ * **Not the active project.** Read `useServices().projectId` for that. This
+ * remains only because the mock adapters and their tests are written against
+ * this one fixture; anything reaching for it in live code is reaching for the
+ * wrong project.
+ */
 export const PROJECT_ID = 'proj-ministry-reporting'
 
 export function useProjection() {
-  const { projection } = useServices()
+  const { projection, projectId } = useServices()
   return useQuery({
-    queryKey: ['projection', PROJECT_ID],
-    queryFn: () => projection.getProjection(PROJECT_ID),
+    queryKey: ['projection', projectId],
+    queryFn: () => projection.getProjection(projectId),
   })
 }
 
 export function useMessages() {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   return useQuery({
-    queryKey: ['messages', PROJECT_ID],
-    queryFn: () => memory.listMessages(PROJECT_ID),
+    queryKey: ['messages', projectId],
+    queryFn: () => memory.listMessages(projectId),
   })
 }
 
 export function useInterviewSession() {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   return useQuery({
-    queryKey: ['session', PROJECT_ID],
-    queryFn: () => memory.getInterviewSession(PROJECT_ID),
+    queryKey: ['session', projectId],
+    queryFn: () => memory.getInterviewSession(projectId),
   })
 }
 
 export function useProject() {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   return useQuery({
-    queryKey: ['project', PROJECT_ID],
-    queryFn: () => memory.getProject(PROJECT_ID),
+    queryKey: ['project', projectId],
+    queryFn: () => memory.getProject(projectId),
   })
 }
 
@@ -49,7 +56,7 @@ export function useSendMessage() {
   // `memory` is deliberately not taken. This used to post the message and then
   // ask for a turn; CIE now records it itself, and holding a reference to the
   // client that could post it again is how the duplicate comes back.
-  const { interview } = useServices()
+  const { interview, projectId } = useServices()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -59,44 +66,44 @@ export function useSendMessage() {
       // sentence durable. Calling `submitMessage` as well would store it twice,
       // and Memory is append-only: two pieces of evidence for one thing said
       // once, and every count downstream wrong.
-      const turn = await interview.respondTo(PROJECT_ID, body)
+      const turn = await interview.respondTo(projectId, body)
       return { result: { accepted: true, memoryRevision: 0 }, turn }
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['messages', PROJECT_ID] }),
-        queryClient.invalidateQueries({ queryKey: ['session', PROJECT_ID] }),
-        queryClient.invalidateQueries({ queryKey: ['project', PROJECT_ID] }),
+        queryClient.invalidateQueries({ queryKey: ['messages', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['session', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
       ])
     },
   })
 }
 
 export function useModuleDecision() {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: ({ moduleId, decision }: { moduleId: string; decision: ModuleDecision }) =>
-      memory.recordModuleDecision(PROJECT_ID, moduleId, decision),
+      memory.recordModuleDecision(projectId, moduleId, decision),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['projection', PROJECT_ID] }),
-        queryClient.invalidateQueries({ queryKey: ['project', PROJECT_ID] }),
-        queryClient.invalidateQueries({ queryKey: ['deliverables', PROJECT_ID] }),
+        queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['deliverables', projectId] }),
       ])
     },
   })
 }
 
 export function useDeferDecision() {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: ({ decisionId, deferred }: { decisionId: string; deferred: boolean }) =>
-      memory.deferDecision(PROJECT_ID, decisionId, deferred),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', PROJECT_ID] }),
+      memory.deferDecision(projectId, decisionId, deferred),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
   })
 }
 
@@ -112,16 +119,16 @@ export function useDeferDecision() {
  *  a trace per requirement on every page load would be a request storm for
  *  information almost nobody opens. */
 export function useKnowledgeTrace(knowledgeId: string) {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   return useQuery({
-    queryKey: ['trace', PROJECT_ID, knowledgeId],
-    queryFn: () => memory.knowledgeTrace(PROJECT_ID, knowledgeId),
+    queryKey: ['trace', projectId, knowledgeId],
+    queryFn: () => memory.knowledgeTrace(projectId, knowledgeId),
     staleTime: Infinity,
   })
 }
 
 export function useRejectFinding() {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -133,49 +140,52 @@ export function useRejectFinding() {
       findingId: string
       reason: string
       expectedVersion: number
-    }) => memory.rejectFinding(PROJECT_ID, findingId, reason, expectedVersion),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', PROJECT_ID] }),
+    }) => memory.rejectFinding(projectId, findingId, reason, expectedVersion),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
   })
 }
 
 export function useConfirmFinding() {
-  const { memory } = useServices()
+  const { memory, projectId } = useServices()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (findingId: string) => memory.confirmFinding(PROJECT_ID, findingId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', PROJECT_ID] }),
+    mutationFn: (findingId: string) => memory.confirmFinding(projectId, findingId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
   })
 }
 
 export function useDeliverables() {
-  const { artifacts } = useServices()
+  const { artifacts, projectId } = useServices()
   return useQuery({
-    queryKey: ['deliverables', PROJECT_ID],
-    queryFn: () => artifacts.listDeliverables(PROJECT_ID),
+    queryKey: ['deliverables', projectId],
+    queryFn: () => artifacts.listDeliverables(projectId),
   })
 }
 
 export function usePublishTargets() {
+  // Unscoped on purpose: `listTargets()` takes no project, so publication
+  // targets are a property of the deployment rather than of a project. If that
+  // contract ever gains a project, this key has to gain one with it.
   const { publisher } = useServices()
   return useQuery({ queryKey: ['publish-targets'], queryFn: () => publisher.listTargets() })
 }
 
 export function useGenerateDeliverable() {
-  const { artifacts } = useServices()
+  const { artifacts, projectId } = useServices()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (deliverableId: string) => artifacts.generate(PROJECT_ID, deliverableId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliverables', PROJECT_ID] }),
+    mutationFn: (deliverableId: string) => artifacts.generate(projectId, deliverableId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliverables', projectId] }),
   })
 }
 
 export function usePublishDeliverable() {
-  const { publisher } = useServices()
+  const { publisher, projectId } = useServices()
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ deliverableId, target }: { deliverableId: string; target: PublishTargetKind }) =>
       publisher.publish(deliverableId, target),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliverables', PROJECT_ID] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliverables', projectId] }),
   })
 }

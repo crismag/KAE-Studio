@@ -423,5 +423,5 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     }),
   }
 
-  return { memory, interview, projection, artifacts, publisher }
+  return { projectId: projectIdOverride ?? '', memory, interview, projection, artifacts, publisher }
 }

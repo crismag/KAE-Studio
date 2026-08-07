@@ -455,6 +455,8 @@ function referenceFor(target: PublishTargetKind): string {
 
 export function createMockServices(): StudioServices {
   return {
+    // The fixture's own id. The mocks answer for one project and always have.
+    projectId: 'proj-ministry-reporting',
     memory: new MockProjectMemoryClient(),
     interview: new MockInterviewProvider(),
     projection: new MockProjectProjectionService(),

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Badge, Button } from '@/components/ui/primitives'
+import { useActiveProject } from '@/app/shell/activeProject'
 import { useProject, useProjection } from '@/hooks/useProject'
 import { useServices } from '@/hooks/useServices'
 
@@ -110,7 +111,30 @@ function ProjectCard() {
         {project?.name ?? 'Loading…'}
       </p>
       <p className="mt-1.5 text-[11.5px] text-ink-muted">{project?.phase ?? ''}</p>
+      <SwitchProject />
     </div>
+  )
+}
+
+/**
+ * Only rendered where switching means something.
+ *
+ * `useActiveProject()` is null against the mocks, which answer for one fixture.
+ * A control that cannot do anything is worse than an absent one: it invites a
+ * click and teaches that the button is broken.
+ */
+function SwitchProject() {
+  const active = useActiveProject()
+  if (!active) return null
+
+  return (
+    <button
+      type="button"
+      onClick={active.onSwitch}
+      className="mt-2 text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
+    >
+      Switch project
+    </button>
   )
 }
 

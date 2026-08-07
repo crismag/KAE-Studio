@@ -129,6 +129,17 @@ export interface ArtifactPublisher {
 }
 
 export interface StudioServices {
+  /**
+   * The project every call in this bundle is about.
+   *
+   * Here rather than in a hook constant because it has to reach React Query's
+   * cache keys. The live adapter already rewrites the project id on every
+   * request, so calls were correct while the *cache* was keyed on a fixture
+   * string — meaning switching projects would have served one project's answers
+   * for another, and looked exactly like the cross-project leak this product
+   * was accused of.
+   */
+  projectId: string
   memory: ProjectMemoryClient
   interview: InterviewProvider
   projection: ProjectProjectionService

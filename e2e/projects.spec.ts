@@ -1,0 +1,121 @@
+/**
+ * ES-1 — a project is chosen, not guessed.
+ *
+ * Studio took `projects[0]` and showed it as the whole product. On a deployment
+ * holding eighteen projects that made one of them the entire application, and
+ * because it was the project three test harnesses wrote into, its contents read
+ * as unrelated things jumbled together. That was reported as cross-project
+ * leakage in KAE-Memory. Memory's isolation was proven intact; the fault was a
+ * client that never said which project it was showing.
+ *
+ * These run against the live stack and **create projects**, which is the point:
+ * the acceptance criterion is about more than one existing. They are named so
+ * they are identifiable afterwards.
+ */
+
+import { expect, test, type Page } from '@playwright/test'
+
+const LIVE = process.env.STUDIO_WEB !== ''
+
+test.skip(!LIVE, 'set STUDIO_WEB to a running Studio to run against the live stack')
+
+const picker = (page: Page) => page.getByRole('heading', { name: 'Choose a project' })
+const shell = (page: Page) => page.getByRole('link', { name: 'Workspace' })
+
+/** Forget the remembered project without touching the session. */
+async function toThePicker(page: Page) {
+  await page.goto('./')
+  await expect(picker(page).or(shell(page)).first()).toBeVisible({ timeout: 20_000 })
+  if (await shell(page).isVisible()) {
+    await page.getByRole('button', { name: 'Switch project' }).click()
+  }
+  await expect(picker(page)).toBeVisible()
+}
+
+async function create(page: Page, label: string, sentence?: string): Promise<string> {
+  const name = `es1 ${label} ${new Date().toISOString()}`
+  await page.getByPlaceholder('Project name').fill(name)
+  if (sentence) await page.getByPlaceholder(/One sentence about it/).fill(sentence)
+  await page.getByRole('button', { name: 'Create project' }).click()
+  await expect(shell(page)).toBeVisible({ timeout: 30_000 })
+  return name
+}
+
+test.describe('choosing a project', () => {
+  test('the picker stands in front of the application, listing what exists', async ({ page }) => {
+    await toThePicker(page)
+
+    // The count is part of the point: eighteen projects were invisible behind a
+    // client that showed the first one.
+    await expect(page.getByRole('heading', { name: /\d+ projects|No projects yet/ })).toBeVisible()
+  })
+
+  test('the shell names the project you chose', async ({ page }) => {
+    await toThePicker(page)
+    const name = await create(page, 'named')
+
+    // Not a UUID. The operator has to be able to tell, at a glance, which
+    // project they are looking at — that is the whole failure being repaired.
+    await expect(page.getByText(name)).toBeVisible()
+  })
+
+  test('the choice survives a reload', async ({ page }) => {
+    await toThePicker(page)
+    const name = await create(page, 'persistent')
+
+    await page.reload()
+
+    await expect(shell(page)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(name)).toBeVisible()
+  })
+
+  test('a deep link without a chosen project recovers through the picker', async ({ page }) => {
+    await toThePicker(page)
+
+    // The old behaviour was to resolve *something* and render it. Landing deep
+    // in the application with no project has to ask rather than assume.
+    await page.goto('./#/requirements')
+
+    await expect(picker(page)).toBeVisible({ timeout: 20_000 })
+  })
+})
+
+test.describe('switching projects', () => {
+  test('one project does not show another project transcript', async ({ page }) => {
+    // The acceptance criterion, and the thing that was actually wrong.
+    await toThePicker(page)
+    const first = await create(page, 'left', 'A booking system for a physiotherapy clinic.')
+
+    await page.getByRole('button', { name: 'Switch project' }).click()
+    await expect(picker(page)).toBeVisible()
+    const second = await create(page, 'right', 'A tool for tracking invoices for freelancers.')
+
+    // The second project's shell must not carry the first's identity.
+    await expect(page.getByText(second)).toBeVisible()
+    await expect(page.getByText(first)).toHaveCount(0)
+  })
+
+  test('switching back does not leave the other project rendered', async ({ page }) => {
+    /**
+     * The subtle half. React Query caches by key, and the keys were a fixture
+     * constant rather than the project — so every project shared one cache
+     * entry and switching would have served the previous project's answers
+     * until each query refetched. That renders as one project's content under
+     * another's name, which is indistinguishable from the leak this was
+     * mistaken for.
+     */
+    await toThePicker(page)
+    const left = await create(page, 'cache-left', 'Invoices are sent within three days.')
+
+    await page.getByRole('button', { name: 'Switch project' }).click()
+    await expect(picker(page)).toBeVisible()
+    await create(page, 'cache-right', 'Therapists set their own availability.')
+
+    await page.getByRole('button', { name: 'Switch project' }).click()
+    await expect(picker(page)).toBeVisible()
+    await page.getByRole('button', { name: left }).click()
+
+    await expect(shell(page)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(left)).toBeVisible()
+  })
+})
