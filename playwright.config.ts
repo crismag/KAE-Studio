@@ -19,7 +19,10 @@
 
 import { defineConfig, devices } from '@playwright/test'
 
-const BASE = process.env.STUDIO_WEB ?? 'http://127.0.0.1:5173'
+// Trailing slash matters. Without it a relative goto resolves against the
+// parent, and under a subpath deployment that is whatever else is mounted at
+// the origin — here, KAE-Memory's API answering 401 where the app should be.
+const BASE = (process.env.STUDIO_WEB ?? 'http://127.0.0.1:5173').replace(/\/?$/, '/')
 
 export default defineConfig({
   testDir: './e2e',
@@ -38,5 +41,14 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    // One sign-in for the run. See e2e/auth.setup.ts — per-test sign-in is
+    // indistinguishable from a brute-force attempt to a rate-limited proxy.
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'chromium',
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/operator.json' },
+    },
+  ],
 })

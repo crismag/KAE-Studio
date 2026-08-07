@@ -24,7 +24,10 @@ const PASSWORD = process.env.STUDIO_PASSWORD ?? ''
 test.skip(!PASSWORD, 'set STUDIO_PASSWORD to run against the live stack')
 
 async function signIn(page: Page) {
-  await page.goto('/')
+  // The session comes from auth.setup.ts. This waits for the shell and only
+  // signs in if something has expired — it must not re-authenticate routinely,
+  // or a rate-limited deployment refuses the suite partway through.
+  await page.goto('./')
 
   const field = page.getByPlaceholder('Operator password')
   const shell = page.getByRole('link', { name: 'Workspace' })
@@ -45,7 +48,7 @@ async function signIn(page: Page) {
 
 test.describe('the operator can reach the application', () => {
   test('the gate does not strand a reader when the backend blinks', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('./')
     const unreachable = page.getByText('Studio backend unreachable')
     if (await unreachable.isVisible().catch(() => false)) {
       // The failure this replaced: the gate checked once on mount and never
@@ -59,7 +62,7 @@ test.describe('the operator can reach the application', () => {
 test.describe('requirements', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page)
-    await page.goto('/#/requirements')
+    await page.goto('./#/requirements')
   })
 
   test('it renders without throwing on a young project', async ({ page }) => {
@@ -87,7 +90,7 @@ test.describe('requirements', () => {
 test.describe('reviews', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page)
-    await page.goto('/#/reviews')
+    await page.goto('./#/reviews')
     // Wait for the projection, not just the frame. `expect().toBeVisible()`
     // retries; `locator.count()` does not — so a `count() === 0` guard taken
     // straight after navigation reads the loading skeleton and reports "nothing
@@ -126,7 +129,7 @@ test.describe('reviews', () => {
     // the card from the queue, so a count check alone would have passed on the
     // exact bug this replaced.
     expect(await page.getByRole('button', { name: 'Confirm' }).count()).toBe(confirmedBefore - 1)
-    await page.goto('/#/requirements')
+    await page.goto('./#/requirements')
     await page.getByRole('button', { name: /rejected/i }).click()
     await expect(page.getByText('Rejected').first()).toBeVisible()
   })
@@ -135,7 +138,7 @@ test.describe('reviews', () => {
 test.describe('workspace', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page)
-    await page.goto('/#/workspace')
+    await page.goto('./#/workspace')
   })
 
   test('a sent message produces a reply that was not there before', async ({ page }) => {
@@ -170,7 +173,7 @@ test.describe('workspace', () => {
 test.describe('classification', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page)
-    await page.goto('/#/requirements')
+    await page.goto('./#/requirements')
     await expect(page.getByRole('heading', { name: 'Requirements' })).toBeVisible()
     // The summary only renders once the projection has arrived. Waiting on the
     // heading alone leaves the same count()-against-a-skeleton race that
@@ -203,7 +206,7 @@ test.describe('classification', () => {
 test.describe('understanding what is on the page', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page)
-    await page.goto('/#/requirements')
+    await page.goto('./#/requirements')
     await expect(page.getByText(/\d+ requirements? · \d+ confirmed/)).toBeVisible({
       timeout: 15_000,
     })

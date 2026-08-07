@@ -35,6 +35,12 @@ class Settings:
     host: str
     port: int
     secure_cookies: bool
+    #: `lax` when the frontend is served from the same origin as this backend,
+    #: which is the stronger posture and the default. `none` is required when
+    #: they are separate origins — a browser will not send a `lax` cookie on a
+    #: cross-site request, so a split-origin deployment simply appears to be
+    #: signed out.
+    cookie_samesite: str
 
     @classmethod
     def from_environment(cls, environ: Mapping[str, str] | None = None) -> "Settings":
@@ -80,13 +86,34 @@ class Settings:
         )
         host = env.get("STUDIO_HOST", "127.0.0.1").strip()
 
-        # Cookies default to Secure unless we are demonstrably on loopback.
-        # Getting this backwards means a session cookie travels in plaintext,
-        # and the failure is silent because everything still works.
+        # Cookies are Secure unless a deployment says otherwise.
+        #
+        # This used to derive from the bind address — Secure unless bound to
+        # loopback — and that is wrong for the shape we actually deploy. Behind
+        # nginx the process binds to 127.0.0.1 while being served over HTTPS to
+        # the internet, so the default turned the flag *off* on the one
+        # deployment where it matters most. Same mistake as KAE-Memory's
+        # F-001: the interface a process binds to is not the interface a user
+        # reaches, and the process cannot tell.
+        #
+        # The failure is silent either way, which is the argument for defaulting
+        # to the safe answer and making the unsafe one explicit.
         secure = env.get("STUDIO_SECURE_COOKIES", "").strip().lower()
-        secure_cookies = secure in {"1", "true", "yes"} if secure else host != "127.0.0.1"
+        secure_cookies = secure not in {"0", "false", "no"} if secure else True
+
+        # `none` needs `Secure`, and a browser rejects the pair without it.
+        # Refusing here beats a deployment where sign-in silently does nothing.
+        samesite = (env.get("STUDIO_COOKIE_SAMESITE", "").strip().lower() or "lax")
+        if samesite not in {"lax", "strict", "none"}:
+            raise ValueError("STUDIO_COOKIE_SAMESITE must be lax, strict, or none")
+        if samesite == "none" and not secure_cookies:
+            raise ValueError(
+                "STUDIO_COOKIE_SAMESITE=none requires STUDIO_SECURE_COOKIES: a browser "
+                "rejects SameSite=None without Secure, and the session would never persist"
+            )
 
         return cls(
+            cookie_samesite=samesite,
             memory_base_url=env.get("KAE_MEMORY_URL", "http://127.0.0.1:8000").rstrip("/"),
             memory_token=env["KAE_MEMORY_TOKEN"].strip(),
             session_secret=secret,
@@ -110,5 +137,6 @@ class Settings:
             "memory_url": self.memory_base_url,
             "operator": self.operator_name,
             "secure_cookies": self.secure_cookies,
+            "cookie_samesite": self.cookie_samesite,
             "cors_origins": list(self.cors_origins),
         }

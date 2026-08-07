@@ -131,7 +131,7 @@ def create_app(settings: Settings) -> FastAPI:
             # HttpOnly so page JavaScript cannot read it: a token reachable from
             # the DOM is one XSS away from being someone else's.
             httponly=True,
-            samesite="lax",
+            samesite=settings.cookie_samesite,  # type: ignore[arg-type]
             secure=settings.secure_cookies,
             path="/",
         )

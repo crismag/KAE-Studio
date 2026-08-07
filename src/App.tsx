@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Navigate, RouterProvider, createHashRouter } from 'react-router-dom'
 import { AppShell } from '@/app/shell/AppShell'
@@ -58,23 +59,100 @@ const queryClient = new QueryClient({
  * backend that was not there would render every panel as an error, and the
  * prototype's own demonstration value would be lost.
  */
-const services = import.meta.env.VITE_STUDIO_API
-  ? createLiveServices(import.meta.env.VITE_PROJECT_ID as string | undefined)
-  : createMockServices()
+const LIVE = import.meta.env.VITE_STUDIO_API as string | undefined
+const PINNED = import.meta.env.VITE_PROJECT_ID as string | undefined
+
+/**
+ * Which project this session is about.
+ *
+ * A build-time id works for a developer running one project and does not
+ * survive deployment: the same bundle is served to everyone, so baking an id
+ * into it means the deployed app shows one project forever and a fresh
+ * environment shows none at all. That is what a deployed build did — it fell
+ * back to the prototype's fixture id and rendered an empty page with no
+ * explanation.
+ *
+ * So it is resolved at runtime when nothing is pinned. First project for now,
+ * which is honest for a single-operator deployment and is not a project
+ * picker — that is a product decision, and this is not the place to make it.
+ */
+function useResolvedProject(): { id?: string; state: 'resolving' | 'ready' | 'none' } {
+  const [id, setId] = useState<string | undefined>(PINNED)
+  const [state, setState] = useState<'resolving' | 'ready' | 'none'>(
+    PINNED ? 'ready' : 'resolving',
+  )
+
+  useEffect(() => {
+    if (PINNED || !LIVE) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(`${LIVE}/api/projects`, { credentials: 'include' })
+        const projects = response.ok ? await response.json() : []
+        if (cancelled) return
+        const first = Array.isArray(projects) && projects.length ? projects[0].id : undefined
+        setId(first)
+        setState(first ? 'ready' : 'none')
+      } catch {
+        if (!cancelled) setState('none')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return { id, state }
+}
+
+function Live() {
+  const { id, state } = useResolvedProject()
+
+  if (state === 'resolving') return <Centered>Finding your project…</Centered>
+  if (state === 'none')
+    return (
+      <Centered>
+        <p>No project exists yet in this deployment.</p>
+        <p style={{ opacity: 0.7, fontSize: 13, marginTop: 8 }}>
+          Nothing is wrong — there is simply nothing to show. Create one through the API and
+          reload.
+        </p>
+      </Centered>
+    )
+
+  return (
+    <ServiceProvider services={createLiveServices(id)}>
+      <RouterProvider router={router} />
+    </ServiceProvider>
+  )
+}
+
+function Centered({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ textAlign: 'center' }}>{children}</div>
+    </div>
+  )
+}
 
 export function App() {
+  if (LIVE) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        {/* The gate first: resolving a project needs a session. */}
+        <SignInGate>
+          <Live />
+        </SignInGate>
+      </QueryClientProvider>
+    )
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
-      <ServiceProvider services={services}>
+      <ServiceProvider services={createMockServices()}>
         {/* Only gates a live backend. In front of the mocks there is nothing to
             sign in to, and a login screen over fixtures would be theatre. */}
-        {import.meta.env.VITE_STUDIO_API ? (
-          <SignInGate>
-            <RouterProvider router={router} />
-          </SignInGate>
-        ) : (
-          <RouterProvider router={router} />
-        )}
+        <RouterProvider router={router} />
       </ServiceProvider>
     </QueryClientProvider>
   )
