@@ -1,5 +1,33 @@
 # KAE Completion Status
 
+> **Superseded, 2026-08-07. Read the registers named below instead.**
+>
+> This page pointed at `KAE-Memory/docs/09_development/MCP_TARGET_CHECKLIST.md`
+> as "the source of truth" for four days after that file stopped existing there
+> — the documentation reset moved KAE-Memory's development history into
+> KAE-Ecosystem, and this reference was not carried with it. Everything below
+> the line is preserved as of **2026-08-04** and is wrong in specifics: it says
+> Studio's adapters are still mocked, migrations are at `0010`, there are 13 MCP
+> tools and 792 tests. Studio is connected and deployed, the head is `0021`,
+> there are 30 tools and 1,728 tests.
+>
+> **Where to look now:**
+>
+> | For | Read |
+> |---|---|
+> | KAE-Memory targets | `KAE-Ecosystem/development-context/KAE-Memory/docs/09_development/MCP_TARGET_CHECKLIST.md` |
+> | KAE-Memory defects and gaps | `KAE-Memory/specifications/FINDINGS_REGISTER.md` |
+> | Deployment and integration | `KAE-Ecosystem/roadmap/ECOSYSTEM_ROADMAP.md` |
+> | Studio's UI targets | [`../product/REQUIREMENTS_PAGE_TARGETS.md`](../product/REQUIREMENTS_PAGE_TARGETS.md) |
+>
+> It is kept rather than deleted because the G0–G7 framing and the Demo V1
+> definition are still the clearest statement of what "finished" means, and
+> because a status page that quietly vanishes teaches nobody why it went wrong.
+> **A register nobody updates does not become neutral — it becomes confidently
+> false**, and this one was cited by its own first sentence.
+
+---
+
 **Operational tracking. Update only when a phase or gate changes, not after every commit.**
 
 ## The single register

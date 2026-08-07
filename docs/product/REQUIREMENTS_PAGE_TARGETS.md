@@ -110,3 +110,58 @@ rather than effort.
 A browser test asserts it is **not** visible until opened — an instruction panel
 read once occupies the top of the page forever for everyone who already knows.
 
+
+---
+
+## The same targets on the workspace
+
+Cris's follow-up: the structured workspace and the CIE conversation *"should
+feel like two views of the same project intelligence, not two independent
+products"*. So U2/U3/U4/U6/U8 were carried across. `e1e4722`.
+
+**What the contract actually offers, checked first.** `/turn` returns
+`{move, skill, subject, source}`. There is no `intent`, `reasoning`,
+`next_action` or `acceptance_criteria` — the brief anticipated richer fields and
+they do not exist. Nothing below invents them.
+
+### U3 on the workspace — why KAE asked ✅
+
+The skill CIE selected **is** the reason; it is simply not written for a reader.
+`handle_non_answer` becomes *"KAE asked this because the last reply did not
+answer the question"*. Fourteen skills, fourteen sentences.
+
+**Translated, not generated.** No model is asked to explain the choice: an
+account a model produces of its own reasoning is a second guess wearing the
+clothes of a record. The map is disposable the day CIE returns its own reasoning.
+
+### U4 on the workspace — return to the conversation ✅
+
+Each coverage area carries *Discuss this*, which **fills the composer rather
+than sending it**. Sending on the operator's behalf would put words in their
+mouth and record them in Memory as evidence they never wrote.
+
+### U6 on the workspace — what "enough" means ✅ *(and a defect)*
+
+Areas now read `0 of 1 confirmed` instead of merely looking incomplete.
+
+This needed a bug fixed first: the projection read `area_key` and `satisfied`,
+which appear in **neither** Memory payload — the fields are `key` and `state`.
+Every area arrived with an empty key and was permanently unsatisfied, and
+nothing noticed, because an empty string and a `false` render exactly as
+plausibly as real values. That is the failure mode worth remembering from this
+pass: wrong field names do not throw, they just quietly agree with you.
+
+Still not acceptance criteria — see U6 above. These are readiness counts, which
+is a different and weaker thing, and the page does not pretend otherwise.
+
+### U8 on the workspace — what do these mean? ✅
+
+Collapsed, defining the four terms a first-time reader has to guess at, ending
+on the one that matters most: nothing here blocks you.
+
+### Not done
+
+**Browser coverage for the workspace states.** The brief asked for the resolved
+item, the incomplete item, the assumption, and the CIE-selected focus. The
+workspace has two tests — a reply arrives, and it says why it was asked. The
+coverage panel, *Discuss this*, and the explainer are unproven in a browser.
