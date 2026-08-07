@@ -134,6 +134,12 @@ answer the question"*. Fourteen skills, fourteen sentences.
 account a model produces of its own reasoning is a second guess wearing the
 clothes of a record. The map is disposable the day CIE returns its own reasoning.
 
+**That day is planned.** `EC-3` in the ecosystem's backend-intelligence package
+gives `/turn` a `reason_code` and `reason`, and names this map as the thing it
+retires. When it lands, delete the map — do not reconcile it with the new field,
+and do not keep it as a fallback. Two sources of the same sentence is how a
+translation quietly becomes a second opinion.
+
 ### U4 on the workspace — return to the conversation ✅
 
 Each coverage area carries *Discuss this*, which **fills the composer rather
