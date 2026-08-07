@@ -398,6 +398,12 @@ export function Workspace() {
   const { data: session } = useInterviewSession()
   const sendMessage = useSendMessage()
   const [draft, setDraft] = useState('')
+
+  // The last turn, only when it produced no question. A question is written to
+  // Memory and arrives through the transcript like any other message; a note is
+  // not written at all, so this is the only place it can be seen.
+  const lastTurn = sendMessage.data?.turn.assistantMessage
+  const advisory = lastTurn && !lastTurn.question ? lastTurn.body : null
   const [contextOpen, setContextOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -470,6 +476,29 @@ export function Workspace() {
                 <Loader2 className="size-3.5 animate-spin text-accent" aria-hidden="true" />
                 Updating project understanding…
               </div>
+            )}
+
+            {/* A turn that produced no question is not stored, on purpose: a
+                filler message per turn would put words in the evidence log that
+                nobody said and no gap produced. But unstored meant unseen — the
+                transcript renders only what Memory holds — so a message would
+                send, the backend would answer 200, and the screen showed
+                nothing at all. This says what happened without pretending to be
+                part of the record. */}
+            {!sendMessage.isPending && advisory && (
+              <p
+                className="border-l-2 border-line pl-3 text-[12.5px] leading-relaxed text-ink-muted"
+                role="status"
+              >
+                {advisory}
+              </p>
+            )}
+
+            {!sendMessage.isPending && sendMessage.isError && (
+              <p className="border-l-2 border-blocking-line pl-3 text-[12.5px] leading-relaxed text-ink-muted">
+                That message did not go through: {(sendMessage.error as Error).message}. Nothing was
+                recorded, so sending it again is safe.
+              </p>
             )}
           </div>
         </div>

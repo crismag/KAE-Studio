@@ -256,17 +256,31 @@ def create_app(settings: Settings) -> FastAPI:
         """
 
         client = memory(request)
-        questions = await client.clarifications(project_id, limit=1)
-        items = questions.get("questions", []) if isinstance(questions, dict) else []
-        question = items[0] if items else None
+        session_id = await _session_for(client, project_id)
 
-        note = (
+        # Ask for several, not one. `limit=1` always returns the same
+        # highest-severity question, and its idempotency key is derived from the
+        # clarification id — so Memory correctly stored it once and replayed it
+        # forever after. Every later turn answered 200, wrote nothing, and the
+        # operator saw silence: message sent, no reply, no error anywhere.
+        questions = await client.clarifications(project_id, limit=10)
+        items = questions.get("questions", []) if isinstance(questions, dict) else []
+
+        stored = await client.messages(session_id)
+        transcript = stored if isinstance(stored, list) else stored.get("results", [])
+        already_asked = {
+            m.get("content") for m in transcript if m.get("actor_type") == "agent"
+        }
+
+        question = next((q for q in items if q["question"] not in already_asked), None)
+
+        source_note = (
             "This is KAE-Memory's clarification queue, derived from this project's "
             "gaps — not a conversational model. Acquisition intelligence (CIE) is "
             "not wired yet."
         )
+
         if question:
-            session_id = await _session_for(client, project_id)
             await client.post_message(
                 session_id,
                 question["question"],
@@ -275,13 +289,38 @@ def create_app(settings: Settings) -> FastAPI:
                 actor_type="agent",
                 message_type="question",
             )
+            return {
+                "question": question["question"],
+                "clarificationId": question["clarification_id"],
+                "severity": question["severity"],
+                "source": "kae-memory-clarifications",
+                "note": source_note,
+            }
+
+        # Nothing new to ask, and that is a real state rather than a failure: the
+        # queue is derived from gaps, and it does not move because someone typed
+        # again. It moves when a question is answered or knowledge is confirmed.
+        #
+        # Returned as a note and deliberately **not** written to Memory. A filler
+        # message per turn would put words in the evidence log that nobody said
+        # and no gap produced, which is the confusion this whole review surface
+        # exists to prevent.
+        exhausted = (
+            f"Recorded. I have no new question — all {len(items)} open clarification(s) "
+            "are already in this conversation. The queue is derived from the project's "
+            "gaps, so it advances when one is answered or a candidate is confirmed, "
+            "not when another message arrives."
+            if items
+            else "Recorded. KAE-Memory reports no open clarifications for this project."
+        )
 
         return {
-            "question": question["question"] if question else None,
-            "clarificationId": question["clarification_id"] if question else None,
-            "severity": question["severity"] if question else None,
+            "question": None,
+            "clarificationId": None,
+            "severity": None,
+            "openQuestionCount": len(items),
             "source": "kae-memory-clarifications",
-            "note": note,
+            "note": f"{exhausted} {source_note}",
         }
 
     @app.get("/api/projects/{project_id}/clarifications")
