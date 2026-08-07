@@ -28,6 +28,7 @@ export type ProjectSummary = {
   key?: string | null
   description?: string | null
   knowledgeRevision?: number
+  status?: string
 }
 
 type Listing =
@@ -47,6 +48,7 @@ async function fetchProjects(): Promise<ProjectSummary[]> {
       name: String(row.name ?? 'Untitled'),
       key: (row.key as string | null) ?? null,
       description: (row.description ?? null) as string | null,
+      status: typeof row.status === 'string' ? row.status : undefined,
       // EM-1. Absent against an older Memory, which is why it is optional
       // rather than defaulted to 0 — zero means "nobody has written to this",
       // and a default that also renders 0 would make the two indistinguishable.
@@ -143,7 +145,16 @@ export function ProjectGate({
   if (!remembered) {
     return (
       <Picker
-        projects={listing.projects}
+        // Archived projects are hidden here rather than dropped from the state
+        // above, and the difference matters: the membership check that recovers
+        // a stale preference runs against the *full* list, so someone who
+        // archived the project they were working in still opens it rather than
+        // being told it no longer exists.
+        //
+        // Memory has no delete, deliberately — nothing is thrown away — so
+        // cleanup is a status, and this list is where that status has to mean
+        // something.
+        projects={listing.projects.filter((p) => p.status !== 'archived')}
         onChoose={choose}
         onCreated={(project) => {
           // Added to the listing before it is chosen. The membership check

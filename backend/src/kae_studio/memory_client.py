@@ -161,6 +161,7 @@ class MemoryClient:
         idempotency_key: str,
         actor_type: str = "user",
         message_type: str = "input",
+        purpose: str = "project_input",
     ) -> Any:
         """Record one message. `actor_type` distinguishes a person from an agent.
 
@@ -168,6 +169,11 @@ class MemoryClient:
         model's output from being read as a person's statement, and an assistant
         turn stored as `user` would be exactly that confusion in the evidence
         log.
+
+        `purpose` (EM-2) is the other axis: `project_input` is interpreted and
+        is the default, `diagnostic` is stored and never extracted from. A
+        health check or a round-trip proof should send `diagnostic`, or its text
+        becomes candidate project knowledge.
         """
 
         return await self._request(
@@ -179,6 +185,7 @@ class MemoryClient:
                 "actor_id": actor,
                 "message_type": message_type,
                 "idempotency_key": idempotency_key,
+                "purpose": purpose,
             },
         )
 

@@ -41,6 +41,9 @@ class SignIn(BaseModel):
 
 class MessageIn(BaseModel):
     body: str = Field(min_length=1)
+    #: EM-2. `project_input` is interpreted and is the default; `diagnostic`
+    #: and `conversation_control` are recorded and never extracted from.
+    purpose: str = "project_input"
 
 
 class AnswerIn(BaseModel):
@@ -260,7 +263,7 @@ def create_app(settings: Settings) -> FastAPI:
         client = memory(request)
         session_id = await _session_for(client, project_id)
         recorded = await client.post_message(
-            session_id, body.body, operator.name, f"studio-{uuid4()}"
+            session_id, body.body, operator.name, f"studio-{uuid4()}", purpose=body.purpose
         )
         return {"recorded": recorded, "knowledgeChanged": False}
 
