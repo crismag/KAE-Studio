@@ -20,7 +20,7 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { EmptyState } from '@/components/ui/primitives'
-import { useConfirmFinding, useProjection } from '@/hooks/useProject'
+import { useConfirmFinding, useProjection, useRejectFinding } from '@/hooks/useProject'
 import type { FindingKind, ReviewFinding } from '@/domain/types'
 
 const GROUPS: { kind: FindingKind; title: string; description: string; icon: typeof CircleHelp }[] =
@@ -67,6 +67,7 @@ const SEVERITY_TONE = {
 
 function FindingCard({ finding }: { finding: ReviewFinding }) {
   const confirm = useConfirmFinding()
+  const reject = useRejectFinding()
 
   return (
     <li className="px-5 py-4">
@@ -132,12 +133,27 @@ function FindingCard({ finding }: { finding: ReviewFinding }) {
               variant="secondary"
               size="sm"
               onClick={() => confirm.mutate(finding.id)}
-              disabled={confirm.isPending}
+              disabled={confirm.isPending || reject.isPending}
             >
               <Check className="size-3.5" aria-hidden="true" />
               Confirm
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => confirm.mutate(finding.id)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                reject.mutate({
+                  findingId: finding.id,
+                  reason: 'Rejected in review.',
+                  // The version the card displayed, carried through so Memory
+                  // can refuse a rejection of wording that has since changed.
+                  expectedVersion: Number(
+                    finding.subjectIds.find((s) => s.startsWith('v'))?.slice(1) ?? 0,
+                  ),
+                })
+              }
+              disabled={reject.isPending || confirm.isPending}
+            >
               <X className="size-3.5" aria-hidden="true" />
               Reject
             </Button>

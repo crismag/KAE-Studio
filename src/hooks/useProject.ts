@@ -95,6 +95,32 @@ export function useDeferDecision() {
   })
 }
 
+/**
+ * Reject a candidate, with a reason.
+ *
+ * Its own hook rather than a flag on confirm. The prototype's Reject button
+ * called the confirm mutation — harmless against fixtures that only counted
+ * clicks, and against a live KAE-Memory it would have written the opposite of
+ * what the operator pressed, into the durable record, silently.
+ */
+export function useRejectFinding() {
+  const { memory } = useServices()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      findingId,
+      reason,
+      expectedVersion,
+    }: {
+      findingId: string
+      reason: string
+      expectedVersion: number
+    }) => memory.rejectFinding(PROJECT_ID, findingId, reason, expectedVersion),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', PROJECT_ID] }),
+  })
+}
+
 export function useConfirmFinding() {
   const { memory } = useServices()
   const queryClient = useQueryClient()

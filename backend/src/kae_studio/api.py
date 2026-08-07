@@ -48,6 +48,10 @@ class AnswerIn(BaseModel):
 
 class ReviewIn(BaseModel):
     reason: str = ""
+    #: The version the reviewer had on screen. Memory refuses a rejection that
+    #: names any other, so a candidate cannot be refused on the strength of
+    #: wording that has since been corrected.
+    expected_version: int = 0
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -370,8 +374,13 @@ def create_app(settings: Settings) -> FastAPI:
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "a rejection needs a reason: 'no' without one tells the next reader nothing",
             )
+        if body.expected_version < 1:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "a rejection must name the version the reviewer read",
+            )
         return await memory(request).reject_knowledge(
-            project_id, knowledge_id, operator.name, body.reason
+            project_id, knowledge_id, operator.name, body.reason, body.expected_version
         )
 
     @app.get("/api/projects/{project_id}/deliverables")

@@ -76,7 +76,12 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # a list reads structure before badges, and confirmed and proposed
         # statements carry different weight in every decision they inform.
         "confirmed": [s for s in statements if s["lifecycle"] == "validated"],
-        "proposed": [s for s in statements if s["lifecycle"] != "validated"],
+        # Not simply "everything that is not validated". A rejected statement is
+        # already decided, and returning it here put it back on the review page
+        # to be judged again — the one outcome a review surface must never
+        # produce. Memory keeps rejected items for provenance; that is a reason
+        # to retain them, not to re-ask about them.
+        "proposed": [s for s in statements if s["lifecycle"] not in _DECIDED],
         "health": _health(readiness_data),
         "openQuestions": _questions(clarification_data),
         "blockers": _listing(blocker_data),
@@ -128,6 +133,11 @@ def _gap(gap: CapabilityGap) -> dict[str, str]:
     return {"capability": gap.capability, "reason": gap.reason, "reachableBy": gap.reachable_by}
 
 
+#: Lifecycles a person has already ruled on, or that Memory has retired. None of
+#: them belongs on a review surface: the question they answer is closed.
+_DECIDED = frozenset({"validated", "rejected", "superseded", "retracted"})
+
+
 def _statements(payload: Any) -> list[dict[str, Any]]:
     """Flatten Memory's knowledge listing into what a list view needs."""
 
@@ -144,7 +154,10 @@ def _statements(payload: Any) -> list[dict[str, Any]]:
                 "text": item.get("current_content") or item.get("content") or item.get("text", ""),
                 "kind": item.get("kind", ""),
                 "lifecycle": item.get("lifecycle", ""),
-                "version": item.get("version") or item.get("current_version", 1),
+                # Like the timestamp, the number lives on the version, not the
+                # item. Defaulting to 1 made every reject claim to have seen the
+                # first wording, which is the opposite of what the check is for.
+                "version": _version_number(item),
                 # Memory carries the timestamp on the version, not the item: a
                 # statement's identity is older than its current wording, and
                 # the date a reader wants is when this wording was recorded.
@@ -152,6 +165,23 @@ def _statements(payload: Any) -> list[dict[str, Any]]:
             }
         )
     return flattened
+
+
+def _version_number(item: dict[str, Any]) -> int:
+    """The current version number, for optimistic concurrency on review.
+
+    Memory refuses a rejection that names a version other than the current one,
+    so that a reviewer cannot reject wording they never read. Sending a guess
+    would defeat exactly that.
+    """
+
+    versions = item.get("versions")
+    if isinstance(versions, list) and versions:
+        latest = versions[-1]
+        if isinstance(latest, dict) and isinstance(latest.get("number"), int):
+            return int(latest["number"])
+    fallback = item.get("version") or item.get("current_version")
+    return int(fallback) if isinstance(fallback, int) else 1
 
 
 def _recorded_at(item: dict[str, Any]) -> str:

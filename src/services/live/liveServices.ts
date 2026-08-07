@@ -66,6 +66,12 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 interface BackendStatement {
   id: string
   text: string
+  /** Memory's optimistic-concurrency token. Carried to the review page so a
+   *  rejection names the wording the reviewer actually read. */
+  version: number
+  /** goal | rule | actor | constraint | entity | unknown — Memory types these,
+   *  and the distinction survives to the review page even though the
+   *  requirements list still flattens them. */
   kind: string
   lifecycle: string
   updatedAt: string
@@ -132,7 +138,25 @@ function toProjection(raw: BackendProjection): ProjectProjection {
       suggestedOwner: 'you',
       deferred: q.disposition !== 'open',
     })),
-    findings: [],
+    // Every proposed statement is something a person has not yet agreed to, so
+    // it belongs on the review surface. Without this the page rendered nothing
+    // and the only visible control was a status filter that looks like a
+    // disabled button — Memory had derived six candidates and there was
+    // nowhere to accept or refuse a single one.
+    findings: raw.proposed.map((s) => ({
+      id: s.id,
+      kind: 'agent_proposal' as const,
+      // Severity here is about review effort, not danger. An unknown is the
+      // model saying it could not determine something, which is worth a
+      // person's attention before a rule it read straight off the sentence.
+      severity: (s.kind === 'unknown' ? 'major' : 'minor') as never,
+      summary: s.text,
+      detail:
+        s.kind === 'unknown'
+          ? 'Recorded as a material unknown: the model could not determine this and did not guess.'
+          : `Derived from conversation as ${KIND_LABEL[s.kind] ?? s.kind}. Proposed, not confirmed.`,
+      subjectIds: [s.kind, `v${s.version}`],
+    })),
     health: {
       phase: raw.project.phase,
       // Readiness is advisory in KAE and the wording says so. A bare percentage
@@ -148,6 +172,16 @@ function toProjection(raw: BackendProjection): ProjectProjection {
     },
     recentChanges: [],
   }
+}
+
+/** Memory's knowledge kinds, in words a reader of the review page can use. */
+const KIND_LABEL: Record<string, string> = {
+  goal: 'a goal',
+  rule: 'a rule',
+  actor: 'an actor',
+  constraint: 'a constraint',
+  entity: 'an entity',
+  unknown: 'a material unknown',
 }
 
 function accepted(memoryRevision = 0): MemoryWriteResult {
@@ -228,6 +262,14 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
 
     confirmFinding: async (id, findingId) => {
       await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/confirm`, { method: 'POST' })
+      return accepted()
+    },
+
+    rejectFinding: async (id, findingId, reason, expectedVersion) => {
+      await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason, expected_version: expectedVersion }),
+      })
       return accepted()
     },
   }

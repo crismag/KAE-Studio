@@ -61,6 +61,15 @@ export interface ProjectMemoryClient {
     deferred: boolean,
   ): Promise<MemoryWriteResult>
   confirmFinding(projectId: string, findingId: string): Promise<MemoryWriteResult>
+  /** Reject a candidate, with the reason. Separate from confirm on purpose:
+   *  they are opposite acts on the durable record, and one method serving both
+   *  is how a Reject button ends up confirming. */
+  rejectFinding(
+    projectId: string,
+    findingId: string,
+    reason: string,
+    expectedVersion: number,
+  ): Promise<MemoryWriteResult>
 }
 
 export type ModuleDecision =

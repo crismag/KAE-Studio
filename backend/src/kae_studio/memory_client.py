@@ -199,12 +199,34 @@ class MemoryClient:
         )
 
     async def reject_knowledge(
-        self, project_id: str, knowledge_id: str, reviewer: str, reason: str
+        self,
+        project_id: str,
+        knowledge_id: str,
+        reviewer: str,
+        note: str,
+        expected_version: int,
     ) -> Any:
+        """Reject a candidate the reviewer has actually read.
+
+        `note`, not `reason` — Memory has no `reason` field, and sending one
+        meant the reviewer's words were silently dropped while the request
+        still looked well-formed.
+
+        `expected_version` is Memory's optimistic-concurrency check: a
+        rejection that names a version other than the current one is refused,
+        so a candidate cannot be rejected on the strength of wording that has
+        since changed. Passing the version the browser displayed is the whole
+        point; computing it here would defeat the check by always agreeing.
+        """
+
         return await self._request(
             "POST",
             f"/v1/projects/{project_id}/knowledge/{knowledge_id}/reject",
-            json={"reviewer": reviewer, "reason": reason},
+            json={
+                "reviewer": reviewer,
+                "note": note,
+                "expected_version": expected_version,
+            },
         )
 
 

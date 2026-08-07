@@ -249,6 +249,17 @@ class MockProjectMemoryClient implements ProjectMemoryClient {
     state.memoryRevision += 1
     return delay({ accepted: true, memoryRevision: state.memoryRevision })
   }
+
+  rejectFinding(
+    _projectId: string,
+    findingId: string,
+    _reason: string,
+    _expectedVersion: number,
+  ): Promise<MemoryWriteResult> {
+    state.confirmedFindingIds.delete(findingId)
+    state.memoryRevision += 1
+    return delay({ accepted: true, memoryRevision: state.memoryRevision })
+  }
 }
 
 /* ---------------------------------------------------- interview provider mock */
