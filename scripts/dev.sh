@@ -38,6 +38,13 @@ STUDIO_OPERATOR=dev
 
 STUDIO_HOST=127.0.0.1
 STUDIO_PORT=8100
+# The deployment needs no allow-list because its page and API share an origin.
+# This loop does not: :5173 and :8100 are the same site and different origins,
+# so without this the browser refuses every response and the app reports the
+# backend unreachable while it is demonstrably answering.
+# Both spellings — a dev server on one with the list naming the other is the
+# same failure wearing a different address.
+STUDIO_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 # Off for local http. The default is on, because inferring it from the bind
 # address is what put a session cookie on a public deployment without it.
 STUDIO_SECURE_COOKIES=0
