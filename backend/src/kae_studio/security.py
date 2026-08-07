@@ -39,10 +39,18 @@ class Operator:
 class Sessions:
     """Issues and reads signed session cookies."""
 
-    def __init__(self, secret: str, password: str, operator: str) -> None:
+    def __init__(self, secret: str, password: str, operator: str, required: bool = True) -> None:
         self._serializer = URLSafeTimedSerializer(secret, salt="kae-studio-session")
         self._password = password
         self._operator = operator
+        self.required = required
+        """False when `STUDIO_NO_AUTH` is set. Every route then runs as the
+        configured operator without a cookie. See `require_operator`."""
+
+    def anyone(self) -> Operator:
+        """The operator every caller becomes when authentication is off."""
+
+        return Operator(name=self._operator)
 
     def authenticate(self, password: str) -> Operator | None:
         """Check a password in constant time.
@@ -84,6 +92,17 @@ def require_operator(request: Request) -> Operator:
     """
 
     sessions: Sessions = request.app.state.sessions
+    if not sessions.required:
+        # `STUDIO_NO_AUTH`. Deliberately checked here rather than by omitting
+        # the dependency: the routes keep declaring that they need an operator,
+        # so turning authentication back on is one environment variable and not
+        # a re-audit of every handler.
+        #
+        # What this costs, stated plainly because the flag is quiet otherwise:
+        # every write route -- confirm, reject, answer -- and `/turn`, which
+        # spends model tokens, are open to whoever can reach the port. The
+        # `actor` recorded against a confirmation becomes a name nobody proved.
+        return sessions.anyone()
     raw = request.cookies.get(SESSION_COOKIE)
     operator = sessions.read(raw) if raw else None
     if operator is None:

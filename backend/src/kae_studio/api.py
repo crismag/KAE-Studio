@@ -87,6 +87,7 @@ def create_app(settings: Settings) -> FastAPI:
         secret=settings.session_secret,
         password=settings.operator_password,
         operator=settings.operator_name,
+        required=settings.authentication_required,
     )
 
     if settings.cors_origins:

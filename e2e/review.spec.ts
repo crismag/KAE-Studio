@@ -19,9 +19,13 @@
 
 import { expect, test, type Page } from '@playwright/test'
 
-const PASSWORD = process.env.STUDIO_PASSWORD ?? ''
+// Gated on a live stack, not on a password. `STUDIO_NO_AUTH` deployments have
+// no password to set, and skipping every browser test because of that would
+// silently retire the suite on exactly the configuration most likely to be
+// poked at by hand. `STUDIO_WEB=` opts out explicitly.
+const LIVE = process.env.STUDIO_WEB !== ''
 
-test.skip(!PASSWORD, 'set STUDIO_PASSWORD to run against the live stack')
+test.skip(!LIVE, 'set STUDIO_WEB to a running Studio to run against the live stack')
 
 async function signIn(page: Page) {
   // The session comes from auth.setup.ts. This waits for the shell and only
@@ -40,7 +44,7 @@ async function signIn(page: Page) {
   await expect(field.or(shell).first()).toBeVisible({ timeout: 15_000 })
 
   if (await field.isVisible()) {
-    await field.fill(PASSWORD)
+    await field.fill(process.env.STUDIO_PASSWORD ?? '')
     await page.getByRole('button', { name: 'Sign in' }).click()
   }
   await expect(shell).toBeVisible({ timeout: 15_000 })

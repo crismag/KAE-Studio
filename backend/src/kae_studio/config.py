@@ -12,6 +12,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 
+def _is_true(value: str) -> bool:
+    """Accept the spellings people actually write in a unit file or .env."""
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class ConfigurationError(RuntimeError):
     """The backend cannot start as configured."""
 
@@ -31,6 +37,11 @@ class Settings:
     session_secret: str
     operator_password: str
     operator_name: str
+    #: False when `STUDIO_NO_AUTH` is set, which opens every route. Kept as a
+    #: setting rather than read at the call site so `describe()` can report it:
+    #: an unauthenticated deployment should be visible from `/api/status`, not
+    #: discoverable only by trying it.
+    authentication_required: bool
     cors_origins: tuple[str, ...]
     host: str
     port: int
@@ -54,11 +65,15 @@ class Settings:
 
         env = os.environ if environ is None else environ
 
-        missing = [
-            name
-            for name in ("KAE_MEMORY_TOKEN", "STUDIO_SESSION_SECRET", "STUDIO_PASSWORD")
-            if not env.get(name, "").strip()
-        ]
+        # `STUDIO_NO_AUTH` exists for browser tooling that cannot sign in. It
+        # drops the password requirement with it -- requiring a password that
+        # is never checked would be a configuration step that teaches nothing.
+        authentication_required = not _is_true(env.get("STUDIO_NO_AUTH", ""))
+
+        required = ["KAE_MEMORY_TOKEN", "STUDIO_SESSION_SECRET"]
+        if authentication_required:
+            required.append("STUDIO_PASSWORD")
+        missing = [name for name in required if not env.get(name, "").strip()]
         if missing:
             raise ConfigurationError(
                 f"missing required configuration: {', '.join(missing)}. "
@@ -117,7 +132,8 @@ class Settings:
             memory_base_url=env.get("KAE_MEMORY_URL", "http://127.0.0.1:8000").rstrip("/"),
             memory_token=env["KAE_MEMORY_TOKEN"].strip(),
             session_secret=secret,
-            operator_password=env["STUDIO_PASSWORD"],
+            operator_password=env.get("STUDIO_PASSWORD", ""),
+            authentication_required=authentication_required,
             operator_name=env.get("STUDIO_OPERATOR", "operator").strip() or "operator",
             cors_origins=origins,
             host=host,
@@ -134,6 +150,7 @@ class Settings:
         """
 
         return {
+            "authentication": "required" if self.authentication_required else "disabled",
             "memory_url": self.memory_base_url,
             "operator": self.operator_name,
             "secure_cookies": self.secure_cookies,
