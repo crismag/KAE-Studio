@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .config import Settings
-from .interviewer import InterviewUnavailable, Interviewer
+from .interviewer import DEFAULT_MODEL, InterviewUnavailable, Interviewer
 from .memory_client import MODULE_GAP, MemoryClient, MemoryRefused, MemoryUnavailable
 from .security import SESSION_COOKIE, SESSION_MAX_AGE, Operator, Sessions, require_operator
 
@@ -168,10 +168,19 @@ def create_app(settings: Settings) -> FastAPI:
             "memory_reachable": reachable,
             "memory": detail,
             **settings.describe(),
+            # Described from what is actually configured, not from a literal.
+            # This said "CIE is not wired yet" for as long as CIE has been
+            # wired — a status endpoint that cannot be wrong about the thing it
+            # reports is the only kind worth having, and a hand-written string
+            # is not one.
             "interview_provider": {
-                "name": "KAE-Memory clarifications",
+                "name": f"CIE via Bedrock ({request.app.state.interviewer.model or DEFAULT_MODEL})",
                 "mode": "live",
-                "note": "Real project gaps, not a model. CIE is not wired yet.",
+                "note": (
+                    "Every conversational decision is CIE's. Studio transports "
+                    "and renders, and an unavailable interviewer surfaces as an "
+                    "error rather than as a reply."
+                ),
             },
             "known_gaps": [asdict(MODULE_GAP)],
         }

@@ -1,0 +1,85 @@
+/**
+ * What this deployment actually is, from `/api/status`.
+ *
+ * The footer used to assert three things it could not know. `Prototype — mock
+ * data` was a literal `<Badge>` on a page serving live KAE-Memory; `Memory:
+ * synchronised` was a hard-coded string with no code path that could ever
+ * render anything else, including a failure; and the revision came from a field
+ * that stops moving whenever readiness stops being recalculated.
+ *
+ * A green label that cannot go red is not a status, it is decoration — and the
+ * cost is worse than nothing, because a reader who has learned to trust it will
+ * keep trusting it through an outage.
+ *
+ * Unauthenticated on purpose, matching the endpoint: a status that needs a
+ * session cannot tell you why your session is failing.
+ */
+
+import { useEffect, useState } from 'react'
+
+const API = (import.meta.env.VITE_STUDIO_API as string | undefined) ?? ''
+
+export type DeploymentStatus = {
+  memoryReachable: boolean
+  /** Alembic revision the deployed KAE-Memory is migrated to, when it says. */
+  migrationRevision?: string
+  /** `disabled` means every route is open. Worth showing loudly. */
+  authentication?: string
+  interviewProvider?: string
+  memoryUrl?: string
+}
+
+type State =
+  { state: 'checking' } | { state: 'unavailable' } | { state: 'ready'; status: DeploymentStatus }
+
+/**
+ * Polls slowly. Connectivity is the only thing here that changes on its own,
+ * and a footer that refetches every few seconds spends a request per reader per
+ * minute to tell them what they already believe. Thirty seconds is late enough
+ * to be cheap and early enough that nobody works long against a dead backend.
+ */
+const INTERVAL_MS = 30_000
+
+export function useDeploymentStatus(): State {
+  const [state, setState] = useState<State>({ state: 'checking' })
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function check() {
+      try {
+        const response = await fetch(`${API}/api/status`, { credentials: 'include' })
+        if (!response.ok) throw new Error(String(response.status))
+        const raw = (await response.json()) as Record<string, unknown>
+        if (cancelled) return
+        const memory = (raw.memory ?? {}) as Record<string, unknown>
+        const provider = (raw.interview_provider ?? {}) as Record<string, unknown>
+        setState({
+          state: 'ready',
+          status: {
+            memoryReachable: raw.memory_reachable === true,
+            migrationRevision:
+              typeof memory.migration_revision === 'string' ? memory.migration_revision : undefined,
+            authentication: typeof raw.authentication === 'string' ? raw.authentication : undefined,
+            interviewProvider: typeof provider.name === 'string' ? provider.name : undefined,
+            memoryUrl: typeof raw.memory_url === 'string' ? raw.memory_url : undefined,
+          },
+        })
+      } catch {
+        // The backend being unreachable is itself a status, and a distinct one
+        // from "reachable and reporting a problem". Collapsing the two would
+        // hide exactly the case where the footer earns its place.
+        if (!cancelled) setState({ state: 'unavailable' })
+      }
+    }
+
+    void check()
+    const timer = window.setInterval(() => void check(), INTERVAL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  return state
+}

@@ -119,3 +119,43 @@ test.describe('switching projects', () => {
     await expect(page.getByText(left)).toBeVisible()
   })
 })
+
+test.describe('the status bar reports rather than asserts', () => {
+  test.beforeEach(async ({ page }) => {
+    await toThePicker(page)
+    await create(page, 'status')
+  })
+
+  test('it says whether Memory is reachable, and can say it is not', async ({ page }) => {
+    // The old bar read "Memory: synchronised" from a string literal. It had no
+    // code path that could render anything else, including an outage.
+    await expect(page.getByText(/Memory:/)).toBeVisible()
+    await expect(page.getByText(/reachable|not reachable|Studio unreachable/)).toBeVisible()
+  })
+
+  test('it does not claim to be showing fixtures while serving a real project', async ({
+    page,
+  }) => {
+    // `Prototype — mock data` was an unconditional badge on a deployment
+    // serving live KAE-Memory through CIE.
+    await expect(page.getByText('Prototype — mock data')).toHaveCount(0)
+  })
+
+  test('an open deployment says so where nobody has to go looking', async ({ page }) => {
+    // Only meaningful while STUDIO_NO_AUTH is set, which it is on this
+    // deployment by request. The assertion is conditional on the deployment's
+    // own answer rather than on an assumption about it.
+    const open = await page.evaluate(async () => {
+      const response = await fetch('./api/status', { credentials: 'include' })
+      return response.ok ? ((await response.json()).authentication as string) : ''
+    })
+    test.skip(open !== 'disabled', 'this deployment requires sign-in')
+
+    await expect(page.getByText(/Sign-in disabled/)).toBeVisible()
+  })
+
+  test('there is no control that does nothing', async ({ page }) => {
+    // Settings rendered, invited a click, and had no handler.
+    await expect(page.getByRole('button', { name: 'Settings' })).toHaveCount(0)
+  })
+})

@@ -69,7 +69,20 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
             "id": project_data.get("id", project_id),
             "name": project_data.get("name", ""),
             "phase": project_data.get("status", "active"),
-            "memoryRevision": readiness_data.get("knowledge_revision", 0),
+            # The project's revision *now* (EM-1), not the readiness snapshot's.
+            #
+            # This read `readiness.knowledge_revision`, which records the
+            # revision readiness was last *calculated at* — so the footer showed
+            # a number that stopped moving whenever readiness stopped being
+            # recalculated, and showed 0 for a project whose readiness had never
+            # been calculated at all. `current_knowledge_revision` is the
+            # project's, and the project payload carries it too.
+            #
+            # `None` rather than 0 when neither is present: this Studio may run
+            # against a Memory older than EM-1, and 0 is a real revision meaning
+            # "nothing written yet". A default that renders identically to a
+            # fact is how the previous version stayed wrong for so long.
+            "memoryRevision": _revision(project_data, readiness_data),
             "createdAt": project_data.get("created_at", ""),
         },
         # Split by lifecycle rather than merged with a label. A reader scanning
@@ -141,6 +154,19 @@ def _gap(gap: CapabilityGap) -> dict[str, str]:
 #: Lifecycles a person has already ruled on, or that Memory has retired. None of
 #: them belongs on a review surface: the question they answer is closed.
 _DECIDED = frozenset({"validated", "rejected", "superseded", "retracted"})
+
+
+def _revision(project_data: dict[str, Any], readiness_data: dict[str, Any]) -> int | None:
+    """The project's current knowledge revision, or `None` if unreported."""
+
+    for source, key in (
+        (project_data, "knowledge_revision"),
+        (readiness_data, "current_knowledge_revision"),
+    ):
+        value = source.get(key)
+        if isinstance(value, int):
+            return value
+    return None
 
 
 def _statements(payload: Any) -> list[dict[str, Any]]:

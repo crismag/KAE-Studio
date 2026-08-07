@@ -13,13 +13,13 @@ import {
   MessagesSquare,
   PanelsTopLeft,
   ScanSearch,
-  Settings,
   Share2,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Badge, Button } from '@/components/ui/primitives'
 import { useActiveProject } from '@/app/shell/activeProject'
+import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
 import { useProject, useProjection } from '@/hooks/useProject'
 import { useServices } from '@/hooks/useServices'
 
@@ -154,35 +154,72 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="min-h-0 flex-1 overflow-y-auto kae-scrollbar">
         <NavList onNavigate={onNavigate} />
       </div>
-      <div className="px-2">
-        <button
-          type="button"
-          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13px] text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
-        >
-          <Settings className="size-4 text-ink-subtle" aria-hidden="true" />
-          Settings
-        </button>
-      </div>
+      {/* Settings was a button with no handler and nothing behind it. Removed
+          rather than disabled: there is no settings surface to reach, so a
+          greyed-out control would promise one that does not exist. What it
+          looked like it should show — which Memory, which interviewer, whether
+          sign-in is on — is in the status bar, where it is read rather than
+          hunted for. It comes back when there is something to configure. */}
     </div>
   )
 }
 
+/**
+ * What this deployment is, reported rather than asserted.
+ *
+ * Every claim here used to be a literal. See `useDeploymentStatus` for what
+ * that cost. The rule this follows: **no indicator may have only one possible
+ * value.** If a label cannot render a failure it does not belong in a status
+ * bar.
+ */
 function StatusBar() {
   const { data: project } = useProject()
   const { interview } = useServices()
-  const provider = interview.describe()
+  const deployment = useDeploymentStatus()
+  const mocked = interview.describe().mode === 'mock'
+
+  const status = deployment.state === 'ready' ? deployment.status : undefined
 
   return (
     <div className="flex items-center gap-x-4 gap-y-1 overflow-x-auto border-t border-line bg-surface px-4 py-1.5 text-[11.5px] text-ink-muted kae-scrollbar">
-      <Badge tone="attention">Prototype — mock data</Badge>
-      <span className="hidden sm:inline">
-        Provider: <span className="text-ink">{provider.name}</span>
-      </span>
+      {mocked && <Badge tone="attention">Fixtures — nothing here is a real project</Badge>}
+
+      {/* Open access is the loudest thing this bar can say, so it says it
+          first. A deployment anyone can reach and write to should never be a
+          fact you have to go and look up. */}
+      {status?.authentication === 'disabled' && (
+        <Badge tone="attention">Sign-in disabled — anyone can reach this</Badge>
+      )}
+
       <span className="hidden md:inline">
-        Memory: <span className="text-ink">synchronised</span>
+        Memory:{' '}
+        {deployment.state === 'checking' ? (
+          <span className="text-ink">checking…</span>
+        ) : deployment.state === 'unavailable' ? (
+          <span className="text-danger">Studio unreachable</span>
+        ) : status?.memoryReachable ? (
+          <span className="text-ink">
+            reachable
+            {status.migrationRevision ? ` · schema ${status.migrationRevision}` : ''}
+          </span>
+        ) : (
+          <span className="text-danger">not reachable</span>
+        )}
       </span>
+
+      {!mocked && status?.interviewProvider && (
+        <span className="hidden lg:inline">
+          Interviewer: <span className="text-ink">{status.interviewProvider}</span>
+        </span>
+      )}
+
+      {/* Absent rather than zero when Memory does not report it. A dash asks a
+          question; a fabricated 0 answers one wrongly, which is what the old
+          bar did for as long as it existed. */}
       <span className="ml-auto whitespace-nowrap font-mono text-[11px]">
-        revision {project?.memoryRevision ?? '—'}
+        {project?.memoryRevision === undefined
+          ? 'revision unreported'
+          : `revision ${project.memoryRevision}`}
       </span>
     </div>
   )
