@@ -8,3 +8,9 @@ playwright-report
 test-results
 .vite
 node_modules/.tmp
+
+# Python backend
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

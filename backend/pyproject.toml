@@ -1,0 +1,29 @@
+[project]
+name = "kae-studio-backend"
+version = "0.1.0"
+description = "KAE-Studio's trusted application boundary: the only thing that holds a KAE-Memory credential."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "httpx>=0.27",
+  "itsdangerous>=2.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "mypy>=1.11", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kae_studio"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+
+[tool.mypy]
+files = ["src"]
+strict = true

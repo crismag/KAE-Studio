@@ -12,6 +12,7 @@ import {
   PanelHeader,
   PanelTitle,
   Skeleton,
+  EmptyState,
 } from '@/components/ui/primitives'
 import { useProjection } from '@/hooks/useProject'
 import type { ProjectModule } from '@/domain/types'
@@ -52,6 +53,23 @@ export function Dependencies() {
     return (
       <PageLayout title="Dependencies">
         <Skeleton className="h-96" />
+      </PageLayout>
+    )
+  }
+
+  // A project can genuinely have no modules — a young one has not been
+  // decomposed yet, and this deployment does not expose them over HTTP at all.
+  // Falling through to `modules[0]` crashed the route on both.
+  if (projection.modules.length === 0) {
+    return (
+      <PageLayout title="Dependencies">
+        <EmptyState title="No module graph for this project">
+          Dependencies are drawn between modules, and this project has none that
+          Studio can see. KAE-Memory exposes the module graph over MCP only —
+          its consumer is a coding agent implementing one module, and Studio's
+          curation flow is a separate contract that has not been reconciled yet.
+          Nothing is missing from the project; this view has nothing to draw.
+        </EmptyState>
       </PageLayout>
     )
   }
