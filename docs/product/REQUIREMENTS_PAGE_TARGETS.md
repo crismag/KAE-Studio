@@ -41,7 +41,7 @@ Now says what to *do*, not only what the page contains.
 
 ---
 
-## Open
+## Done in this pass
 
 ### U2 — hide internal UUIDs ✅
 
@@ -54,16 +54,6 @@ someone debugging goes looking for it.
 to be needed. Nothing on this page required an identifier; it required not
 leading with one.
 
-The UUID takes the most prominent column and carries almost no value to a
-reader. Wanted: a short human identifier (`REQ-004`, `QUESTION-002`) with the
-UUID under technical details on expansion.
-
-**Not trivial, and worth saying why.** Memory's id is the real identity and the
-only thing that survives a rename or a rewording; a display id must be derived
-and stable, and a counter that renumbers when an item is rejected would be
-worse than the UUID it replaced. Needs a decision on where that number lives —
-almost certainly Memory, not Studio, since Studio owns no durable project state
-(ADR-0006).
 
 ### U3 — "Why this is here" → "Source & reasoning" ✅
 
@@ -79,12 +69,6 @@ indistinguishable, and a model's account of why it believes something is not
 evidence. Where the trace cannot be read, the row says so rather than
 substituting an explanation.
 
-Rename, and make the expansion earn it: source (conversation, document, manual,
-extraction), supporting evidence, why KAE classified it as this type,
-confirmation history, related module, related questions and tests.
-
-Memory holds most of this already — `/v1/knowledge/{id}/trace` exists and
-Studio does not call it.
 
 ### U4 — a next action on every row ✅ *(partial, by design)*
 
@@ -100,13 +84,6 @@ assignment over HTTP, which is `agent_only` by decision (N12,
 [#85](https://github.com/crismag/KAE-Memory/issues/85)). Recorded rather than
 faked client-side.
 
-Confirm, edit/correct, reject, answer clarification, assign module, add
-acceptance criterion, link or create a test — offered according to status.
-"No owning module" should be a link, not an orange warning that leads nowhere.
-
-Confirm and reject exist on Reviews. The rest are not wired, and two of them
-(module assignment, acceptance criteria) touch capabilities Memory exposes over
-MCP only — so this overlaps the unreconciled Studio curation contract (N12).
 
 ### U6 — acceptance criteria under their requirement ❌ **blocked — missing contract**
 
@@ -122,9 +99,6 @@ thing this page must not do.
 relationship type binding one statement to another as its verification. Not
 built here: that is a domain decision, not a UI change.
 
-`Acceptance criteria — 0` at the foot of the page reads as a separate thing a
-reader must go and create somewhere else. Better under the owning requirement,
-with a project-wide view retained as a summary.
 
 ### U8 — a collapsible "How this page works" ✅
 
@@ -136,9 +110,3 @@ rather than effort.
 A browser test asserts it is **not** visible until opened — an instruction panel
 read once occupies the top of the page forever for everyone who already knows.
 
-Not a permanent panel. A `?` that opens: the requirement types, what each
-status means, how requirements are discovered, what module ownership means, why
-verification matters.
-
-Deliberately last. An explainer that compensates for ambiguous classification
-is a worse fix than classifying correctly — which is why U1 went first.
