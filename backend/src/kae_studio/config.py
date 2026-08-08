@@ -34,6 +34,16 @@ class Settings:
     name is the principal's label. A client sends only the token — passing the
     pair authenticates as nobody, and Memory correctly answers 401.
     """
+    #: Where KAE-Artifacts is, or empty when this deployment has none.
+    #:
+    #: Empty is a supported configuration rather than a broken one: Studio is
+    #: useful without artifact generation, and a backend that refused to start
+    #: without it would make every deployment depend on a service most of them
+    #: do not yet run. The routes report the gap; the UI renders it.
+    artifacts_base_url: str
+    #: A bearer token for KAE-Artifacts, if it requires one. Never reaches a
+    #: browser — like the Memory token, it lives on this side of the boundary.
+    artifacts_token: str
     session_secret: str
     operator_password: str
     operator_name: str
@@ -131,6 +141,11 @@ class Settings:
             cookie_samesite=samesite,
             memory_base_url=env.get("KAE_MEMORY_URL", "http://127.0.0.1:8000").rstrip("/"),
             memory_token=env["KAE_MEMORY_TOKEN"].strip(),
+            # No default. A guessed URL would make "artifacts unreachable" the
+            # symptom of a deployment that never intended to run them, which is
+            # a different problem wearing the same error message.
+            artifacts_base_url=env.get("KAE_ARTIFACTS_URL", "").strip().rstrip("/"),
+            artifacts_token=env.get("KAE_ARTIFACTS_TOKEN", "").strip(),
             session_secret=secret,
             operator_password=env.get("STUDIO_PASSWORD", ""),
             authentication_required=authentication_required,
@@ -152,6 +167,8 @@ class Settings:
         return {
             "authentication": "required" if self.authentication_required else "disabled",
             "memory_url": self.memory_base_url,
+            "artifacts_url": self.artifacts_base_url,
+            "artifacts": "configured" if self.artifacts_base_url else "not configured",
             "operator": self.operator_name,
             "secure_cookies": self.secure_cookies,
             "cookie_samesite": self.cookie_samesite,

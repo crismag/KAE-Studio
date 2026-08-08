@@ -304,6 +304,172 @@ export interface Deliverable {
   blockedReason?: string
 }
 
+/* ------------------------------------------------------- artifact generation */
+
+/**
+ * The KAE-Artifacts resources, as the UI sees them.
+ *
+ * Deliberately close to that service's wire shape rather than translated into
+ * Studio vocabulary. Two reasons: the vocabulary is the contract, and a
+ * translation layer would be a second place for "what does blocked mean?" to be
+ * answered — which is how the two answers start to differ.
+ *
+ * Nothing here is invented by Studio. Every field arrives from KAE-Artifacts,
+ * and where it is absent the UI says so rather than substituting a default.
+ */
+
+/** Whether a planned artifact can be produced from what the project knows. */
+export type ArtifactReadiness = 'ready' | 'needs_review' | 'blocked'
+
+export interface ArtifactPlanEntry {
+  type: string
+  logicalPath: string
+  purpose: string
+  inputs: string[]
+  readiness: ArtifactReadiness
+  /**
+   * Required when readiness is `blocked`, and the most important string on the
+   * screen: it names the decision nobody has made. A blocked entry without one
+   * would be indistinguishable from an oversight.
+   */
+  blockedReason: string
+  selected: boolean
+  /** Selected **and** not blocked. Selection alone cannot override readiness. */
+  generatable: boolean
+  options: Record<string, string>
+}
+
+export interface ArtifactPlan {
+  planId: string
+  subjectId: string
+  /** The Memory revision this plan was proposed against, e.g. `memory:281`. */
+  inputRevision: string
+  inputDigest: string
+  profile: string
+  checksum: string
+  actionable: boolean
+  entries: ArtifactPlanEntry[]
+}
+
+export interface ArtifactProfile {
+  id: string
+  artifactCount: number
+  artifacts: { type: string; defaultPath: string; purpose: string; inputs: string[] }[]
+}
+
+export interface GenerationRun {
+  runId: string
+  status: 'accepted' | 'running' | 'succeeded' | 'failed'
+  inputRevision: string
+  artifactIds: string[]
+  packageId: string
+  errorCode: string
+  errorMessage: string
+}
+
+export interface ArtifactManifestEntry {
+  artifactId: string
+  type: string
+  logicalPath: string
+  checksum: string
+  sizeBytes: number
+  generatorVersion: string
+}
+
+export interface ArtifactPackage {
+  packageId: string
+  subjectId: string
+  inputRevision: string
+  runId: string
+  packageChecksum: string
+  manifestVersion: string
+  createdAt: string
+  artifacts: ArtifactManifestEntry[]
+}
+
+export interface ValidationFinding {
+  check: string
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  remedy: string
+  artifactId: string
+}
+
+export interface ValidationResult {
+  publishable: boolean
+  findings: ValidationFinding[]
+}
+
+/** What publishing would do to one path at the destination. */
+export type FileOutcome = 'add' | 'modify' | 'unchanged' | 'conflict'
+
+export interface PreviewChange {
+  path: string
+  outcome: FileOutcome
+  /** The destination's current content identity — a blob SHA, an ETag. */
+  existingIdentity: string
+  newChecksum: string
+  sizeBytes: number
+  detail: string
+}
+
+export interface ArtifactDestination {
+  type: 'download' | 'github' | 's3'
+  mode: 'pull_request' | 'direct' | 'object_write'
+  target: string
+  targetPath: string
+  baseBranch: string
+}
+
+export interface ArtifactPreview {
+  previewId: string
+  packageId: string
+  packageChecksum: string
+  checksum: string
+  destination: ArtifactDestination
+  /**
+   * The provider's concurrency handle at preview time — a commit SHA for
+   * GitHub. If the destination moves, the approval bound to this stops being
+   * valid, which is the whole mechanism behind "review before mutation".
+   */
+  baseToken: string
+  hasChanges: boolean
+  changes: PreviewChange[]
+}
+
+export interface ArtifactApproval {
+  approvalId: string
+  packageId: string
+  packageChecksum: string
+  previewId: string
+  previewChecksum: string
+  destination: ArtifactDestination
+  baseToken: string
+  approverRef: string
+  approvedAt: string
+  expiresAt: string
+  policyVersion: string
+}
+
+export interface ArtifactPublication {
+  publicationId: string
+  packageId: string
+  approvalId: string
+  destination: ArtifactDestination
+  status: 'accepted' | 'awaiting_approval' | 'running' | 'succeeded' | 'failed'
+  externalReference: string
+  reviewUrl: string
+  filesWritten: string[]
+  detail: string
+}
+
+export interface PublisherAvailability {
+  type: string
+  available: boolean
+  /** Why not, when unavailable. Empty is only correct when it *is* available. */
+  reason: string
+}
+
 /* ---------------------------------------------------------------- health */
 
 export interface CoverageTopic {

@@ -29,10 +29,71 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from .artifacts_client import ArtifactsClient, ArtifactsRefused, ArtifactsUnavailable
 from .config import Settings
+from .generation_input import ContextNotUsable, to_generation_input
 from .interviewer import DEFAULT_MODEL, InterviewUnavailable, Interviewer
 from .memory_client import MODULE_GAP, MemoryClient, MemoryRefused, MemoryUnavailable
 from .security import SESSION_COOKIE, SESSION_MAX_AGE, Operator, Sessions, require_operator
+
+
+class DestinationIn(BaseModel):
+    """Where a package goes. **Never carries a credential.**
+
+    `connection_ref` names a secret that KAE-Artifacts resolves on its own side.
+    A browser that could supply a token here would be a browser that had one.
+    """
+
+    type: str = "download"
+    mode: str = "pull_request"
+    target: str = ""
+    target_path: str = ""
+    base_branch: str = ""
+    connection_ref: str = ""
+
+
+class PlanRequest(BaseModel):
+    profile: str = "full-project-foundation"
+
+
+class PlanEditIn(BaseModel):
+    """One plan entry, as the user left it. `None` means "leave this alone"."""
+
+    type: str
+    logical_path: str | None = None
+    selected: bool | None = None
+    options: dict[str, str] | None = None
+
+
+class PlanEdits(BaseModel):
+    edits: list[PlanEditIn]
+
+
+class GenerateRequest(BaseModel):
+    plan_id: str = Field(min_length=1)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+class PreviewRequest(BaseModel):
+    package_id: str = Field(min_length=1)
+    destination: DestinationIn
+
+
+class ApprovalRequest(BaseModel):
+    """No approver field. The signed-in operator is the approver.
+
+    A caller-supplied one would let anything claim anybody's approval, and it
+    travels into provenance where it reads as a fact about who agreed.
+    """
+
+    preview_id: str = Field(min_length=1)
+
+
+class PublishRequest(BaseModel):
+    package_id: str = Field(min_length=1)
+    destination: DestinationIn
+    approval_id: str = Field(min_length=1)
+    idempotency_key: str = Field(min_length=1, max_length=200)
 
 
 class SignIn(BaseModel):
@@ -71,6 +132,15 @@ def create_app(settings: Settings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
         app.state.memory = MemoryClient(settings.memory_base_url, settings.memory_token)
+        # `None` when no KAE-Artifacts URL is configured, which is a supported
+        # deployment rather than a broken one. The routes report the gap; a
+        # client constructed against an empty base URL would instead fail per
+        # request with a connection error, which reads like an outage.
+        app.state.artifacts = (
+            ArtifactsClient(settings.artifacts_base_url, settings.artifacts_token)
+            if settings.artifacts_base_url
+            else None
+        )
         # Built once. Constructing an interviewer per request would rebuild a
         # Memory client on every turn for no gain.
         app.state.interviewer = Interviewer(
@@ -78,6 +148,8 @@ def create_app(settings: Settings) -> FastAPI:
         )
         yield
         await app.state.memory.aclose()
+        if app.state.artifacts is not None:
+            await app.state.artifacts.aclose()
 
     app = FastAPI(
         title="KAE-Studio",
@@ -117,6 +189,47 @@ def create_app(settings: Settings) -> FastAPI:
     def memory(request: Request) -> MemoryClient:
         client: MemoryClient = request.app.state.memory
         return client
+
+    def artifacts(request: Request) -> ArtifactsClient:
+        """The KAE-Artifacts client, or a 501 saying it is not configured.
+
+        501 rather than 503: this deployment cannot do it at all, which is an
+        operator's setting to fill in. 503 would say "try again", about
+        something no amount of retrying will fix.
+        """
+
+        client: ArtifactsClient | None = request.app.state.artifacts
+        if client is None:
+            raise HTTPException(
+                status.HTTP_501_NOT_IMPLEMENTED,
+                detail={
+                    "error": {
+                        "code": "artifacts_not_configured",
+                        "message": (
+                            "This Studio deployment has no KAE-Artifacts service. "
+                            "Project knowledge is readable; generating documents "
+                            "from it is not available here."
+                        ),
+                        "remedy": "Set KAE_ARTIFACTS_URL and restart the backend.",
+                        "retryable": False,
+                    }
+                },
+            )
+        return client
+
+    async def _generation_input(client: MemoryClient, project_id: str) -> dict[str, Any]:
+        """Assemble the project's context and shape it for KAE-Artifacts.
+
+        Read fresh on every call rather than cached. A plan proposed against
+        stale knowledge would generate documents citing a revision the project
+        has moved past, and KAE-Artifacts refuses that mismatch — correctly, but
+        the caller would have no idea why.
+        """
+
+        project = await client.get_project(project_id)
+        name = str(project.get("name", "")) if isinstance(project, dict) else ""
+        context = await client.context(project_id)
+        return to_generation_input(context, project_name=name)
 
     # -- session -----------------------------------------------------------
 
@@ -202,7 +315,7 @@ def create_app(settings: Settings) -> FastAPI:
     ) -> Any:
         name = str(body.get("name", "")).strip()
         if not name:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "name is required")
+            raise HTTPException(422, "name is required")
         return await memory(request).create_project(name, body.get("key"))
 
     @app.get("/api/projects/{project_id}")
@@ -381,12 +494,12 @@ def create_app(settings: Settings) -> FastAPI:
     ) -> Any:
         if not body.reason.strip():
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                422,
                 "a rejection needs a reason: 'no' without one tells the next reader nothing",
             )
         if body.expected_version < 1:
             raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                422,
                 "a rejection must name the version the reviewer read",
             )
         return await memory(request).reject_knowledge(
@@ -414,6 +527,194 @@ def create_app(settings: Settings) -> FastAPI:
         project_id: str, request: Request, _: Operator = Depends(require_operator)
     ) -> Any:
         return await memory(request).deliverables(project_id)
+
+    # -- artifact generation (STI-5, STI-6, STI-7) -------------------------
+    #
+    # Studio orchestrates and renders. It decides nothing: not what a plan
+    # contains, not whether an entry can be generated, not whether an approval
+    # still holds. Every one of those is KAE-Artifacts' answer, carried through
+    # unchanged — including its refusals, because a UI that flattened
+    # `stale_base` into "something went wrong" could only apologise where it
+    # should be offering to preview again.
+
+    @app.get("/api/artifact-profiles")
+    async def artifact_profiles(
+        request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """The shapes of package a project can ask for, with the files in each.
+
+        The files matter: a user choosing between `minimal-agent-context` and
+        `full-project-foundation` cannot choose between two slugs.
+        """
+
+        return await artifacts(request).profiles()
+
+    @app.get("/api/artifact-publishers")
+    async def artifact_publishers(
+        request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        return await artifacts(request).publishers()
+
+    @app.post("/api/projects/{project_id}/artifact-plans")
+    async def create_artifact_plan(
+        project_id: str,
+        body: PlanRequest,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Propose a plan from the project's current knowledge.
+
+        Assembles context, converts it, and asks KAE-Artifacts. **Nothing is
+        generated**, so a user can read this, edit it, and read it again for
+        free — which is what makes the plan an argument to have before ten
+        wrong files exist rather than after.
+        """
+
+        source = await _generation_input(memory(request), project_id)
+        return await artifacts(request).create_plan(source, body.profile)
+
+    @app.get("/api/artifact-plans/{plan_id}")
+    async def read_artifact_plan(
+        plan_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        return await artifacts(request).plan(plan_id)
+
+    @app.patch("/api/artifact-plans/{plan_id}")
+    async def edit_artifact_plan(
+        plan_id: str,
+        body: PlanEdits,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Apply a user's edits to paths, selection and options.
+
+        Generation reads the plan, so an edit here is honoured rather than
+        recomputed away. An earlier design generated from artifact *types* and
+        rebuilt default paths, which meant moving a file did nothing and said
+        nothing.
+        """
+
+        return await artifacts(request).edit_plan(
+            plan_id, [edit.model_dump(exclude_none=True) for edit in body.edits]
+        )
+
+    @app.post("/api/projects/{project_id}/generation-runs")
+    async def generate_artifacts(
+        project_id: str,
+        body: GenerateRequest,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Generate from the plan as edited, pinned to the current revision.
+
+        The idempotency key comes from the browser so a double-click, a retry
+        after a dropped response, or a reload mid-request all resolve to the
+        same run rather than to a second one.
+        """
+
+        source = await _generation_input(memory(request), project_id)
+        return await artifacts(request).generate(source, body.plan_id, body.idempotency_key)
+
+    @app.get("/api/generation-runs/{run_id}")
+    async def read_generation_run(
+        run_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        return await artifacts(request).run(run_id)
+
+    @app.get("/api/artifacts/{artifact_id}")
+    async def read_artifact(
+        artifact_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """One generated document, with its content.
+
+        So a person can read what would be published before agreeing to publish
+        it, rather than approving a filename.
+        """
+
+        return await artifacts(request).artifact(artifact_id)
+
+    @app.get("/api/artifact-packages/{package_id}")
+    async def read_artifact_package(
+        package_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        return await artifacts(request).package(package_id)
+
+    @app.post("/api/artifact-packages/{package_id}/validation")
+    async def validate_artifact_package(
+        package_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        return await artifacts(request).validate(package_id)
+
+    @app.post("/api/artifact-previews")
+    async def create_artifact_preview(
+        body: PreviewRequest, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Read the destination and describe exactly what would change.
+
+        Mutates nothing. The per-file outcome is the point: a user approving
+        four modifications is agreeing to overwrite four files, and a list of
+        filenames never told them so.
+        """
+
+        return await artifacts(request).preview(body.package_id, body.destination.model_dump())
+
+    @app.post("/api/artifact-approvals", status_code=status.HTTP_201_CREATED)
+    async def approve_artifact_preview(
+        body: ApprovalRequest,
+        request: Request,
+        operator: Operator = Depends(require_operator),
+    ) -> Any:
+        """Bind an approval to exactly this preview.
+
+        The approver is **the signed-in operator**, taken from the session and
+        never from the request body. A caller-supplied approver reference would
+        let anything claim anybody's approval, and that reference travels into
+        provenance where it is read as a fact about who agreed.
+        """
+
+        return await artifacts(request).approve(
+            body.preview_id, approver_ref=f"studio:{operator.name}"
+        )
+
+    @app.post("/api/artifact-publications", status_code=status.HTTP_202_ACCEPTED)
+    async def publish_artifacts(
+        body: PublishRequest,
+        request: Request,
+        operator: Operator = Depends(require_operator),
+    ) -> Any:
+        """Publish under an approval, and report what the provider confirmed.
+
+        **202**, matching KAE-Artifacts: a publication is a long-running-capable
+        resource with a stable id even though it executes synchronously today.
+        Declaring 200 here would make moving it behind a queue a breaking change
+        for every caller.
+
+        The result carries the outcome — a succeeded publication and a failed
+        one are both 202, because the *request* was accepted either way and the
+        status field is where the answer lives.
+        """
+
+        return await artifacts(request).publish(
+            package_id=body.package_id,
+            destination=body.destination.model_dump(),
+            approval_id=body.approval_id,
+            idempotency_key=body.idempotency_key,
+            caller=f"studio:{operator.name}",
+        )
+
+    @app.get("/api/artifact-publications/{publication_id}")
+    async def read_artifact_publication(
+        publication_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        return await artifacts(request).publication(publication_id)
+
+    @app.get("/api/artifact-publications/{publication_id}/provenance")
+    async def read_artifact_provenance(
+        publication_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Which knowledge and which bytes produced which destination state."""
+
+        return await artifacts(request).provenance(publication_id)
 
     @app.get("/api/projects/{project_id}/modules")
     async def modules(
@@ -452,6 +753,55 @@ def create_app(settings: Settings) -> FastAPI:
         return JSONResponse(
             status_code=error.status_code,
             content={"error": "memory_refused", "detail": error.detail},
+        )
+
+    @app.exception_handler(ArtifactsRefused)
+    async def _artifacts_refused(_: Request, error: ArtifactsRefused) -> Response:
+        """Pass the typed refusal through, status and all.
+
+        The UI branches on the code: `stale_base` offers a re-preview,
+        `rate_limited` backs off, `publisher_not_configured` points at a
+        setting. Collapsing them into one status would leave the interface able
+        only to apologise.
+        """
+
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=error.status_code, content=error.body)
+
+    @app.exception_handler(ArtifactsUnavailable)
+    async def _artifacts_unavailable(_: Request, error: ArtifactsUnavailable) -> Response:
+        # 503: the service could not be asked. Deliberately not a report about
+        # the action — after a publish request that never arrived, "failed" and
+        # "succeeded" are equally unfounded.
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "error": {
+                    "code": "artifacts_unavailable",
+                    "message": str(error),
+                    "remedy": "Check the publication list before retrying; the request may not have arrived.",
+                    "retryable": True,
+                }
+            },
+        )
+
+    @app.exception_handler(ContextNotUsable)
+    async def _context_not_usable(_: Request, error: ContextNotUsable) -> Response:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "context_not_usable",
+                    "message": str(error),
+                    "remedy": "The project has no assemblable context yet. Add knowledge first.",
+                    "retryable": False,
+                }
+            },
         )
 
     return app

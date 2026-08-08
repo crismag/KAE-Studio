@@ -61,35 +61,151 @@ describe('mock services', () => {
     expect(retained?.requirementIds).toEqual(original.requirementIds)
   })
 
-  it('pins a generated package to the current memory revision', async () => {
-    const { artifacts, memory } = createMockServices()
+  it('pins a generated package to the memory revision it read', async () => {
+    const { pipeline, memory } = createMockServices()
     const project = await memory.getProject(PROJECT_ID)
 
-    const generated = await artifacts.generate(PROJECT_ID, 'DLV-MOD-APR')
+    const plan = await pipeline.createPlan(PROJECT_ID, 'minimal-agent-context')
 
-    expect(generated.state).toBe('generated')
-    expect(generated.sourceMemoryRevision).toBe(project.memoryRevision)
-    expect(generated.unresolvedDecisionIds).toContain('OD-011')
+    expect(plan.inputRevision).toBe(`memory:${project.memoryRevision}`)
   })
 
-  it('keeps open decisions open in a generated package', async () => {
-    const { artifacts } = createMockServices()
-    const generated = await artifacts.generate(PROJECT_ID, 'DLV-MOD-APR')
-    // The product must never resolve a decision to make output look complete.
-    expect(generated.unresolvedDecisionIds.length).toBeGreaterThan(0)
+  it('will not generate a blocked artifact even when it is selected', async () => {
+    // The behaviour that separates a plan from a template. A blocked entry
+    // names a decision nobody has made, and producing it with a placeholder is
+    // exactly what the readiness state exists to prevent.
+    const { pipeline } = createMockServices()
+    const plan = await pipeline.createPlan(PROJECT_ID, 'full-project-foundation')
+    const blocked = plan.entries.find((e) => e.readiness === 'blocked')
+    expect(blocked?.blockedReason).toMatch(/repository/i)
+
+    const edited = await pipeline.editPlan(plan.planId, [
+      { type: blocked!.type, selected: true },
+    ])
+
+    expect(edited.entries.find((e) => e.type === blocked!.type)?.generatable).toBe(false)
   })
 
-  it('does not offer the local workspace target without an agent', async () => {
-    const { publisher } = createMockServices()
-    const targets = await publisher.listTargets()
-    const local = targets.find((t) => t.kind === 'local')
-    expect(local?.available).toBe(false)
-    expect(local?.unavailableReason).toMatch(/local agent/i)
+  it('generates the file where the user moved it', async () => {
+    const { pipeline } = createMockServices()
+    const plan = await pipeline.createPlan(PROJECT_ID, 'minimal-agent-context')
+    await pipeline.editPlan(plan.planId, [
+      { type: 'agent-context', logicalPath: '.github/AGENTS.md' },
+    ])
+
+    const run = await pipeline.generate(PROJECT_ID, plan.planId, 'k1')
+    const pkg = await pipeline.getPackage(run.packageId)
+
+    expect(pkg.artifacts.map((a) => a.logicalPath)).toContain('.github/AGENTS.md')
+  })
+
+  it('returns the original run when a generation is retried', async () => {
+    const { pipeline } = createMockServices()
+    const plan = await pipeline.createPlan(PROJECT_ID, 'minimal-agent-context')
+
+    const first = await pipeline.generate(PROJECT_ID, plan.planId, 'same')
+    const second = await pipeline.generate(PROJECT_ID, plan.planId, 'same')
+
+    expect(second.runId).toBe(first.runId)
+  })
+
+  it('distinguishes a file it would add from one it would overwrite', async () => {
+    // A user approving four modifications is agreeing to overwrite four files.
+    // A list of filenames never told them so.
+    const { pipeline } = createMockServices()
+    const plan = await pipeline.createPlan(PROJECT_ID, 'minimal-agent-context')
+    const run = await pipeline.generate(PROJECT_ID, plan.planId, 'k2')
+
+    const preview = await pipeline.preview(run.packageId, {
+      type: 'github',
+      mode: 'pull_request',
+      target: 'crismag/ministry-reporting',
+      targetPath: 'docs/kae',
+      baseBranch: 'main',
+    })
+
+    expect(preview.changes.some((c) => c.outcome === 'modify')).toBe(true)
+    expect(preview.baseToken).not.toBe('')
+  })
+
+  it('reports a destination it cannot reach, with the reason', async () => {
+    // Reported rather than omitted. A missing entry would be indistinguishable
+    // from a destination that does not exist, and sends an operator to an issue
+    // tracker instead of to their settings.
+    const { pipeline } = createMockServices()
+    const publishers = await pipeline.listPublishers()
+    const s3 = publishers.find((p) => p.type === 's3')
+    expect(s3?.available).toBe(false)
+    expect(s3?.reason).toMatch(/configured/i)
+  })
+
+  it('binds an approval to the preview that was reviewed', async () => {
+    const { pipeline } = createMockServices()
+    const plan = await pipeline.createPlan(PROJECT_ID, 'minimal-agent-context')
+    const run = await pipeline.generate(PROJECT_ID, plan.planId, 'k3')
+    const preview = await pipeline.preview(run.packageId, {
+      type: 'download',
+      mode: 'object_write',
+      target: '',
+      targetPath: '',
+      baseBranch: '',
+    })
+
+    const approval = await pipeline.approve(preview.previewId)
+
+    expect(approval.previewChecksum).toBe(preview.checksum)
+    expect(approval.packageChecksum).toBe(preview.packageChecksum)
+    expect(new Date(approval.expiresAt).getTime()).toBeGreaterThan(
+      new Date(approval.approvedAt).getTime(),
+    )
+  })
+
+  it('refuses to publish a package the approval was not given for', async () => {
+    // Approving one package must never authorise publishing another.
+    const { pipeline } = createMockServices()
+    const plan = await pipeline.createPlan(PROJECT_ID, 'minimal-agent-context')
+    const approved = await pipeline.generate(PROJECT_ID, plan.planId, 'k4')
+    const other = await pipeline.generate(PROJECT_ID, plan.planId, 'k5')
+    const preview = await pipeline.preview(approved.packageId, {
+      type: 'download',
+      mode: 'object_write',
+      target: '',
+      targetPath: '',
+      baseBranch: '',
+    })
+    const approval = await pipeline.approve(preview.previewId)
+
+    const publication = await pipeline.publish({
+      packageId: other.packageId,
+      destination: preview.destination,
+      approvalId: approval.approvalId,
+      idempotencyKey: 'p1',
+    })
+
+    expect(publication.status).toBe('failed')
+    expect(publication.detail).toMatch(/package_mismatch/)
   })
 
   it('labels publication as prototype behaviour', async () => {
-    const { publisher } = createMockServices()
-    const outcome = await publisher.publish('DLV-MOD-APR', 'github')
-    expect(outcome.message).toMatch(/prototype/i)
+    const { pipeline } = createMockServices()
+    const plan = await pipeline.createPlan(PROJECT_ID, 'minimal-agent-context')
+    const run = await pipeline.generate(PROJECT_ID, plan.planId, 'k6')
+    const preview = await pipeline.preview(run.packageId, {
+      type: 'download',
+      mode: 'object_write',
+      target: '',
+      targetPath: '',
+      baseBranch: '',
+    })
+    const approval = await pipeline.approve(preview.previewId)
+
+    const publication = await pipeline.publish({
+      packageId: run.packageId,
+      destination: preview.destination,
+      approvalId: approval.approvalId,
+      idempotencyKey: 'p2',
+    })
+
+    expect(publication.detail).toMatch(/prototype/i)
   })
 })

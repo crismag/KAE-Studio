@@ -32,6 +32,13 @@ if [ ! -f "$ENV_FILE" ]; then
 KAE_MEMORY_URL=https://kae.crishub.com
 KAE_MEMORY_TOKEN=REPLACE_ME
 
+# Where KAE-Artifacts is, if this deployment runs one. **Commented out on
+# purpose**: Studio without it is a supported configuration, and the artifact
+# routes report the gap honestly rather than failing. Uncomment once the
+# service is running locally — \`uvicorn kae_artifacts.api.app:create_app
+# --factory --port 8200\` in the KAE-Artifacts checkout.
+# KAE_ARTIFACTS_URL=http://127.0.0.1:8200
+
 STUDIO_SESSION_SECRET=$(openssl rand -hex 32)
 STUDIO_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | head -c 18)
 STUDIO_OPERATOR=dev

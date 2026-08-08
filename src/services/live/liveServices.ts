@@ -17,13 +17,19 @@ import type {
   Deliverable,
   InterviewSession,
   Project,
+  ArtifactDestination,
+  ArtifactPlan,
+  ArtifactPreview,
+  ArtifactPublication,
+  ArtifactReadiness,
+  FileOutcome,
+  GenerationRun,
   ProjectProjection,
-  PublishTarget,
-  PublishTargetKind,
   Requirement,
+  ValidationResult,
 } from '@/domain/types'
 import type {
-  ArtifactPublisher,
+  ArtifactPipeline,
   ArtifactService,
   InterviewProvider,
   InterviewTurn,
@@ -62,6 +68,281 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`${response.status}: ${body.slice(0, 200)}`)
   }
   return (await response.json()) as T
+}
+
+/**
+ * A refusal from KAE-Artifacts, with its code intact.
+ *
+ * The UI branches on `code`: `stale_base` offers to preview again,
+ * `rate_limited` backs off, `publisher_not_configured` points at a setting. A
+ * plain `Error` carrying "409: {...}" would force every caller to match on
+ * English, which breaks the first time anyone improves the wording.
+ */
+export class ArtifactError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly remedy: string,
+    readonly retryable: boolean,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'ArtifactError'
+  }
+}
+
+/** Like `call`, but reads the typed error envelope KAE-Artifacts returns. */
+async function callArtifacts<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    ...init,
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+  })
+  if (response.status === 401) throw new Error('not signed in')
+  if (!response.ok) {
+    let body: unknown = null
+    try {
+      body = await response.json()
+    } catch {
+      // A proxy or a gateway can answer with HTML. Falling through leaves the
+      // status, which is still more than "something went wrong".
+    }
+    // FastAPI nests `HTTPException(detail=...)` under `detail`; our own
+    // handlers return the envelope at the top level. Both shapes occur, and a
+    // client that understood only one would lose the code exactly when a
+    // deployment is misconfigured.
+    const envelope =
+      (body as { error?: unknown })?.error ??
+      ((body as { detail?: { error?: unknown } })?.detail as { error?: unknown })?.error
+    const error = envelope as
+      | { code?: string; message?: string; remedy?: string; retryable?: boolean }
+      | undefined
+    throw new ArtifactError(
+      error?.code ?? 'unknown',
+      error?.message ?? `Request failed with ${response.status}.`,
+      error?.remedy ?? '',
+      error?.retryable ?? false,
+      response.status,
+    )
+  }
+  if (response.status === 204) return undefined as T
+  return (await response.json()) as T
+}
+
+/* ------------------------------------------- KAE-Artifacts wire shapes */
+
+/*
+ * Snake_case is KAE-Artifacts' vocabulary; camelCase is the UI's. Mapping
+ * happens here, once, rather than leaving components to read `logical_path` in
+ * one place and `logicalPath` in another.
+ *
+ * These are declared rather than inferred so a field KAE-Artifacts renames
+ * fails at the type level here, in the one file that knows about the wire —
+ * instead of arriving as `undefined` in a component that renders a blank.
+ */
+
+interface WireProfile {
+  id: string
+  artifact_count: number
+  artifacts: { type: string; default_path: string; purpose: string; inputs: string[] }[]
+}
+
+interface WirePublisher {
+  type: string
+  available: boolean
+  reason?: string
+}
+
+interface WirePlanEntry {
+  type: string
+  logical_path: string
+  purpose: string
+  inputs: string[]
+  readiness: ArtifactReadiness
+  blocked_reason: string
+  selected: boolean
+  generatable: boolean
+  options: Record<string, string>
+}
+
+interface WirePlan {
+  plan_id: string
+  subject_id: string
+  input_revision: string
+  input_digest: string
+  profile: string
+  checksum: string
+  actionable: boolean
+  entries: WirePlanEntry[]
+}
+
+interface WireRun {
+  run_id: string
+  status: GenerationRun['status']
+  input_revision: string
+  artifact_ids: string[]
+  package_id: string
+  error_code: string
+  error_message: string
+}
+
+interface WirePackage {
+  package_id: string
+  subject_id: string
+  input_revision: string
+  run_id: string
+  package_checksum: string
+  manifest_version: string
+  created_at: string
+  artifacts: {
+    artifact_id: string
+    type: string
+    logical_path: string
+    checksum: string
+    size_bytes: number
+    generator_version: string
+  }[]
+}
+
+interface WireArtifact {
+  artifact_id: string
+  type: string
+  logical_path: string
+  media_type: string
+  checksum: string
+  size_bytes: number
+  input_revision: string
+  generator_version: string
+  content: string
+}
+
+interface WireDestination {
+  type: ArtifactDestination['type']
+  mode: ArtifactDestination['mode']
+  target: string
+  target_path: string
+  base_branch?: string
+}
+
+interface WirePreview {
+  preview_id: string
+  package_id: string
+  package_checksum: string
+  checksum: string
+  destination: WireDestination
+  base_token: string
+  has_changes: boolean
+  changes: {
+    path: string
+    outcome: FileOutcome
+    existing_identity: string
+    new_checksum: string
+    size_bytes: number
+    detail: string
+  }[]
+}
+
+interface WireApproval {
+  approval_id: string
+  package_id: string
+  package_checksum: string
+  preview_id: string
+  preview_checksum: string
+  destination: WireDestination
+  base_token: string
+  approver_ref: string
+  approved_at: string
+  expires_at: string
+  policy_version: string
+}
+
+interface WirePublication {
+  publication_id: string
+  package_id: string
+  approval_id: string
+  destination: WireDestination
+  status: ArtifactPublication['status']
+  external_reference: string
+  review_url: string
+  files_written: string[]
+  detail: string
+}
+
+function destination(wire: WireDestination): ArtifactDestination {
+  return {
+    type: wire.type,
+    mode: wire.mode,
+    target: wire.target,
+    targetPath: wire.target_path,
+    baseBranch: wire.base_branch ?? '',
+  }
+}
+
+function wireDestination(value: ArtifactDestination): WireDestination {
+  return {
+    type: value.type,
+    mode: value.mode,
+    target: value.target,
+    target_path: value.targetPath,
+    base_branch: value.baseBranch,
+  }
+}
+
+function plan(wire: WirePlan): ArtifactPlan {
+  return {
+    planId: wire.plan_id,
+    subjectId: wire.subject_id,
+    inputRevision: wire.input_revision,
+    inputDigest: wire.input_digest,
+    profile: wire.profile,
+    checksum: wire.checksum,
+    actionable: wire.actionable,
+    entries: wire.entries.map((e) => ({
+      type: e.type,
+      logicalPath: e.logical_path,
+      purpose: e.purpose,
+      inputs: e.inputs,
+      readiness: e.readiness,
+      blockedReason: e.blocked_reason,
+      selected: e.selected,
+      generatable: e.generatable,
+      options: e.options,
+    })),
+  }
+}
+
+function preview(wire: WirePreview): ArtifactPreview {
+  return {
+    previewId: wire.preview_id,
+    packageId: wire.package_id,
+    packageChecksum: wire.package_checksum,
+    checksum: wire.checksum,
+    destination: destination(wire.destination),
+    baseToken: wire.base_token,
+    hasChanges: wire.has_changes,
+    changes: wire.changes.map((c) => ({
+      path: c.path,
+      outcome: c.outcome,
+      existingIdentity: c.existing_identity,
+      newChecksum: c.new_checksum,
+      sizeBytes: c.size_bytes,
+      detail: c.detail,
+    })),
+  }
+}
+
+function publication(wire: WirePublication): ArtifactPublication {
+  return {
+    publicationId: wire.publication_id,
+    packageId: wire.package_id,
+    approvalId: wire.approval_id,
+    destination: destination(wire.destination),
+    status: wire.status,
+    externalReference: wire.external_reference,
+    reviewUrl: wire.review_url,
+    filesWritten: wire.files_written,
+    detail: wire.detail,
+  }
 }
 
 interface BackendStatement {
@@ -397,31 +678,169 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       const items = Array.isArray(raw) ? raw : (raw.results ?? [])
       return items as Deliverable[]
     },
-    generate: async () => {
-      throw new CapabilityUnavailable(
-        'deliverable.generate',
-        'Recording a deliverable is available; generating one from Studio is not wired yet.',
-      )
+  }
+
+  const pipeline: ArtifactPipeline = {
+    listProfiles: async () => {
+      const body = await callArtifacts<{ profiles: WireProfile[] }>('/api/artifact-profiles')
+      return body.profiles.map((p) => ({
+        id: p.id,
+        artifactCount: p.artifact_count,
+        artifacts: p.artifacts.map((a) => ({
+          type: a.type,
+          defaultPath: a.default_path,
+          purpose: a.purpose,
+          inputs: a.inputs,
+        })),
+      }))
     },
+
+    listPublishers: async () => {
+      const body = await callArtifacts<{ publishers: WirePublisher[] }>(
+        '/api/artifact-publishers',
+      )
+      return body.publishers.map((p) => ({
+        type: p.type,
+        available: p.available,
+        reason: p.reason ?? '',
+      }))
+    },
+
+    createPlan: async (id, profile) =>
+      plan(
+        await callArtifacts<WirePlan>(`/api/projects/${resolve(id)}/artifact-plans`, {
+          method: 'POST',
+          body: JSON.stringify({ profile }),
+        }),
+      ),
+
+    getPlan: async (planId) => plan(await callArtifacts<WirePlan>(`/api/artifact-plans/${planId}`)),
+
+    editPlan: async (planId, edits) =>
+      plan(
+        await callArtifacts<WirePlan>(`/api/artifact-plans/${planId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            edits: edits.map((e) => ({
+              type: e.type,
+              // Only send what changed. A `null` would read as "clear this",
+              // and clearing a logical path is not an edit anyone means.
+              ...(e.logicalPath !== undefined ? { logical_path: e.logicalPath } : {}),
+              ...(e.selected !== undefined ? { selected: e.selected } : {}),
+              ...(e.options !== undefined ? { options: e.options } : {}),
+            })),
+          }),
+        }),
+      ),
+
+    generate: async (id, planId, idempotencyKey) => {
+      const run = await callArtifacts<WireRun>(`/api/projects/${resolve(id)}/generation-runs`, {
+        method: 'POST',
+        body: JSON.stringify({ plan_id: planId, idempotency_key: idempotencyKey }),
+      })
+      return {
+        runId: run.run_id,
+        status: run.status,
+        inputRevision: run.input_revision,
+        artifactIds: run.artifact_ids,
+        packageId: run.package_id,
+        errorCode: run.error_code,
+        errorMessage: run.error_message,
+      }
+    },
+
+    getPackage: async (packageId) => {
+      const body = await callArtifacts<WirePackage>(`/api/artifact-packages/${packageId}`)
+      return {
+        packageId: body.package_id,
+        subjectId: body.subject_id,
+        inputRevision: body.input_revision,
+        runId: body.run_id,
+        packageChecksum: body.package_checksum,
+        manifestVersion: body.manifest_version,
+        createdAt: body.created_at,
+        artifacts: body.artifacts.map((a) => ({
+          artifactId: a.artifact_id,
+          type: a.type,
+          logicalPath: a.logical_path,
+          checksum: a.checksum,
+          sizeBytes: a.size_bytes,
+          generatorVersion: a.generator_version,
+        })),
+      }
+    },
+
+    getArtifact: async (artifactId) => {
+      const body = await callArtifacts<WireArtifact>(`/api/artifacts/${artifactId}`)
+      return {
+        artifactId: body.artifact_id,
+        type: body.type,
+        logicalPath: body.logical_path,
+        mediaType: body.media_type,
+        checksum: body.checksum,
+        sizeBytes: body.size_bytes,
+        inputRevision: body.input_revision,
+        generatorVersion: body.generator_version,
+        content: body.content,
+      }
+    },
+
+    validate: async (packageId) =>
+      callArtifacts<ValidationResult>(`/api/artifact-packages/${packageId}/validation`, {
+        method: 'POST',
+      }),
+
+    preview: async (packageId, destination) =>
+      preview(
+        await callArtifacts<WirePreview>('/api/artifact-previews', {
+          method: 'POST',
+          body: JSON.stringify({ package_id: packageId, destination: wireDestination(destination) }),
+        }),
+      ),
+
+    approve: async (previewId) => {
+      const body = await callArtifacts<WireApproval>('/api/artifact-approvals', {
+        method: 'POST',
+        body: JSON.stringify({ preview_id: previewId }),
+      })
+      return {
+        approvalId: body.approval_id,
+        packageId: body.package_id,
+        packageChecksum: body.package_checksum,
+        previewId: body.preview_id,
+        previewChecksum: body.preview_checksum,
+        destination: destination(body.destination),
+        baseToken: body.base_token,
+        approverRef: body.approver_ref,
+        approvedAt: body.approved_at,
+        expiresAt: body.expires_at,
+        policyVersion: body.policy_version,
+      }
+    },
+
+    publish: async (input) =>
+      publication(
+        await callArtifacts<WirePublication>('/api/artifact-publications', {
+          method: 'POST',
+          body: JSON.stringify({
+            package_id: input.packageId,
+            destination: wireDestination(input.destination),
+            approval_id: input.approvalId,
+            idempotency_key: input.idempotencyKey,
+          }),
+        }),
+      ),
+
+    getPublication: async (publicationId) =>
+      publication(
+        await callArtifacts<WirePublication>(`/api/artifact-publications/${publicationId}`),
+      ),
+
+    getProvenance: async (publicationId) =>
+      callArtifacts<Record<string, unknown>>(
+        `/api/artifact-publications/${publicationId}/provenance`,
+      ),
   }
 
-  const publisher: ArtifactPublisher = {
-    listTargets: async () => [] as PublishTarget[],
-    previewPublish: async (_id, target: PublishTargetKind) => ({
-      ok: false,
-      target,
-      reference: '',
-      proposedChanges: [],
-      message: 'Publication is not wired from Studio yet.',
-    }),
-    publish: async (_id, target: PublishTargetKind) => ({
-      ok: false,
-      target,
-      reference: '',
-      proposedChanges: [],
-      message: 'Publication is not wired from Studio yet.',
-    }),
-  }
-
-  return { projectId: projectIdOverride ?? '', memory, interview, projection, artifacts, publisher }
+  return { projectId: projectIdOverride ?? '', memory, interview, projection, artifacts, pipeline }
 }

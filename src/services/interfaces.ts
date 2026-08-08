@@ -9,21 +9,29 @@
  *   ProjectMemoryClient      -> the KAE-Memory versioned HTTP API
  *   InterviewProvider        -> a Studio-side orchestrator over an AI provider
  *   ProjectProjectionService -> KAE-Memory context assembly + projection cache
- *   ArtifactService          -> Studio delivery (generation from a pinned revision)
- *   ArtifactPublisher        -> GitHubPublisher | LocalWorkspacePublisher | S3Publisher
+ *   ArtifactService          -> KAE-Memory's recorded deliverables
+ *   ArtifactPipeline         -> the KAE-Artifacts v1 API, through Studio's backend
  *
  * No implementation here writes to a database. Studio owns no durable project
  * state (ADR-0006).
  */
 
 import type {
+  ArtifactApproval,
+  ArtifactPackage,
+  ArtifactPlan,
+  ArtifactPreview,
+  ArtifactProfile,
+  ArtifactPublication,
+  ArtifactDestination,
   ConversationMessage,
   Deliverable,
+  GenerationRun,
   InterviewSession,
   Project,
   ProjectProjection,
-  PublishTarget,
-  PublishTargetKind,
+  PublisherAvailability,
+  ValidationResult,
 } from '@/domain/types'
 
 /** Result of a mutating call, carrying the revision it produced. */
@@ -106,26 +114,101 @@ export interface ProjectProjectionService {
   getProjection(projectId: string): Promise<ProjectProjection>
 }
 
-/** Generates versioned artifact bundles pinned to a Memory revision. */
+/** Deliverables Memory recorded. Read-only history, not generation. */
 export interface ArtifactService {
   listDeliverables(projectId: string): Promise<Deliverable[]>
-  generate(projectId: string, deliverableId: string): Promise<Deliverable>
 }
 
-export interface PublishOutcome {
-  ok: boolean
-  target: PublishTargetKind
-  reference: string
-  /** Files the publisher would write, shown for review before anything happens. */
-  proposedChanges: { path: string; change: 'add' | 'modify' }[]
-  message: string
+/**
+ * KAE-Artifacts, as resources rather than as two convenience calls.
+ *
+ * The prototype had `generate(deliverableId)` and `publish(target)`. Those
+ * cannot express the thing the product is actually for: a plan a user argues
+ * with before anything is generated, and an approval bound to exactly what a
+ * destination would change. Each step below is separate because each is a place
+ * a person makes a decision.
+ *
+ * Studio decides none of them. Whether an entry is generatable, whether an
+ * approval still holds, whether a branch moved — all KAE-Artifacts' answers,
+ * carried here unchanged.
+ */
+export interface ArtifactPipeline {
+  /** What shapes of package exist, with the files each would propose. */
+  listProfiles(): Promise<ArtifactProfile[]>
+
+  /** What this deployment can publish to, and why not where it cannot. */
+  listPublishers(): Promise<PublisherAvailability[]>
+
+  /** Propose a plan from current project knowledge. **Generates nothing.** */
+  createPlan(projectId: string, profile: string): Promise<ArtifactPlan>
+
+  getPlan(planId: string): Promise<ArtifactPlan>
+
+  /**
+   * Apply the user's edits. Only paths, selection and options may change: a
+   * different artifact type is a different entry, not an edit to this one.
+   */
+  editPlan(planId: string, edits: ArtifactPlanEdit[]): Promise<ArtifactPlan>
+
+  /**
+   * Generate from the plan **as edited**.
+   *
+   * The idempotency key is the caller's, so a double-click, a reload, or a
+   * retry after a dropped response all resolve to one run.
+   */
+  generate(projectId: string, planId: string, idempotencyKey: string): Promise<GenerationRun>
+
+  getPackage(packageId: string): Promise<ArtifactPackage>
+
+  /** One document, with its content, so a person can read before approving. */
+  getArtifact(artifactId: string): Promise<ArtifactContent>
+
+  validate(packageId: string): Promise<ValidationResult>
+
+  /** Read the destination and describe exactly what would change. Writes nothing. */
+  preview(packageId: string, destination: ArtifactDestination): Promise<ArtifactPreview>
+
+  /**
+   * Approve a **preview**, not a package.
+   *
+   * What a person reviewed is a set of changes; a package alone does not say
+   * whether those changes add four files or overwrite four. The approver is the
+   * signed-in operator, resolved server-side — Studio never names one.
+   */
+  approve(previewId: string): Promise<ArtifactApproval>
+
+  publish(input: PublishInput): Promise<ArtifactPublication>
+
+  getPublication(publicationId: string): Promise<ArtifactPublication>
+
+  /** Which knowledge and which bytes produced which destination state. */
+  getProvenance(publicationId: string): Promise<Record<string, unknown>>
 }
 
-/** Writes a generated bundle to a destination. Destination never alters the bundle. */
-export interface ArtifactPublisher {
-  listTargets(): Promise<PublishTarget[]>
-  previewPublish(deliverableId: string, target: PublishTargetKind): Promise<PublishOutcome>
-  publish(deliverableId: string, target: PublishTargetKind): Promise<PublishOutcome>
+export interface ArtifactPlanEdit {
+  type: string
+  logicalPath?: string
+  selected?: boolean
+  options?: Record<string, string>
+}
+
+export interface ArtifactContent {
+  artifactId: string
+  type: string
+  logicalPath: string
+  mediaType: string
+  checksum: string
+  sizeBytes: number
+  inputRevision: string
+  generatorVersion: string
+  content: string
+}
+
+export interface PublishInput {
+  packageId: string
+  destination: ArtifactDestination
+  approvalId: string
+  idempotencyKey: string
 }
 
 export interface StudioServices {
@@ -144,5 +227,5 @@ export interface StudioServices {
   interview: InterviewProvider
   projection: ProjectProjectionService
   artifacts: ArtifactService
-  publisher: ArtifactPublisher
+  pipeline: ArtifactPipeline
 }

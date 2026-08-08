@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServices } from '@/hooks/useServices'
-import type { ModuleDecision } from '@/services/interfaces'
-import type { PublishTargetKind } from '@/domain/types'
+import type { ArtifactPlanEdit, ModuleDecision, PublishInput } from '@/services/interfaces'
+import type { ArtifactDestination } from '@/domain/types'
 
 /**
  * The mock fixture's project id.
@@ -163,29 +163,121 @@ export function useDeliverables() {
   })
 }
 
-export function usePublishTargets() {
-  // Unscoped on purpose: `listTargets()` takes no project, so publication
-  // targets are a property of the deployment rather than of a project. If that
-  // contract ever gains a project, this key has to gain one with it.
-  const { publisher } = useServices()
-  return useQuery({ queryKey: ['publish-targets'], queryFn: () => publisher.listTargets() })
+export function useArtifactProfiles() {
+  // Unscoped on purpose: profiles are a property of the deployment, not of a
+  // project. If that contract ever gains a project, this key has to gain one
+  // with it — a cache keyed on nothing would serve one project's answer for
+  // another, which is the bug this file already carries a comment about.
+  const { pipeline } = useServices()
+  return useQuery({ queryKey: ['artifact-profiles'], queryFn: () => pipeline.listProfiles() })
 }
 
-export function useGenerateDeliverable() {
-  const { artifacts, projectId } = useServices()
+export function useArtifactPublishers() {
+  const { pipeline } = useServices()
+  return useQuery({ queryKey: ['artifact-publishers'], queryFn: () => pipeline.listPublishers() })
+}
+
+/** Propose a plan. Generates nothing, so it is safe to call as often as asked. */
+export function useCreateArtifactPlan() {
+  const { pipeline, projectId } = useServices()
+  return useMutation({
+    mutationFn: (profile: string) => pipeline.createPlan(projectId, profile),
+  })
+}
+
+export function useEditArtifactPlan() {
+  const { pipeline } = useServices()
+  return useMutation({
+    mutationFn: ({ planId, edits }: { planId: string; edits: ArtifactPlanEdit[] }) =>
+      pipeline.editPlan(planId, edits),
+  })
+}
+
+/**
+ * Generate from the plan as edited.
+ *
+ * The idempotency key is generated once per attempt and passed in, not derived
+ * here from a render — a key that changed between a double-click's two calls
+ * would produce two runs, which is the failure the key exists to prevent.
+ */
+export function useGenerateArtifacts() {
+  const { pipeline, projectId } = useServices()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (deliverableId: string) => artifacts.generate(projectId, deliverableId),
+    mutationFn: ({ planId, idempotencyKey }: { planId: string; idempotencyKey: string }) =>
+      pipeline.generate(projectId, planId, idempotencyKey),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliverables', projectId] }),
   })
 }
 
-export function usePublishDeliverable() {
-  const { publisher, projectId } = useServices()
+export function useArtifactPackage(packageId: string | undefined) {
+  const { pipeline } = useServices()
+  return useQuery({
+    queryKey: ['artifact-package', packageId],
+    queryFn: () => pipeline.getPackage(packageId!),
+    enabled: Boolean(packageId),
+  })
+}
+
+export function useValidatePackage(packageId: string | undefined) {
+  const { pipeline } = useServices()
+  return useQuery({
+    queryKey: ['artifact-validation', packageId],
+    queryFn: () => pipeline.validate(packageId!),
+    enabled: Boolean(packageId),
+  })
+}
+
+/** Read one generated document, so a person can read before approving. */
+export function useArtifactContent(artifactId: string | undefined) {
+  const { pipeline } = useServices()
+  return useQuery({
+    queryKey: ['artifact-content', artifactId],
+    queryFn: () => pipeline.getArtifact(artifactId!),
+    enabled: Boolean(artifactId),
+  })
+}
+
+/**
+ * Read the destination and describe what would change. Writes nothing.
+ *
+ * A mutation rather than a query despite being read-only: it must run when the
+ * user asks, not when a component mounts, and its result has to stay put while
+ * they read it. A query would refetch on focus and quietly replace the preview
+ * an approval is about to bind.
+ */
+export function usePreviewPublication() {
+  const { pipeline } = useServices()
+  return useMutation({
+    mutationFn: ({
+      packageId,
+      destination,
+    }: {
+      packageId: string
+      destination: ArtifactDestination
+    }) => pipeline.preview(packageId, destination),
+  })
+}
+
+export function useApprovePreview() {
+  const { pipeline } = useServices()
+  return useMutation({ mutationFn: (previewId: string) => pipeline.approve(previewId) })
+}
+
+export function usePublishPackage() {
+  const { pipeline, projectId } = useServices()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ deliverableId, target }: { deliverableId: string; target: PublishTargetKind }) =>
-      publisher.publish(deliverableId, target),
+    mutationFn: (input: PublishInput) => pipeline.publish(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliverables', projectId] }),
+  })
+}
+
+export function useProvenance(publicationId: string | undefined) {
+  const { pipeline } = useServices()
+  return useQuery({
+    queryKey: ['artifact-provenance', publicationId],
+    queryFn: () => pipeline.getProvenance(publicationId!),
+    enabled: Boolean(publicationId),
   })
 }

@@ -134,6 +134,24 @@ class MemoryClient:
 
         return await self._request("GET", f"/v1/knowledge/{knowledge_id}/trace")
 
+    async def context(
+        self, project_id: str, purpose: str = "implementation", include_proposed: bool = False
+    ) -> Any:
+        """The bounded, revision-pinned context that generation reads.
+
+        `include_proposed` defaults to false, matching Memory. Proposed
+        statements are candidates; a package generated from them by default
+        would turn "somebody said this once" into a document an implementer
+        follows. When they are included they arrive labelled, and the label
+        survives all the way into the generated file.
+        """
+
+        return await self._request(
+            "GET",
+            f"/v1/projects/{project_id}/context",
+            params={"purpose": purpose, "include_proposed": include_proposed},
+        )
+
     async def deliverables(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}/deliverables")
 
