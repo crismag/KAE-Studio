@@ -16,3 +16,4 @@ __pycache__/
 .pytest_cache/
 e2e/.auth/
 .env.dev
+e2e/.auth/

@@ -195,6 +195,17 @@ class MemoryClient:
             body["key"] = key
         return await self._request("POST", "/v1/projects", json=body)
 
+    async def delete_project(self, project_id: str) -> Any:
+        """Remove a project and everything scoped to it. Irreversible.
+
+        Here so the browser suite can clean up after itself. It writes real
+        messages to real Memory deliberately -- that is why it catches faults an
+        API test cannot -- and before deletion existed the only way to stop the
+        accumulation was to stop running it.
+        """
+
+        return await self._request("DELETE", f"/v1/projects/{project_id}")
+
     async def answer_clarification(
         self,
         project_id: str,

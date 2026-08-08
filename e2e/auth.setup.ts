@@ -1,4 +1,5 @@
 import { expect, test as setup } from '@playwright/test'
+import { recordCreatedProject } from './runProject'
 
 /**
  * Sign in once and save the session for every test.
@@ -57,4 +58,7 @@ setup('authenticate', async ({ page }) => {
   await expect(shell).toBeVisible({ timeout: 60_000 })
 
   await page.context().storageState({ path: FILE })
+
+  // Record the project so teardown can delete it.
+  await recordCreatedProject(page)
 })

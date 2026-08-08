@@ -14,6 +14,7 @@
  */
 
 import { expect, test, type Page } from '@playwright/test'
+import { recordCreatedProject } from './runProject'
 
 const LIVE = process.env.STUDIO_WEB !== ''
 
@@ -38,6 +39,9 @@ async function create(page: Page, label: string, sentence?: string): Promise<str
   if (sentence) await page.getByPlaceholder(/One sentence about it/).fill(sentence)
   await page.getByRole('button', { name: 'Create project' }).click()
   await expect(shell(page)).toBeVisible({ timeout: 30_000 })
+  // Recorded here rather than in teardown: this helper is the only place the
+  // suite creates a project, so it is the only place that knows one exists.
+  await recordCreatedProject(page)
   return name
 }
 

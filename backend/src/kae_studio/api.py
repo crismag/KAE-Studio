@@ -211,6 +211,19 @@ def create_app(settings: Settings) -> FastAPI:
     ) -> Any:
         return await memory(request).get_project(project_id)
 
+    @app.delete("/api/projects/{project_id}")
+    async def delete_project(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Delete a project. **Irreversible** — there is no archive.
+
+        Exposed for the browser suite's teardown. A person deleting a project
+        should read `deletion-plan` on Memory first; this passes straight
+        through, so the safety is Memory's and is not re-implemented here.
+        """
+
+        return await memory(request).delete_project(project_id)
+
     @app.get("/api/projects/{project_id}/projection")
     async def projection(
         project_id: str, request: Request, _: Operator = Depends(require_operator)

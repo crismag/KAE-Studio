@@ -44,7 +44,10 @@ export default defineConfig({
   projects: [
     // One sign-in for the run. See e2e/auth.setup.ts — per-test sign-in is
     // indistinguishable from a brute-force attempt to a rate-limited proxy.
-    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    { name: 'setup', testMatch: /auth\.setup\.ts/, teardown: 'cleanup' },
+    // Runs after the tests, including when they fail. A cleanup that only runs
+    // on green is a cleanup that never runs on the days it matters.
+    { name: 'cleanup', testMatch: /cleanup\.teardown\.ts/ },
     {
       name: 'chromium',
       dependencies: ['setup'],
