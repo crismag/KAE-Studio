@@ -15,6 +15,7 @@
 
 import { expect, test, type Page } from '@playwright/test'
 import { recordCreatedProject } from './runProject'
+import { LEFT, MAIN, RIGHT } from './testProjects'
 
 const LIVE = process.env.STUDIO_WEB !== ''
 
@@ -33,8 +34,15 @@ async function toThePicker(page: Page) {
   await expect(picker(page)).toBeVisible()
 }
 
-async function create(page: Page, label: string, sentence?: string): Promise<string> {
-  const name = `es1 ${label} ${new Date().toISOString()}`
+/**
+ * Open a named project, creating it if the deployment does not have it yet.
+ *
+ * The name comes from the fixed roster. `create_project` is idempotent by the
+ * key derived from the name, so this reuses the same project on every run
+ * instead of leaving a new one behind — which is how a deployment reached a
+ * hundred and one projects.
+ */
+async function create(page: Page, name: string, sentence?: string): Promise<string> {
   await page.getByPlaceholder('Project name').fill(name)
   if (sentence) await page.getByPlaceholder(/One sentence about it/).fill(sentence)
   await page.getByRole('button', { name: 'Create project' }).click()
@@ -56,7 +64,7 @@ test.describe('choosing a project', () => {
 
   test('the shell names the project you chose', async ({ page }) => {
     await toThePicker(page)
-    const name = await create(page, 'named')
+    const name = await create(page, MAIN)
 
     // Not a UUID. The operator has to be able to tell, at a glance, which
     // project they are looking at — that is the whole failure being repaired.
@@ -65,7 +73,7 @@ test.describe('choosing a project', () => {
 
   test('the choice survives a reload', async ({ page }) => {
     await toThePicker(page)
-    const name = await create(page, 'persistent')
+    const name = await create(page, MAIN)
 
     await page.reload()
 
@@ -88,11 +96,11 @@ test.describe('switching projects', () => {
   test('one project does not show another project transcript', async ({ page }) => {
     // The acceptance criterion, and the thing that was actually wrong.
     await toThePicker(page)
-    const first = await create(page, 'left', 'A booking system for a physiotherapy clinic.')
+    const first = await create(page, LEFT, 'A booking system for a physiotherapy clinic.')
 
     await page.getByRole('button', { name: 'Switch project' }).click()
     await expect(picker(page)).toBeVisible()
-    const second = await create(page, 'right', 'A tool for tracking invoices for freelancers.')
+    const second = await create(page, RIGHT, 'A tool for tracking invoices for freelancers.')
 
     // The second project's shell must not carry the first's identity.
     await expect(page.getByText(second)).toBeVisible()
@@ -109,11 +117,11 @@ test.describe('switching projects', () => {
      * mistaken for.
      */
     await toThePicker(page)
-    const left = await create(page, 'cache-left', 'Invoices are sent within three days.')
+    const left = await create(page, LEFT, 'Invoices are sent within three days.')
 
     await page.getByRole('button', { name: 'Switch project' }).click()
     await expect(picker(page)).toBeVisible()
-    await create(page, 'cache-right', 'Therapists set their own availability.')
+    await create(page, RIGHT, 'Therapists set their own availability.')
 
     await page.getByRole('button', { name: 'Switch project' }).click()
     await expect(picker(page)).toBeVisible()
@@ -127,7 +135,7 @@ test.describe('switching projects', () => {
 test.describe('the status bar reports rather than asserts', () => {
   test.beforeEach(async ({ page }) => {
     await toThePicker(page)
-    await create(page, 'status')
+    await create(page, MAIN)
   })
 
   test('it says whether Memory is reachable, and can say it is not', async ({ page }) => {

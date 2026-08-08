@@ -163,7 +163,14 @@ export function ProjectGate({
           // earlier — so choosing it without this left the picker on screen
           // having silently discarded the choice, with the new project sitting
           // in the list behind it.
-          setListing({ state: 'ready', projects: [project, ...listing.projects] })
+          // Deduplicated by id. Creating a project whose name is already taken
+          // returns the *existing* one — Memory is idempotent by a key derived
+          // from the name — so prepending unconditionally rendered the same
+          // project twice, and a click became ambiguous.
+          setListing({
+            state: 'ready',
+            projects: [project, ...listing.projects.filter((p) => p.id !== project.id)],
+          })
           choose(project.id)
         }}
       />

@@ -18,6 +18,7 @@
  */
 
 import { expect, test, type Page } from '@playwright/test'
+import { RECOVERY } from './testProjects'
 
 // Gated on a live stack, not on a password. `STUDIO_NO_AUTH` deployments have
 // no password to set, and skipping every browser test because of that would
@@ -71,7 +72,7 @@ async function signIn(page: Page) {
   // storage state carries the preference. This is the recovery path for a
   // context that lost it.
   if (await picker.isVisible()) {
-    await page.getByPlaceholder('Project name').fill(`e2e recovery ${new Date().toISOString()}`)
+    await page.getByPlaceholder('Project name').fill(RECOVERY)
     await page.getByRole('button', { name: 'Create project' }).click()
   }
 

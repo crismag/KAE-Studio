@@ -1,5 +1,6 @@
 import { expect, test as setup } from '@playwright/test'
 import { recordCreatedProject } from './runProject'
+import { MAIN } from './testProjects'
 
 /**
  * Sign in once and save the session for every test.
@@ -45,7 +46,7 @@ setup('authenticate', async ({ page }) => {
   await expect(picker.or(shell).first()).toBeVisible({ timeout: 20_000 })
 
   if (await picker.isVisible()) {
-    await page.getByPlaceholder('Project name').fill(`e2e ${new Date().toISOString()}`)
+    await page.getByPlaceholder('Project name').fill(MAIN)
     // Seeded at creation so the suite has something to assert against. A project
     // created and left empty makes every content test skip, and a suite that
     // skips is indistinguishable from one that passes.
