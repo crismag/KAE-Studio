@@ -31,6 +31,7 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `decisions/ADR-0006-memory-owns-durable-conversation.md` | KAE-Memory owns durable projects, sessions, and messages |
 | `planning/CAPABILITY_MATRIX.md` | Historical evidence-based Studio-need vs. KAE-Memory analysis; regenerate before implementation |
 | `planning/PRODUCT_CONTRACT_ALIGNMENT.md` | Current task context for reconciling prototype ports with real Memory HTTP contracts |
+| `planning/studio-integration/` | Current repository-intake + KAE-Artifacts output integration context, contracts, implementation plan, and Claude execution prompt |
 | `planning/VERTICAL_SLICE.md` | First demonstrable product flow and acceptance criteria |
 | `planning/IMPLEMENTATION_DIRECTIVE.md` | Work order and instructions for Claude |
 | `ui/UI_GENERATION_CONTEXT.md` | Governing brief for KAE-Studio's own interface |
