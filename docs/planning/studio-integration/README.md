@@ -1,8 +1,19 @@
 # Studio Integration: Repository Intake and Artifact Outputs
 
-Status: implementation context package for the next KAE-Studio development action.
+Status: implementation context package. **The output half (STI-5 to STI-7) is
+built; the intake half (STI-1 to STI-4) is not started.**
 
 Date: 2026-08-08
+
+> **Read `IMPLEMENTATION_PLAN.md`'s status block first.** Half of what follows
+> describes work that now exists, and reading it as outstanding would mean
+> building it twice. The output path — Memory revision → plan → generate →
+> validate → preview → approve → publish → provenance — runs end to end today
+> against the download destination, with a contract test against the real
+> KAE-Artifacts service.
+>
+> One thing blocks a live GitHub publication, and it is not in this repository:
+> KAE-Artifacts has no HTTP client adapter for GitHub or S3.
 
 ## Objective
 
@@ -75,7 +86,7 @@ Do not put repository parsing into KAE-Artifacts. Do not put document generation
 
 - **ARCHITECTURE_AND_CONTRACTS.md** — boundaries, domain vocabulary, Studio-facing contracts, lifecycle and trust model.
 - **IMPLEMENTATION_PLAN.md** — ordered vertical slices, UI behavior, test matrix and Definition of Done.
-- **CLAUDE_IMPLEMENTATION_PROMPT.md** — execution prompt for a coding agent to implement the work against current repository evidence.
+- **CLAUDE_IMPLEMENTATION_PROMPT.md** — execution prompt for a coding agent to implement the work against current repository evidence. **Written before STI-5 to STI-7 existed**; treat its output-path instructions as done.
 - **PROJECT_SETUP_VIBECODE_PROMPT.md** — focused implementation directive for the Project Setup wizard, permanent Sources & Outputs settings, and provider-backed read/write/read-back proofs.
 - **KAE_ARTIFACTS_API.md** — the resolved KAE-Artifacts surface. `ARCHITECTURE_AND_CONTRACTS.md` sketches an `ArtifactClient` and says *"adapt names to the actual KAE-Artifacts API"*; that API is now implemented, and this maps the sketch onto it. Read it before STI-5.
 

@@ -1,6 +1,69 @@
 # Studio Integration Implementation Plan
 
-Status: ordered plan and acceptance contract.
+Status: ordered plan and acceptance contract. **STI-5, STI-6 and STI-7 are
+implemented; STI-1 through STI-4 are not started.** See the status block below
+before reading a slice as work outstanding.
+
+## Where this stands
+
+Done, and provable today against the download destination:
+
+| Slice | State |
+| --- | --- |
+| STI-5 Artifact planning and generation | **Implemented** |
+| STI-6 Destination preview and approval | **Implemented** |
+| STI-7 GitHub publication and provenance | **Implemented in Studio**, blocked on one adapter in KAE-Artifacts |
+| STI-8 S3 parity | Reachable through the same surface; nothing Studio-side remains |
+| STI-1 Connections and sources | Not started |
+| STI-2 Repository acquisition | Not started — **no acquisition layer exists in any repository** |
+| STI-3 Finding review and Memory handoff | Not started |
+| STI-4 CIE repository-aware clarification | Not started |
+
+The output half was built first because it was blocked only on wiring. The
+intake half needs a subsystem that does not exist anywhere yet — a repository
+reader, a traversal policy, and an acquisition run model — and that is a larger
+question than a Studio surface.
+
+**The trusted backend question is answered.** `backend/` is a FastAPI service
+that already holds the KAE-Memory credential and issues session cookies. It now
+also holds the KAE-Artifacts connection. No provider token reaches the browser,
+and none is embedded in a Vite variable.
+
+### What was built for STI-5 to STI-7
+
+- `backend/src/kae_studio/artifacts_client.py` — the only thing that talks to
+  KAE-Artifacts. Carries typed refusals through with their codes intact.
+- `backend/src/kae_studio/generation_input.py` — an assembled Memory context to
+  provider-neutral generation input. Memory lifecycle maps to what a generator
+  may claim, and anything unrecognised becomes the *weaker* claim.
+- Fifteen routes under `/api/artifact-*` and `/api/generation-runs`.
+- `src/services/interfaces.ts` — `ArtifactPipeline` replaces the prototype's
+  `generate()`/`publish()` pair, which could not express a plan or an approval.
+- `src/components/project/GeneratePackage.tsx` — the five surfaces.
+- `backend/tests/test_artifact_routes.py` — a **contract** test that runs the
+  real KAE-Artifacts app in process, so a renamed field fails there rather than
+  in a browser.
+
+### The one external blocker
+
+KAE-Artifacts has no HTTP client adapter for GitHub or S3 — a six-method and a
+three-method protocol respectively. Everything above them is complete and
+tested. Until one exists, STI-7 is provable against `download` and not against a
+repository.
+
+### Corrections to the slices below
+
+Two details in STI-6 were settled differently by the implementation, and the
+implementation is right:
+
+**Deletion is not a preview outcome.** STI-6 asks for "add/modify/delete
+counts". There is no delete: inferring a deletion from a path's absence is how
+unrelated work gets destroyed, and the outcomes are `add`, `modify`, `unchanged`
+and `conflict`.
+
+**A publication result is 202 whether it succeeded or failed.** The request was
+accepted either way; the status field carries the answer. A failed publication is
+not an HTTP error.
 
 ## Goal
 
@@ -23,6 +86,8 @@ Before changing runtime code:
 Older planning documents contain stale execution statements. Preserve valid ownership decisions, but update status claims touched by this implementation.
 
 ## Slice STI-1 — Connections and Sources
+
+Status: **Not started.** Needs a provider connection model and a trusted-side GitHub read client.
 
 ### User outcome
 
@@ -55,6 +120,8 @@ Do not show raw tokens.
 - mock/demo mode is explicitly labelled if real connection is unavailable.
 
 ## Slice STI-2 — Repository Acquisition
+
+Status: **Not started.** No acquisition layer exists in any repository; this is the largest missing piece in the whole plan.
 
 ### User outcome
 
@@ -100,6 +167,8 @@ Counts must derive from real run results, not fixed UI fixtures.
 
 ## Slice STI-3 — Finding Review and Memory Handoff
 
+Status: **Not started.** Depends on STI-2 producing findings.
+
 ### User outcome
 
 The user sees what KAE believes it learned and controls what becomes retained project evidence/knowledge.
@@ -132,6 +201,8 @@ Use versioned Memory APIs only. Do not persist authoritative findings/project mo
 
 ## Slice STI-4 — CIE Repository-Aware Clarification
 
+Status: **Not started.** Depends on STI-2 and STI-3.
+
 ### User outcome
 
 After intake, CIE focuses on high-value gaps and contradictions rather than restarting a generic questionnaire.
@@ -151,6 +222,8 @@ CIE should be able to say what was learned, identify unresolved items, explain t
 - clarification outcomes produce normal evidence/knowledge lifecycle events.
 
 ## Slice STI-5 — Artifact Planning and Generation
+
+Status: **Implemented.** `GeneratePackage.tsx` steps 1–3, `/api/artifact-plans` and `/api/projects/{id}/generation-runs`.
 
 ### User outcome
 
@@ -187,6 +260,8 @@ Generate through the KAE-Artifacts API. Display:
 
 ## Slice STI-6 — Destination Preview and Approval
 
+Status: **Implemented.** `GeneratePackage.tsx` steps 4–5, `/api/artifact-previews` and `/api/artifact-approvals`.
+
 ### User outcome
 
 The user can see exactly what KAE proposes to change before authorizing publication.
@@ -219,6 +294,8 @@ Approval binds the immutable package/checksum plus exact destination preview/bas
 
 ## Slice STI-7 — GitHub Publication and Provenance
 
+Status: **Implemented Studio-side.** Blocked on a GitHub HTTP client adapter inside KAE-Artifacts; provable now against `download`.
+
 ### User outcome
 
 The approved package is materialized through KAE-Artifacts as a GitHub branch/commit/PR and Studio shows the result.
@@ -248,6 +325,8 @@ Display:
 - retry after an indeterminate failure cannot produce duplicate PRs unnoticed.
 
 ## Slice STI-8 — S3 parity after GitHub proof
+
+Status: **Nothing Studio-side remains.** The destination selector and preview are provider-neutral already.
 
 Use the same Artifact publisher contract and Studio surface. Do not build an S3-specific generation flow.
 
