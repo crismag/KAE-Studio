@@ -77,6 +77,7 @@ Do not put repository parsing into KAE-Artifacts. Do not put document generation
 - **IMPLEMENTATION_PLAN.md** — ordered vertical slices, UI behavior, test matrix and Definition of Done.
 - **CLAUDE_IMPLEMENTATION_PROMPT.md** — execution prompt for a coding agent to implement the work against current repository evidence.
 - **PROJECT_SETUP_VIBECODE_PROMPT.md** — focused implementation directive for the Project Setup wizard, permanent Sources & Outputs settings, and provider-backed read/write/read-back proofs.
+- **KAE_ARTIFACTS_API.md** — the resolved KAE-Artifacts surface. `ARCHITECTURE_AND_CONTRACTS.md` sketches an `ArtifactClient` and says *"adapt names to the actual KAE-Artifacts API"*; that API is now implemented, and this maps the sketch onto it. Read it before STI-5.
 
 ## Scope
 

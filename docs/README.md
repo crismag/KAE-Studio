@@ -23,7 +23,6 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `architecture/API_CONTRACT.md` | Studio-to-Memory service contract, including model operations |
 | `delivery/CONTEXT_PACKAGE.md` | The generated package structure and honesty requirements |
 | `delivery/ARTIFACT_PUBLISHING.md` | Publisher abstraction and the three artifact targets — **the subsystem now lives in KAE-Artifacts** |
-| `delivery/ARTIFACTS_INTEGRATION_PLAN.md` | The Studio surfaces that would drive KAE-Artifacts, and the failure states they must handle |
 | `decisions/ADR-0001-studio-memory-separation.md` | Repository/service separation |
 | `decisions/ADR-0002-project-model-and-modules.md` | The project model is the product; modules are first-class |
 | `decisions/ADR-0003-artifact-publishing-targets.md` | Generation separate from publication; three targets |
@@ -32,7 +31,7 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `decisions/ADR-0006-memory-owns-durable-conversation.md` | KAE-Memory owns durable projects, sessions, and messages |
 | `planning/CAPABILITY_MATRIX.md` | Historical evidence-based Studio-need vs. KAE-Memory analysis; regenerate before implementation |
 | `planning/PRODUCT_CONTRACT_ALIGNMENT.md` | Current task context for reconciling prototype ports with real Memory HTTP contracts |
-| `planning/studio-integration/` | Current repository-intake + KAE-Artifacts output integration context, contracts, implementation plan, and Claude execution prompt |
+| `planning/studio-integration/` | Current repository-intake + KAE-Artifacts output integration context, contracts, implementation plan, Claude execution prompt, and the resolved KAE-Artifacts API |
 | `planning/VERTICAL_SLICE.md` | First demonstrable product flow and acceptance criteria |
 | `planning/IMPLEMENTATION_DIRECTIVE.md` | Work order and instructions for Claude |
 | `ui/UI_GENERATION_CONTEXT.md` | Governing brief for KAE-Studio's own interface |
