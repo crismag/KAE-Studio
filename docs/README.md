@@ -22,7 +22,8 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `architecture/DATA_OWNERSHIP.md` | Database, table, storage, and lifecycle ownership |
 | `architecture/API_CONTRACT.md` | Studio-to-Memory service contract, including model operations |
 | `delivery/CONTEXT_PACKAGE.md` | The generated package structure and honesty requirements |
-| `delivery/ARTIFACT_PUBLISHING.md` | Publisher abstraction and the three artifact targets |
+| `delivery/ARTIFACT_PUBLISHING.md` | Publisher abstraction and the three artifact targets — **the subsystem now lives in KAE-Artifacts** |
+| `delivery/ARTIFACTS_INTEGRATION_PLAN.md` | The Studio surfaces that would drive KAE-Artifacts, and the failure states they must handle |
 | `decisions/ADR-0001-studio-memory-separation.md` | Repository/service separation |
 | `decisions/ADR-0002-project-model-and-modules.md` | The project model is the product; modules are first-class |
 | `decisions/ADR-0003-artifact-publishing-targets.md` | Generation separate from publication; three targets |

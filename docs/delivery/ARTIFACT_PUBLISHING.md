@@ -1,12 +1,34 @@
 # Artifact Publishing
 
-Status: approved direction.
+Status: approved direction. **The subsystem this document describes now lives in KAE-Artifacts, not in Studio.**
+
+## What changed, and what Studio still owns
+
+This document was written when generation and publication were going to be Studio's delivery subsystem. They are now a separate component — [KAE-Artifacts](https://github.com/crismag/KAE-Artifacts) — which is implemented, tested, and callable over HTTP.
+
+Almost everything below still holds. The principle, the publisher abstraction, the three targets, the GitHub branch-and-draft-PR workflow, the "never write to the default branch" rule, the credentials-never-in-the-browser rule: all of it was right, and all of it exists. What changed is **which repository holds the code**.
+
+| Concern | Owner now |
+| --- | --- |
+| Choosing what to generate, and letting a user edit that choice | **Studio** — the plan is a resource it can `PATCH` |
+| Showing proposed changes and taking approval | **Studio** — the surface; KAE-Artifacts supplies the preview and records the approval |
+| Generation, validation, packaging | KAE-Artifacts |
+| Publisher implementations and provider concurrency | KAE-Artifacts |
+| What the project knows, and which revision produced an artifact | KAE-Memory |
+
+Two things KAE-Artifacts settled that this document left open, and Studio's UI should follow them rather than the sketch further down:
+
+**Approval binds a preview, not a package.** A user approving "four files" has not been told whether those files are being created or overwritten. The preview carries a per-file outcome — add, modify, unchanged, conflict — and the approval is evidence bound to that exact preview, the package checksum, the destination and the destination's state at review time. A boolean "approved" flag is not enough, and is no longer accepted.
+
+**A stale approval is refused, not reconciled.** If the target branch moves between review and publication, publication fails with `stale_base` and writes nothing. The UI needs a path for this: it is an ordinary outcome, not an error state to apologise for.
+
+**Not yet wired.** Studio does not call KAE-Artifacts today, and KAE-Artifacts has no HTTP client adapter for GitHub or S3. Both are named tasks; neither is done.
 
 ## Principle
 
-> KAE-Studio generates project artifacts; each project selects where those artifacts are published.
+> Project artifacts are generated once; each project selects where they are published.
 
-Generation happens once. The destination does not change the meaning or structure of the generated artifact.
+The destination does not change the meaning or structure of the generated artifact.
 
 ```text
 Project memory

@@ -1,6 +1,6 @@
 # System Boundary
 
-Status: approved direction. Ownership lists corrected by ADR-0006.
+Status: approved direction. Ownership lists corrected by ADR-0006, and again by the extraction of artifact generation into KAE-Artifacts.
 
 ## Component relationship
 
@@ -12,7 +12,8 @@ flowchart TD
     A --> M["KAE-Memory API"]
     A --> D["Studio database"]
     M --> K["Memory database"]
-    A --> O["Artifact storage"]
+    A -.->|not yet wired| R["KAE-Artifacts API"]
+    R --> O["GitHub · S3"]
 ```
 
 ## KAE-Studio owns
@@ -21,7 +22,7 @@ flowchart TD
 - AI-provider selection, credentials handling, and Studio-specific prompts.
 - Interview *presentation*: which type is active, how a question is phrased and shown.
 - Requirements, module, architecture, plan, and health projections shown to users — caches, rebuildable from a Memory revision.
-- Artifact generation, delivery-target configuration, and publication (GitHub, local workspace, S3).
+- Delivery-target configuration, and the surfaces where a person edits an artifact plan, reads a preview, and approves it.
 - Product authentication/authorization when added.
 - User-facing failure, retry, and resume behavior, including transient send buffers.
 
@@ -40,9 +41,24 @@ flowchart TD
 - Semantic retrieval and context assembly.
 - Durable memory-agent runs and their state.
 
+## KAE-Artifacts owns
+
+Extracted from Studio's delivery subsystem into its own component, which is implemented and callable over HTTP:
+
+- Artifact plans, generation, validation, and packaging.
+- Destination-aware previews, and the approval evidence that binds one.
+- Publisher implementations and provider concurrency handling.
+- Publication provenance: which input and which bytes produced which destination state.
+
+It imports no KAE-Memory type. Its input is a provider-neutral structure, and its own edge adapter converts an assembled Memory context into one — which is what keeps a Memory schema change from becoming an Artifacts change.
+
+**Studio does not call it yet.** The remaining work is a Studio surface for plan → preview → approval → publish, and an HTTP client adapter for GitHub or S3 inside KAE-Artifacts. Neither is done, and the dotted line in the diagram above says so deliberately.
+
 ## Integration rule
 
 Studio communicates with Memory only through a versioned client/API. The client belongs in Studio, but Memory remains authoritative for memory semantics.
+
+The same applies to KAE-Artifacts: a versioned client in Studio, and Artifacts authoritative for generation and publication semantics. In particular, Studio must not reimplement the approval check — an approval is evidence held by KAE-Artifacts, and a Studio-side "the user clicked approve" boolean would be exactly the thing that model was built to replace.
 
 The boundary must support:
 
@@ -58,7 +74,7 @@ The boundary must support:
 
 Use UUIDs generated at the owning service.
 
-Studio owns `artifact_id`, `publication_id`, and its delivery-target references. Memory owns `project_id`, `session_id`, `message_id`, `evidence_id`, `knowledge_id`, `revision_id`, and `run_id`.
+KAE-Artifacts owns `plan_id`, `artifact_id`, `package_id`, `preview_id`, `approval_id`, and `publication_id`. Studio owns its delivery-target references. Memory owns `project_id`, `session_id`, `message_id`, `evidence_id`, `knowledge_id`, `revision_id`, and `run_id`.
 
 Under ADR-0006 there is no separate `studio_project_id` to map: a Studio project *is* a Memory project. Studio may hold a local reference for routing and preferences, but the identity is Memory's. Client-supplied idempotency keys remain source references, not Memory primary keys.
 
