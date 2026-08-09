@@ -744,7 +744,12 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
           answer: deferred ? 'Deferred from Studio.' : 'Reopened from Studio.',
           // A deferral records that someone was asked and did not decide. It
           // must not close the question (N36).
-          disposition: deferred ? 'deferred' : 'answered',
+          //
+          // `open`, not `answered`, on the way back. `answered` is in SETTLES,
+          // so "Bring back" closed the question it was bringing back — the
+          // exact opposite of the button's own label, and silent because a
+          // settled question simply stops appearing.
+          disposition: deferred ? 'deferred' : 'open',
         }),
       })
       return accepted()
