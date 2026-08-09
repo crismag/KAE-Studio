@@ -142,6 +142,17 @@ class TurnIn(BaseModel):
     body: str = Field(min_length=1)
 
 
+class ConfirmSetIn(BaseModel):
+    """The statements a single "yes" applies to.
+
+    Bounded because a confirmation set describes one reading. A request naming
+    hundreds of items is a caller confirming a project by accident — the
+    "inference silently becomes user-confirmed" failure the directive forbids.
+    """
+
+    knowledge_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
 class ReviewIn(BaseModel):
     reason: str = ""
     #: The version the reviewer had on screen. Memory refuses a rejection that
@@ -478,6 +489,14 @@ def create_app(settings: Settings) -> FastAPI:
             # afterwards, and so "why did it ask that" has an answer.
             "skill": move.skill,
             "subject": move.subject,
+            # The statements this move reflected back, as Memory's own ids.
+            #
+            # **This is what a person's "yes" applies to.** Without it a
+            # confirmation gesture would have to guess which statements the
+            # sentence covered, and guessing is how "Confirmed" came to be
+            # displayed beside "0 of 1 confirmed". Empty is normal: a question
+            # asking something new reflects nothing.
+            "provenance": list(move.provenance),
             "source": "cie",
         }
 
@@ -514,6 +533,33 @@ def create_app(settings: Settings) -> FastAPI:
         operator: Operator = Depends(require_operator),
     ) -> Any:
         return await memory(request).confirm_knowledge(project_id, knowledge_id, operator.name)
+
+    @app.post("/api/projects/{project_id}/knowledge/confirm")
+    async def confirm_set(
+        project_id: str,
+        body: ConfirmSetIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Confirm every statement a turn reflected back, as one act.
+
+        **The UI action is the confirmation.** A person reads a reading, clicks
+        once, and the statements it was built from become confirmed knowledge —
+        no follow-up question asking whether they meant it, because the click
+        already answered that.
+
+        The set comes from the turn's `provenance`, so agreement lands on what
+        was shown rather than on whatever is proposed by the time the click
+        arrives. Memory applies it all or nothing.
+        """
+
+        if not body.knowledge_ids:
+            raise HTTPException(
+                422,
+                "a confirmation needs the statements it applies to: an empty set "
+                "means the reading was lost between showing it and agreeing to it",
+            )
+        return await memory(request).confirm_knowledge_set(project_id, body.knowledge_ids)
 
     @app.post("/api/projects/{project_id}/knowledge/{knowledge_id}/reject")
     async def reject(

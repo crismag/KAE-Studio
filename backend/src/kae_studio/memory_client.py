@@ -245,6 +245,21 @@ class MemoryClient:
             "POST", f"/v1/knowledge/{knowledge_id}/confirm", json={"reviewer": reviewer}
         )
 
+    async def confirm_knowledge_set(self, project_id: str, knowledge_ids: list[str]) -> Any:
+        """Confirm the statements one reading was built from, as one act.
+
+        The counterpart to a turn's `provenance`. A person agreed to a sentence,
+        not to a list of rows, so the rows are confirmed together or not at all —
+        Memory refuses partway, which is what stops someone believing they
+        agreed to a reading while part of it stayed proposed.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/knowledge/confirm",
+            json={"item_ids": knowledge_ids},
+        )
+
     async def reject_knowledge(
         self,
         project_id: str,
