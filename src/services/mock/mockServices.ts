@@ -358,6 +358,18 @@ class MockInterviewProvider implements InterviewProvider {
     const session = await new MockProjectMemoryClient().getInterviewSession()
     return delay({ assistantMessage: { ...message }, session }, 700)
   }
+
+  /**
+   * The prototype confirms nothing, and says so by doing nothing.
+   *
+   * A mock that marked statements confirmed would make the prototype show
+   * readiness moving on evidence it never had — the class of fiction the
+   * fixture sweep removed from the routes. The gesture's own tests run against
+   * the live service, which is where the behaviour lives.
+   */
+  async confirmReading(_projectId: string, _knowledgeIds: string[]): Promise<void> {
+    await delay(undefined, 200)
+  }
 }
 
 /* --------------------------------------------------------- projection mock */

@@ -110,6 +110,18 @@ export interface InterviewProvider {
   /** Human-readable provider identity, shown honestly in the status bar. */
   describe(): { name: string; mode: 'mock' | 'live' }
   respondTo(projectId: string, userMessage: string): Promise<InterviewTurn>
+  /**
+   * Confirm the statements a turn reflected back, as one act.
+   *
+   * **The click is the confirmation.** A person reads a reading, agrees once,
+   * and everything it was built from becomes confirmed knowledge — nothing
+   * asks afterwards whether they meant it.
+   *
+   * The ids come from the turn's own `provenance`, so agreement lands on what
+   * was shown rather than on whatever is proposed by the time the click
+   * arrives. KAE-Memory applies the set all or nothing.
+   */
+  confirmReading(projectId: string, knowledgeIds: string[]): Promise<void>
 }
 
 /** Assembles the projection the UI renders from current Memory knowledge. */

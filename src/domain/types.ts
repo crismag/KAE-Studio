@@ -71,6 +71,18 @@ export interface ConversationMessage {
   suggestions?: string[]
   /** Model-facing changes this turn produced, summarised for humans. */
   resultingChanges?: string[]
+  /**
+   * The statements this turn reflected back, as KAE-Memory's own ids.
+   *
+   * What a person's "yes, that holds" applies to. Empty or absent is normal —
+   * a turn that asks something new reflects nothing, and only a turn that
+   * reflected something can be agreed with.
+   *
+   * Without it the interface would have to guess which statements a sentence
+   * covered, which is how "Confirmed" came to be shown beside "0 of 1
+   * confirmed".
+   */
+  provenance?: string[]
 }
 
 export interface InterviewSession {

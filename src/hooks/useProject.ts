@@ -79,6 +79,30 @@ export function useSendMessage() {
   })
 }
 
+/**
+ * Confirm the statements a turn reflected back.
+ *
+ * **The click is the confirmation**, which is why this invalidates the
+ * projection as well as the transcript. The point of the gesture is that the
+ * project visibly grows when a person agrees — a chat that got longer while
+ * Discovery Progress stayed at "0 of 1 confirmed" is the defect it closes.
+ */
+export function useConfirmReading() {
+  const { interview, projectId } = useServices()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (knowledgeIds: string[]) => interview.confirmReading(projectId, knowledgeIds),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['session', projectId] }),
+      ])
+    },
+  })
+}
+
 export function useModuleDecision() {
   const { memory, projectId } = useServices()
   const queryClient = useQueryClient()

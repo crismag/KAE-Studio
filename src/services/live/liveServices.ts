@@ -731,6 +731,7 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         move: string
         skill: string
         subject: string
+        provenance?: string[]
         source: string
       }>(`/api/projects/${resolve(projectId)}/turn`, {
         method: 'POST',
@@ -753,9 +754,19 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
               ...(result.subject ? [`Subject: ${result.subject}`] : []),
             ],
           },
+          // What agreeing with this turn would confirm. Carried through
+          // untouched: the set is CIE's account of what it reflected, and an
+          // interface that edited it would be changing what a person agrees to.
+          provenance: result.provenance ?? [],
         } as ConversationMessage,
         session,
       }
+    },
+    confirmReading: async (projectId, knowledgeIds) => {
+      await call(`/api/projects/${resolve(projectId)}/knowledge/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({ knowledge_ids: knowledgeIds }),
+      })
     },
   }
 

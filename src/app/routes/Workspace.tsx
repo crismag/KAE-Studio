@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { formatDateTime } from '@/lib/format'
+import { plural } from '@/lib/plural'
 import {
   Badge,
   Button,
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/primitives'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import {
+  useConfirmReading,
   useDeferDecision,
   useInterviewSession,
   useMessages,
@@ -70,12 +72,74 @@ function UserMessage({ message }: { message: ConversationMessage }) {
   )
 }
 
-function AssistantMessage({
+/**
+ * Agreeing with a reading, in one click.
+ *
+ * **The action is the confirmation.** A turn that reflected statements back
+ * carries their ids; clicking Yes confirms exactly those, and nothing asks
+ * afterwards whether the person meant it.
+ *
+ * Shown only when the turn actually reflected something. A question that asks
+ * something new has nothing to agree with, and offering "yes, that holds"
+ * against it would invite agreement with an empty set.
+ */
+function ConfirmReading({
+  ids,
+  onConfirm,
+}: {
+  ids: string[]
+  onConfirm: (ids: string[]) => Promise<void> | void
+}) {
+  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'failed'>('idle')
+
+  if (state === 'done') {
+    return (
+      <p className="text-[12.5px] text-confirmed-ink">
+        Confirmed — {plural(ids.length, 'statement', 'statements')} now part of what this
+        project holds.
+      </p>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-[12.5px] text-ink-muted">Does that hold?</span>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={state === 'saving'}
+        onClick={async () => {
+          setState('saving')
+          try {
+            await onConfirm(ids)
+            setState('done')
+          } catch {
+            // Reported, never swallowed into a success state. An interface that
+            // showed "Confirmed" after a failed write would be the same lie as
+            // the sentence that said it before this existed.
+            setState('failed')
+          }
+        }}
+      >
+        {state === 'saving' ? 'Confirming…' : `Yes — confirm ${ids.length}`}
+      </Button>
+      {state === 'failed' && (
+        <span className="text-[12.5px] text-blocking">
+          Not confirmed — nothing was recorded. Try again.
+        </span>
+      )}
+    </div>
+  )
+}
+
+export function AssistantMessage({
   message,
   onSuggestion,
+  onConfirmReading,
 }: {
   message: ConversationMessage
   onSuggestion: (text: string) => void
+  onConfirmReading?: (ids: string[]) => Promise<void> | void
 }) {
   return (
     <article className="flex flex-col gap-3">
@@ -106,6 +170,10 @@ function AssistantMessage({
                 ))}
               </ul>
             </div>
+          )}
+
+          {onConfirmReading && message.provenance && message.provenance.length > 0 && (
+            <ConfirmReading ids={message.provenance} onConfirm={onConfirmReading} />
           )}
 
           {message.question && (
@@ -589,6 +657,7 @@ export function Workspace() {
   const { data: messages, isLoading } = useMessages()
   const { data: session } = useInterviewSession()
   const sendMessage = useSendMessage()
+  const confirmReading = useConfirmReading()
   const [draft, setDraft] = useState('')
 
   // The last turn, only when it produced no question. A question is written to
@@ -670,6 +739,7 @@ export function Workspace() {
                   key={message.id}
                   message={message}
                   onSuggestion={handleSuggestion}
+                  onConfirmReading={(ids) => confirmReading.mutateAsync(ids)}
                 />
               ),
             )}
