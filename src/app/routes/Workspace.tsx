@@ -503,6 +503,34 @@ function WhatTheseMean() {
   )
 }
 
+/**
+ * What the coverage figure above was computed over.
+ *
+ * `PLANNING_MODEL.md`: *"Content loss is reported separately and never folded
+ * in."* F-018 abandons 29–65% of chunks on real corpora, every one after
+ * `verify_quotes` rejected a citation that was a directory tree or a code
+ * fence — and what survives looks exactly like a complete project.
+ *
+ * **Silent when there is nothing to say.** A banner on every project warning
+ * that something might be missing is a banner nobody reads, and the point of
+ * the previous slice was not handing people more to sort out. It appears only
+ * when a run was actually abandoned.
+ */
+export function ContentLoss({ coverage }: { coverage?: ProjectProjection['extractionCoverage'] }) {
+  if (!coverage || coverage.complete) return null
+
+  const { abandoned, succeeded } = coverage
+  return (
+    <p className="mt-3 flex gap-2 border-t border-attention-line pt-2.5 text-[11.5px] leading-relaxed text-ink-muted">
+      <TriangleAlert className="mt-[3px] size-3 shrink-0 text-attention" aria-hidden="true" />
+      <span>
+        {abandoned} of {abandoned + succeeded} submissions could not be fully read, so the
+        figures above describe less than this project actually said.
+      </span>
+    </p>
+  )
+}
+
 function ContextPanelContent({
   onDiscuss,
   recommended,
@@ -540,6 +568,7 @@ function ContextPanelContent({
         </PanelHeader>
         <PanelBody>
           <CoverageSection projection={projection} onDiscuss={onDiscuss} />
+          <ContentLoss coverage={projection.extractionCoverage} />
           <div className="mt-3 border-t border-line pt-2">
             <WhatTheseMean />
           </div>

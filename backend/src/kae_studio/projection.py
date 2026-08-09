@@ -38,13 +38,22 @@ async def _safe(coro: Any) -> tuple[Any, str | None]:
 async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, Any]:
     """Compose the workspace projection for one project."""
 
-    project, readiness, knowledge, clarifications, blockers, preliminary = await asyncio.gather(
+    (
+        project,
+        readiness,
+        knowledge,
+        clarifications,
+        blockers,
+        preliminary,
+        coverage,
+    ) = await asyncio.gather(
         _safe(memory.get_project(project_id)),
         _safe(memory.readiness(project_id)),
         _safe(memory.knowledge(project_id)),
         _safe(memory.clarifications(project_id)),
         _safe(memory.blockers(project_id)),
         _safe(memory.preliminary_context(project_id)),
+        _safe(memory.extraction_coverage(project_id)),
     )
 
     unavailable: list[dict[str, str]] = []
@@ -62,6 +71,10 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
     clarification_data = section("clarifications", clarifications, {})
     blocker_data = section("blockers", blockers, {})
     preliminary_data = section("preliminary_context", preliminary, {})
+    # Defaults to complete when the section is unavailable. A Memory too old to
+    # answer has told us nothing about loss, and rendering "content may be
+    # missing" on that basis would be a warning derived from our own ignorance.
+    coverage_data = section("extraction_coverage", coverage, {"complete": True})
 
     statements = _statements(knowledge_data)
     # Built from confirmed knowledge, with the sections nothing can compute
@@ -111,6 +124,15 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # is most of what a review surface is for.
         "rejected": [s for s in statements if s["lifecycle"] == "rejected"],
         "health": _health(readiness_data),
+        # Beside the health percentage, never inside it. `PLANNING_MODEL.md`:
+        # content loss is reported separately and never folded in, because a
+        # percentage computed over content that was never captured is a
+        # confident lie.
+        "extractionCoverage": {
+            "succeeded": coverage_data.get("succeeded", 0),
+            "abandoned": coverage_data.get("abandoned", 0),
+            "complete": coverage_data.get("complete", True),
+        },
         "openQuestions": _questions(clarification_data),
         "blockers": _listing(blocker_data),
         # A count, not a list: Memory exposes recording and resolving a

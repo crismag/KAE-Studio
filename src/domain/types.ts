@@ -139,6 +139,18 @@ export interface DefinitionStatement {
   trace?: TraceReference[]
 }
 
+/**
+ * How much of what was submitted became knowledge.
+ *
+ * Beside the readiness percentage, never inside it. A project that lost content
+ * is not less *ready* — it is less **read**, and one number cannot say both.
+ */
+export interface ExtractionCoverage {
+  succeeded: number
+  abandoned: number
+  complete: boolean
+}
+
 export interface ProjectDefinition {
   problem: string
   value: string
@@ -617,5 +629,7 @@ export interface ProjectProjection {
   openDecisions: OpenDecision[]
   findings: ReviewFinding[]
   health: ProjectHealth
+  /** Absent on a backend older than the disclosure. */
+  extractionCoverage?: ExtractionCoverage
   recentChanges: { id: string; text: string; at: string }[]
 }

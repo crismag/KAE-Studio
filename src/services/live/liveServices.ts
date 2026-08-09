@@ -485,6 +485,7 @@ interface BackendProjection {
     constraints: { id: string; text: string; status: string }[]
     mappingVersion: number
   }
+  extractionCoverage?: { succeeded: number; abandoned: number; complete: boolean }
   openQuestions: { id: string; question: string; severity: string; disposition: string }[]
   blockers: unknown[]
   contradictions: { count: number; listable: boolean; reason: string }
@@ -545,6 +546,9 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
     })),
     acceptanceTests: [],
     modules: [],
+    // Carried through untouched. What was lost is a fact about the project, and
+    // a client that summarised it would be deciding how alarmed to be.
+    extractionCoverage: raw.extractionCoverage,
     openDecisions: raw.openQuestions.map((q) => ({
       id: q.id,
       question: q.question,

@@ -109,6 +109,16 @@ class MemoryClient:
             "POST", f"/v1/projects/{project_id}/clarifications", params={"limit": limit}
         )
 
+    async def extraction_coverage(self, project_id: str) -> Any:
+        """How much of what was submitted became knowledge.
+
+        Read beside readiness, never mixed into it. A project is not *less
+        ready* for having lost content — it is less **read**, and one number
+        cannot say both.
+        """
+
+        return await self._request("GET", f"/v1/projects/{project_id}/extraction-coverage")
+
     async def blockers(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}/blockers")
 
