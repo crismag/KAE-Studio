@@ -13,7 +13,9 @@
  */
 
 import type {
+  BusinessWorkflow,
   ConversationMessage,
+  DefinitionStatement,
   Deliverable,
   InterviewSession,
   Project,
@@ -28,6 +30,7 @@ import type {
   ProjectSource,
   ProviderConnection,
   Requirement,
+  StakeholderEntry,
   ValidationResult,
 } from '@/domain/types'
 import type {
@@ -469,6 +472,19 @@ interface BackendProjection {
       contradicted: boolean
     }[]
   }
+  /** Absent on a backend older than the Definition block. */
+  definition?: {
+    problem: string
+    value: string
+    objectives: { id: string; text: string; status: string }[]
+    stakeholders: { id: string; name: string; status: string }[]
+    inScope: { id: string; text: string; status: string }[]
+    outOfScope: { id: string; text: string; status: string }[]
+    workflows: { id: string; name: string; status: string; steps: unknown[]; realizedBy: string[] }[]
+    assumptions: { id: string; text: string; status: string }[]
+    constraints: { id: string; text: string; status: string }[]
+    mappingVersion: number
+  }
   openQuestions: { id: string; question: string; severity: string; disposition: string }[]
   blockers: unknown[]
   contradictions: { count: number; listable: boolean; reason: string }
@@ -477,7 +493,7 @@ interface BackendProjection {
   unavailable: { section: string; reason: string }[]
 }
 
-function toProjection(raw: BackendProjection): ProjectProjection {
+export function toProjection(raw: BackendProjection): ProjectProjection {
   // Rejected last: the list reads top-down from settled, to open, to declined,
   // and a decision already taken should not sit above one still waiting.
   const statements = [...raw.confirmed, ...raw.proposed, ...(raw.rejected ?? [])]
@@ -490,19 +506,24 @@ function toProjection(raw: BackendProjection): ProjectProjection {
       memoryRevision: raw.project.memoryRevision,
       createdAt: raw.project.createdAt,
     },
-    // The prototype's ProjectDefinition was designed against a fixture with a
-    // written problem statement. Real projects reach that later, so the fields
-    // carry what Memory actually holds and nothing is invented to fill them.
+    // What the project holds, from confirmed knowledge, in the shape a person
+    // reads it in. This was hard-coded empty (DEF-1.3), so Definition rendered
+    // blank for every project regardless of what Memory held.
+    //
+    // Sections that stay empty stay empty for a *stated* reason — the backend
+    // reports them under `unavailable`, and the page distinguishes "your
+    // project has none" from "we cannot tell". The fallbacks below are for a
+    // backend older than this block, not for a project without one.
     definition: {
-      problem: '',
-      value: '',
-      objectives: [],
-      stakeholders: [],
-      inScope: [],
-      outOfScope: [],
-      workflows: [],
-      assumptions: [],
-      constraints: [],
+      problem: raw.definition?.problem ?? '',
+      value: raw.definition?.value ?? '',
+      objectives: (raw.definition?.objectives ?? []) as DefinitionStatement[],
+      stakeholders: (raw.definition?.stakeholders ?? []) as StakeholderEntry[],
+      inScope: (raw.definition?.inScope ?? []) as DefinitionStatement[],
+      outOfScope: (raw.definition?.outOfScope ?? []) as DefinitionStatement[],
+      workflows: (raw.definition?.workflows ?? []) as BusinessWorkflow[],
+      assumptions: (raw.definition?.assumptions ?? []) as DefinitionStatement[],
+      constraints: (raw.definition?.constraints ?? []) as DefinitionStatement[],
     },
     requirements: statements.map((s) => ({
       id: s.id,

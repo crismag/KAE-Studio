@@ -115,11 +115,16 @@ export function ProjectDefinition() {
                       <p className="text-[13.5px] font-medium text-ink">{s.name}</p>
                       <Mono>{s.id}</Mono>
                     </td>
+                    {/* Absence renders as absence. KAE-Memory holds a
+                        stakeholder as one `actor` statement with no separate
+                        role or interest, so these are genuinely empty for a
+                        real project — and a blank cell reads as "nobody filled
+                        this in" rather than "this source does not carry it". */}
                     <td className="hidden px-5 py-3 text-[13px] text-ink-muted sm:table-cell">
-                      {s.role}
+                      {s.role || <span className="italic text-ink-subtle">Not recorded</span>}
                     </td>
                     <td className="px-5 py-3 text-[13px] leading-relaxed text-ink-muted">
-                      {s.interest}
+                      {s.interest || <span className="italic text-ink-subtle">Not recorded</span>}
                     </td>
                     <td className="px-5 py-3">
                       <StatusBadge status={s.status} />

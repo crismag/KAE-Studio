@@ -98,8 +98,17 @@ export interface InterviewSession {
 export interface StakeholderEntry {
   id: string
   name: string
-  role: string
-  interest: string
+  /**
+   * Optional because KAE-Memory does not hold them.
+   *
+   * A stakeholder there is an `actor` statement — "Ministry leaders submit
+   * monthly reports" — with no separate role or interest field. The prototype
+   * fixture had both, so the type required both, and the only way to satisfy it
+   * from real data was to invent two empty strings that render as blank labels.
+   * Optional says the truth: these exist for some sources and not others.
+   */
+  role?: string
+  interest?: string
   status: NodeStatus
 }
 

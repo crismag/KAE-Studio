@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from .definition import build_definition
 from .memory_client import MODULE_GAP, CapabilityGap, MemoryClient, MemoryRefused
 
 
@@ -63,6 +64,11 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
     preliminary_data = section("preliminary_context", preliminary, {})
 
     statements = _statements(knowledge_data)
+    # Built from confirmed knowledge, with the sections nothing can compute
+    # declared rather than returned empty. See `definition.py` for why several
+    # of them cannot be filled from what Memory exposes per item.
+    definition, definition_gaps = build_definition(statements)
+    unavailable.extend(definition_gaps)
 
     return {
         "project": {
@@ -88,6 +94,10 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # Split by lifecycle rather than merged with a label. A reader scanning
         # a list reads structure before badges, and confirmed and proposed
         # statements carry different weight in every decision they inform.
+        # What the project holds, in the shape a person reads it in. Confirmed
+        # statements only: this block answers "what does my project hold", and
+        # putting KAE's unconfirmed reading there is the founding failure.
+        "definition": definition,
         "confirmed": [s for s in statements if s["lifecycle"] == "validated"],
         # Not simply "everything that is not validated". A rejected statement is
         # already decided, and returning it here put it back on the review page
