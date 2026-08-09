@@ -474,6 +474,9 @@ def create_app(settings: Settings) -> FastAPI:
 
         client = memory(request)
         session_id = await _session_for(client, project_id)
+        next_action = [
+            {"kind": a.kind, "label": a.label, "reason": a.reason} for a in move.next_action
+        ]
         await client.post_message(
             session_id,
             move.text,
@@ -481,6 +484,19 @@ def create_app(settings: Settings) -> FastAPI:
             f"studio-turn-{uuid4()}",
             actor_type="agent",
             message_type="question",
+            # Recorded with the turn that produced them. Both were reasoned
+            # once, from this turn's projection; keeping them only in the reply
+            # meant a refresh either lost them or paid for them again.
+            metadata={
+                "provenance": list(move.provenance),
+                "next_action": next_action,
+                # So staleness is checkable: a ranking reasoned against a
+                # projection the project has since moved past is still guidance,
+                # but a reader deserves to know which.
+                "projection_fingerprint": (
+                    move.projection.fingerprint if move.projection else ""
+                ),
+            },
         )
 
         return {
@@ -502,10 +518,7 @@ def create_app(settings: Settings) -> FastAPI:
             # stable order rather than a recommended one, and a ranking Studio
             # invented would disagree on screen with the move CIE just chose
             # (ADR-0002).
-            "next_action": [
-                {"kind": a.kind, "label": a.label, "reason": a.reason}
-                for a in move.next_action
-            ],
+            "next_action": next_action,
             "source": "cie",
         }
 

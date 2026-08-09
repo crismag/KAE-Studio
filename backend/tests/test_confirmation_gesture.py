@@ -143,3 +143,59 @@ def test_the_turn_hands_the_browser_what_a_yes_would_apply_to() -> None:
 
     assert body["provenance"] == ["know-1", "know-2"]
     assert body["skill"] == "reflect_for_confirmation"
+
+
+def test_a_turn_records_what_it_reflected_and_recommended() -> None:
+    """Durable with the turn, not only in the reply.
+
+    Both were reasoned once, from that turn's projection. Before this they
+    lived only in the response body, so a refresh either lost the
+    recommendation or would have had to pay a model call to decide it again —
+    and ADR-0002 requires that rendering it cost nothing.
+    """
+
+    class Recording(TurnMemory):
+        def __init__(self) -> None:
+            super().__init__()
+            self.posted: list[dict[str, Any]] = []
+
+        async def post_message(self, *args: Any, **kwargs: Any) -> Any:
+            self.posted.append(kwargs)
+            return {"id": "m1"}
+
+    class Ranking(StubInterviewer):
+        def turn(self, project_id: str, message: str, *, actor: str) -> Any:
+            from cie_slim.kae.conversation import Move, NextAction
+
+            return Move(
+                text="So the problem is that notes scatter.",
+                skill="reflect_for_confirmation",
+                subject="problem_and_value",
+                provenance=("know-1",),
+                next_action=(
+                    NextAction("review", "Review 3 requirements", "oldest unreviewed work"),
+                ),
+            )
+
+    app = create_app(
+        Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "token",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+            }
+        )
+    )
+    with TestClient(app) as browser:
+        memory = Recording()
+        app.state.memory = memory
+        app.state.interviewer = Ranking()
+
+        body = browser.post("/api/projects/p1/turn", json={"body": "Notes scatter."}).json()
+
+    stored = memory.posted[0]["metadata"]
+    assert stored["provenance"] == ["know-1"]
+    assert stored["next_action"][0]["label"] == "Review 3 requirements"
+    # The reply still carries them, so the turn that produced them shows them
+    # without waiting for a refetch.
+    assert body["next_action"][0]["reason"] == "oldest unreviewed work"

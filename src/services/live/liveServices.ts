@@ -654,7 +654,16 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
 
     listMessages: async (id) => {
       const raw = await call<
-        { id: string; content: string; actor_type: string; created_at: string }[]
+        {
+          id: string
+          content: string
+          actor_type: string
+          created_at: string
+          metadata?: {
+            provenance?: string[]
+            next_action?: { kind: string; label: string; reason: string }[]
+          }
+        }[]
       >(`/api/projects/${resolve(id)}/messages`)
       return raw.map((m) => ({
         id: m.id,
@@ -664,6 +673,12 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         // Read back from Memory, so it is durable by definition. A message the
         // browser can see here is one Memory already accepted.
         syncState: 'acknowledged',
+        // And so is what the turn reflected and recommended. Both were reasoned
+        // once from that turn's projection; before this they lived only in the
+        // reply, so a refresh either lost them or would have had to pay a model
+        // call to decide them again.
+        provenance: m.metadata?.provenance ?? [],
+        nextAction: m.metadata?.next_action ?? [],
       })) as ConversationMessage[]
     },
 

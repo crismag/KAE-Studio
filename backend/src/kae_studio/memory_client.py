@@ -180,6 +180,7 @@ class MemoryClient:
         actor_type: str = "user",
         message_type: str = "input",
         purpose: str = "project_input",
+        metadata: dict[str, Any] | None = None,
     ) -> Any:
         """Record one message. `actor_type` distinguishes a person from an agent.
 
@@ -204,6 +205,11 @@ class MemoryClient:
                 "message_type": message_type,
                 "idempotency_key": idempotency_key,
                 "purpose": purpose,
+                # Structure *about* the turn — what it reflected, what it
+                # recommended next. Durable here rather than in the browser, so
+                # a refresh does not lose a recommendation that cost a model
+                # call to reason out.
+                "metadata": metadata or {},
             },
         )
 
