@@ -331,7 +331,7 @@ const COVERAGE_TONE = {
   missing: 'bg-line-strong',
 } as const
 
-function CoverageSection({
+export function CoverageSection({
   projection,
   onDiscuss,
 }: {
@@ -731,8 +731,27 @@ export function Workspace() {
     if (el) el.scrollTop = el.scrollHeight
   }, [messages?.length, sendMessage.isPending])
 
+  /**
+   * Begin work on an area, from what the project already holds.
+   *
+   * PPA-20. This used to prefill the composer: the user had to notice the text
+   * had appeared, send it, answer, and the card still read
+   * `missing · 0 of 1 confirmed`. Three deliberate acts to start one, and the
+   * first two did nothing.
+   *
+   * It sends. And what it sends asks CIE to **continue** rather than restart —
+   * to read what the area already holds, work out what is genuinely missing,
+   * and ask only if a person is actually needed. "Let's talk about scope"
+   * invites the interview to begin that subject from nothing, which on a
+   * project that has been running for forty messages is the version of
+   * unhelpful that feels like being unheard.
+   */
   const discuss = (area: string) => {
-    setDraft(`Let's talk about ${area.toLowerCase()}.`)
+    sendMessage.mutate(
+      `Continue with ${area.toLowerCase()}. Start from what the project already ` +
+        `holds there, say what is actually missing, and ask me only if you need ` +
+        `something I have not said.`,
+    )
   }
 
   const handleSuggestion = (text: string) => {
