@@ -269,6 +269,7 @@ class MemoryClient:
         reason: str,
         consequence: str,
         revisit: str,
+        origin: str = "kae_inferred",
     ) -> Any:
         """Record something a turn settled on its own account.
 
@@ -285,6 +286,7 @@ class MemoryClient:
             "POST",
             f"/v1/projects/{project_id}/assumptions",
             json={
+                "origin": origin,
                 "subject": subject,
                 "assumed_value": assumed_value,
                 "reason": reason,

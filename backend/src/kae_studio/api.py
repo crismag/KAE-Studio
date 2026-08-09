@@ -142,6 +142,24 @@ class TurnIn(BaseModel):
     body: str = Field(min_length=1)
 
 
+class RecommendationIn(BaseModel):
+    """A person's disposition on something KAE advised.
+
+    The three the interaction contract maps to transitions. `modify` carries the
+    wording a person changed it to — accepting an edited recommendation is still
+    KAE's idea and still their decision, and losing the edit would record
+    agreement with something they explicitly did not agree with.
+    """
+
+    disposition: str = Field(pattern="^(accept|modify|keep_open)$")
+    advice: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    consequence: str = "rework"
+    revisit: str = "before_build"
+    subject: str = ""
+    modified_to: str = ""
+
+
 class ConfirmSetIn(BaseModel):
     """The statements a single "yes" applies to.
 
@@ -577,6 +595,17 @@ def create_app(settings: Settings) -> FastAPI:
                 }
                 for c in move.concluded
             ],
+            # What KAE advises, when it advises anything, so the interface can
+            # offer the dispositions rather than leaving a person to retype it.
+            "recommendation": (
+                {
+                    "advice": move.recommendation.advice,
+                    "reason": move.recommendation.reason,
+                    "consequence": move.recommendation.consequence,
+                }
+                if move.recommendation
+                else None
+            ),
             "source": "cie",
         }
 
@@ -613,6 +642,54 @@ def create_app(settings: Settings) -> FastAPI:
         operator: Operator = Depends(require_operator),
     ) -> Any:
         return await memory(request).confirm_knowledge(project_id, knowledge_id, operator.name)
+
+    @app.post("/api/projects/{project_id}/recommendations")
+    async def decide_recommendation(
+        project_id: str,
+        body: RecommendationIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Record what a person did with KAE's advice.
+
+        **The click is the decision** — nothing asks afterwards whether they
+        meant it, and the three dispositions cost the same. If accepting were a
+        click and disagreeing a paragraph, the product would have a thumb on the
+        scale.
+
+        Each writes a different origin, because they are different facts:
+
+            accept    → kae_recommended_accepted   KAE advised, they agreed
+            modify    → kae_recommended_accepted   with their wording
+            keep_open → unresolved_alternative     nobody chose yet
+
+        None of them is `user_stated`. An accepted recommendation is still KAE's
+        idea, and recording it as something the customer said would erase the
+        one distinction that makes advice safe to give.
+        """
+
+        origin = (
+            "unresolved_alternative" if body.disposition == "keep_open"
+            else "kae_recommended_accepted"
+        )
+        value = body.modified_to.strip() or body.advice
+        reason = {
+            "accept": f"KAE recommended this and the operator accepted it: {body.reason}",
+            "modify": f"KAE recommended this, the operator edited it: {body.reason}",
+            "keep_open": f"KAE recommended this and the operator kept it open: {body.reason}",
+        }[body.disposition]
+
+        return await memory(request).record_assumption(
+            project_id,
+            subject=body.subject or "conversation",
+            assumed_value=value,
+            reason=reason,
+            consequence=body.consequence,
+            # An option nobody chose has to come back, or "keep open" is a way
+            # of losing the question politely.
+            revisit="before_build" if body.disposition == "keep_open" else body.revisit,
+            origin=origin,
+        )
 
     @app.post("/api/projects/{project_id}/knowledge/confirm")
     async def confirm_set(
