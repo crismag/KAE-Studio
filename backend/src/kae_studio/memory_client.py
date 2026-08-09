@@ -251,6 +251,41 @@ class MemoryClient:
             "POST", f"/v1/knowledge/{knowledge_id}/confirm", json={"reviewer": reviewer}
         )
 
+    async def record_assumption(
+        self,
+        project_id: str,
+        subject: str,
+        assumed_value: str,
+        reason: str,
+        consequence: str,
+        revisit: str,
+    ) -> Any:
+        """Record something a turn settled on its own account.
+
+        **Never as knowledge.** An assumption is KAE's interpretation standing in
+        for information nobody supplied, and the whole point of the type is that
+        it stays distinguishable from what a person said. Writing these as
+        knowledge would be model output re-entering as evidence.
+
+        `consequence` is what decides whether anyone is interrupted about it;
+        `revisit` is what stops it becoming a commitment nobody remembers making.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/assumptions",
+            json={
+                "subject": subject,
+                "assumed_value": assumed_value,
+                "reason": reason,
+                "consequence": consequence,
+                "revisit": revisit,
+                # Reversible: a working assumption that could not be revised
+                # would be a decision, and CIE is not entitled to make one.
+                "reversible": True,
+            },
+        )
+
     async def confirm_knowledge_set(self, project_id: str, knowledge_ids: list[str]) -> Any:
         """Confirm the statements one reading was built from, as one act.
 

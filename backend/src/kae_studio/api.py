@@ -477,6 +477,34 @@ def create_app(settings: Settings) -> FastAPI:
         next_action = [
             {"kind": a.kind, "label": a.label, "reason": a.reason} for a in move.next_action
         ]
+
+        # What the turn settled on its own account, recorded as assumptions.
+        #
+        # This is the half that makes C-4 durable. Grading a conclusion stops
+        # the interviewer asking about it; recording it is what stops the
+        # conclusion evaporating — and what lets it be revisited when its
+        # trigger fires rather than never.
+        #
+        # Assumptions, never knowledge. KAE's interpretation must stay
+        # distinguishable from what a person said, which is the whole reason the
+        # type exists.
+        #
+        # Failures here do not fail the turn. The reply is what the person is
+        # waiting for; losing a recorded assumption is a smaller harm than
+        # losing the conversation, and the turn still carries them in its own
+        # metadata either way.
+        for conclusion in move.concluded:
+            try:
+                await client.record_assumption(
+                    project_id,
+                    subject=move.subject or "conversation",
+                    assumed_value=conclusion.statement,
+                    reason=f"concluded by KAE during a planning turn ({move.skill})",
+                    consequence=conclusion.consequence,
+                    revisit=conclusion.revisit_when,
+                )
+            except (MemoryRefused, MemoryUnavailable):
+                pass
         await client.post_message(
             session_id,
             move.text,
@@ -497,6 +525,15 @@ def create_app(settings: Settings) -> FastAPI:
                 "skill": move.skill,
                 "subject": move.subject,
                 "provenance": list(move.provenance),
+                "concluded": [
+                    {
+                        "statement": c.statement,
+                        "consequence": c.consequence,
+                        "revisit_when": c.revisit_when,
+                        "material": c.is_material,
+                    }
+                    for c in move.concluded
+                ],
                 "next_action": next_action,
                 # So staleness is checkable: a ranking reasoned against a
                 # projection the project has since moved past is still guidance,
@@ -527,6 +564,19 @@ def create_app(settings: Settings) -> FastAPI:
             # invented would disagree on screen with the move CIE just chose
             # (ADR-0002).
             "next_action": next_action,
+            # What the turn settled without being told to. Carried so the
+            # interface can show a material conclusion straight away and let
+            # someone disagree while the sentence is still on screen — waiting
+            # for a refetch would make disagreeing cost more than accepting.
+            "concluded": [
+                {
+                    "statement": c.statement,
+                    "consequence": c.consequence,
+                    "revisit_when": c.revisit_when,
+                    "material": c.is_material,
+                }
+                for c in move.concluded
+            ],
             "source": "cie",
         }
 

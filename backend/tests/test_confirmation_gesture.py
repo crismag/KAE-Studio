@@ -199,3 +199,103 @@ def test_a_turn_records_what_it_reflected_and_recommended() -> None:
     # The reply still carries them, so the turn that produced them shows them
     # without waiting for a refetch.
     assert body["next_action"][0]["reason"] == "oldest unreviewed work"
+
+
+def test_what_a_turn_settled_is_recorded_as_an_assumption() -> None:
+    """The half that makes a confirmation threshold durable.
+
+    Grading a conclusion stops the interviewer asking about it. Recording it is
+    what stops the conclusion evaporating, and what lets it be revisited when
+    its trigger fires rather than never — a conclusion nobody looks at again is
+    a guess with tenure.
+
+    An assumption, never knowledge: KAE's interpretation has to stay
+    distinguishable from what a person said.
+    """
+
+    class Recording(TurnMemory):
+        def __init__(self) -> None:
+            super().__init__()
+            self.assumptions: list[dict[str, Any]] = []
+
+        async def record_assumption(self, project_id: str, **kwargs: Any) -> Any:
+            self.assumptions.append({"project_id": project_id, **kwargs})
+            return {"id": "a1"}
+
+    class Concluding(StubInterviewer):
+        def turn(self, project_id: str, message: str, *, actor: str) -> Any:
+            from cie_slim.kae.conversation import Conclusion, Move
+
+            return Move(
+                text="I'll take weekly as the working cadence.",
+                skill="adopt_working_assumption",
+                subject="scope_and_boundaries",
+                concluded=(Conclusion("Reports are weekly", "rework", "before_build"),),
+            )
+
+    app = create_app(
+        Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "token",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+            }
+        )
+    )
+    with TestClient(app) as browser:
+        memory = Recording()
+        app.state.memory = memory
+        app.state.interviewer = Concluding()
+
+        body = browser.post("/api/projects/p1/turn", json={"body": "Whatever works."}).json()
+
+    assert len(memory.assumptions) == 1
+    recorded = memory.assumptions[0]
+    assert recorded["assumed_value"] == "Reports are weekly"
+    assert recorded["consequence"] == "rework"
+    assert recorded["revisit"] == "before_build"
+    assert body["concluded"][0]["material"] is False
+
+
+def test_a_failed_assumption_write_does_not_cost_the_reply() -> None:
+    """The person is waiting for the turn, not for the bookkeeping.
+
+    Losing a recorded assumption is a smaller harm than losing the
+    conversation — and the turn still carries it in its own metadata, so the
+    fact is not gone, only its durable copy.
+    """
+
+    class Failing(TurnMemory):
+        async def record_assumption(self, *args: Any, **kwargs: Any) -> Any:
+            from kae_studio.memory_client import MemoryUnavailable
+
+            raise MemoryUnavailable("memory is down")
+
+    class Concluding(StubInterviewer):
+        def turn(self, project_id: str, message: str, *, actor: str) -> Any:
+            from cie_slim.kae.conversation import Conclusion, Move
+
+            return Move(
+                text="Weekly, then.",
+                skill="adopt_working_assumption",
+                subject="scope",
+                concluded=(Conclusion("Reports are weekly", "cosmetic", "on_request"),),
+            )
+
+    app = create_app(
+        Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "token",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+            }
+        )
+    )
+    with TestClient(app) as browser:
+        app.state.memory = Failing()
+        app.state.interviewer = Concluding()
+
+        response = browser.post("/api/projects/p1/turn", json={"body": "Whatever works."})
+
+    assert response.status_code == 200
+    assert response.json()["move"] == "Weekly, then."
