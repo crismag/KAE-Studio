@@ -83,6 +83,13 @@ export interface ConversationMessage {
    * confirmed".
    */
   provenance?: string[]
+  /**
+   * What to do next, best first, each with the reason it outranks the rest.
+   *
+   * Ranked by CIE (ADR-0002) — Memory refuses to rank and Studio must not, or
+   * the panel would disagree with the move beside it.
+   */
+  nextAction?: { kind: string; label: string; reason: string }[]
 }
 
 export interface InterviewSession {

@@ -753,6 +753,7 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         skill: string
         subject: string
         provenance?: string[]
+        next_action?: { kind: string; label: string; reason: string }[]
         source: string
       }>(`/api/projects/${resolve(projectId)}/turn`, {
         method: 'POST',
@@ -779,6 +780,9 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
           // untouched: the set is CIE's account of what it reflected, and an
           // interface that edited it would be changing what a person agrees to.
           provenance: result.provenance ?? [],
+          // Carried, never re-ordered. The ranking is CIE's reasoning about
+          // this turn; a client that sorted it would be ranking.
+          nextAction: result.next_action ?? [],
         } as ConversationMessage,
         session,
       }

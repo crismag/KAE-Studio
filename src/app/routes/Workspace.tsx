@@ -27,6 +27,11 @@ import {
 } from '@/components/ui/primitives'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import {
+  NextAction,
+  floorAction,
+  type RecommendedAction,
+} from '@/components/project/NextAction'
+import {
   useConfirmReading,
   useDeferDecision,
   useInterviewSession,
@@ -495,14 +500,27 @@ function WhatTheseMean() {
   )
 }
 
-function ContextPanelContent({ onDiscuss }: { onDiscuss?: (area: string) => void }) {
+function ContextPanelContent({
+  onDiscuss,
+  recommended,
+}: {
+  onDiscuss?: (area: string) => void
+  /** The latest turn's ranking, if a turn has happened in this session. */
+  recommended?: RecommendedAction
+}) {
   const { data: projection } = useProjection()
   if (!projection) return null
 
   const blocking = projection.openDecisions.filter((d) => !d.deferred)
+  // The floor, when nothing has been ranked yet. R12 asks for a recommendation
+  // *always*, and rendering must cost no model call — so this is derived from
+  // the projection already in hand rather than requested.
+  const action = recommended ?? floorAction(projection)
 
   return (
     <div className="space-y-4 pb-6">
+      <NextAction action={action} derived={recommended === undefined} />
+
       <Panel>
         <PanelHeader>
           <PanelTitle>Current understanding</PanelTitle>
@@ -658,6 +676,13 @@ export function Workspace() {
   const { data: session } = useInterviewSession()
   const sendMessage = useSendMessage()
   const confirmReading = useConfirmReading()
+  // The most recent turn that recommended anything. Read from the transcript
+  // already loaded, so showing it costs nothing — which is what lets the panel
+  // be always-present rather than present-after-a-request.
+  const recommended = [...(messages ?? [])]
+    .reverse()
+    .flatMap((m) => m.nextAction ?? [])
+    .at(0) as RecommendedAction | undefined
   const [draft, setDraft] = useState('')
 
   // The last turn, only when it produced no question. A question is written to
@@ -789,7 +814,7 @@ export function Workspace() {
 
       {/* Desktop context panel */}
       <aside className="hidden w-[352px] shrink-0 overflow-y-auto border-l border-line bg-canvas px-4 py-4 kae-scrollbar xl:block">
-        <ContextPanelContent onDiscuss={discuss} />
+        <ContextPanelContent onDiscuss={discuss} recommended={recommended} />
       </aside>
 
       {/* Context drawer below xl */}
@@ -811,7 +836,7 @@ export function Workspace() {
                 </Button>
               </Dialog.Close>
             </div>
-            <ContextPanelContent onDiscuss={discuss} />
+            <ContextPanelContent onDiscuss={discuss} recommended={recommended} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

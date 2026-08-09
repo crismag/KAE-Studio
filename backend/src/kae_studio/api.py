@@ -497,6 +497,15 @@ def create_app(settings: Settings) -> FastAPI:
             # displayed beside "0 of 1 confirmed". Empty is normal: a question
             # asking something new reflects nothing.
             "provenance": list(move.provenance),
+            # What to do next, best first, each with the reason it outranks the
+            # rest. CIE ranks because nothing else may: Memory's subjects are a
+            # stable order rather than a recommended one, and a ranking Studio
+            # invented would disagree on screen with the move CIE just chose
+            # (ADR-0002).
+            "next_action": [
+                {"kind": a.kind, "label": a.label, "reason": a.reason}
+                for a in move.next_action
+            ],
             "source": "cie",
         }
 
