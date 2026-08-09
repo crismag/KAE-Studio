@@ -18,7 +18,14 @@ export function Plan() {
           'Risk register with owners',
           'Action items for unresolved decisions',
         ]}
-        whyNotReady="Build order cannot be derived past the first layer. Approval Workflow has a blocking dependency on Identity and Access whose contract depends on an undecided authority model (OD-011). A plan produced now would schedule work whose shape is unknown."
+        // Deliberately says nothing about *this* project.
+        //
+        // It used to: "Approval Workflow has a blocking dependency on Identity
+        // and Access whose contract depends on an undecided authority model
+        // (OD-011)" — prototype fixture prose, shown to every project as though
+        // KAE had derived it. Until this page reads the projection (S-5), the
+        // only honest thing it can say is what the stage needs in general.
+        whyNotReady="A build order is derived from module decomposition and the dependencies between modules. Neither is available here yet, and a plan produced without them would schedule work whose shape is unknown."
         nextAction={
           <Button variant="secondary" size="sm" asChild>
             <Link to="/dependencies">

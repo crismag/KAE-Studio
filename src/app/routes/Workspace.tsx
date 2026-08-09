@@ -150,35 +150,100 @@ function AssistantMessage({
 
 /* ---------------------------------------------------------- context panel */
 
+/**
+ * What KAE currently understands — and, where it understands nothing, that.
+ *
+ * Every field here is read from the projection. Nothing is hard-coded, and that
+ * is the point rather than a style preference: this panel used to state a Core
+ * workflow of "Draft → submit → approve or reject → publish" for *every*
+ * project, because it was written against a fixture. A reader had no way to
+ * tell that sentence from one KAE had derived, so the product asserted a
+ * workflow no project had described. The founding rule is that inference must
+ * never pass as fact; a fixture passing as fact is the same failure with less
+ * excuse.
+ *
+ * An empty field renders as absence, never as an artefact. `problem` was
+ * previously split on ". " and rejoined with a trailing period, so a project
+ * with no problem statement displayed a lone "." — which reads as content.
+ */
 function UnderstandingSection({ projection }: { projection: ProjectProjection }) {
-  const primaryUsers = projection.definition.stakeholders
-    .filter((s) => s.status === 'confirmed')
-    .map((s) => s.name)
+  const { problem, stakeholders, workflows } = projection.definition
+  const primaryUsers = stakeholders.filter((s) => s.status === 'confirmed').map((s) => s.name)
+  // Two sentences, and only if there are two. Trimmed first so a value that is
+  // whitespace is treated as the absence it is.
+  const summary = problem.trim().split(/(?<=\.)\s+/).slice(0, 2).join(' ')
 
   return (
     <div className="space-y-3">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-          Problem
-        </p>
-        <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
-          {projection.definition.problem.split('. ').slice(0, 2).join('. ')}.
-        </p>
-      </div>
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-          Primary users
-        </p>
-        <p className="mt-1 text-[13px] text-ink-muted">{primaryUsers.join(', ')}</p>
-      </div>
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-          Core workflow
-        </p>
-        <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
-          Draft → submit → approve or reject → publish
-        </p>
-      </div>
+      <UnderstandingField label="Problem" absent="Not established yet.">
+        {summary}
+      </UnderstandingField>
+      <UnderstandingField label="Primary users" absent="None confirmed yet.">
+        {primaryUsers.join(', ')}
+      </UnderstandingField>
+      <UnderstandingField label="Core workflow" absent="None described yet.">
+        {workflows.map((w) => w.name).join(' · ')}
+      </UnderstandingField>
+    </div>
+  )
+}
+
+/**
+ * Which packages this project could generate now, and what they would carry.
+ *
+ * The previous version named "Report Management" and "Approval Workflow" and
+ * counted decisions blocking the module key `MOD-APR` — all three from the
+ * prototype fixture. The count was genuine, which made it worse: real derived
+ * data wrapped around invented names reads as though KAE had worked it out.
+ */
+function GenerableNow({ projection }: { projection: ProjectProjection }) {
+  const blocked = (moduleKey: string) =>
+    projection.openDecisions.filter((d) => !d.deferred && d.blocks.includes(moduleKey)).length
+
+  if (projection.modules.length === 0) {
+    return (
+      <p className="text-[12.5px] leading-relaxed text-ink-muted">
+        The project context package can be generated. No modules have been proposed yet, so there
+        are no module packages.
+      </p>
+    )
+  }
+
+  return (
+    <ul className="space-y-1.5 text-[12.5px] leading-relaxed text-ink-muted">
+      <li>The project context package can be generated.</li>
+      {projection.modules.map((module) => {
+        const unresolved = blocked(module.key)
+        return (
+          <li key={module.id}>
+            {module.name} can be generated
+            {unresolved > 0
+              ? `, but it will carry ${unresolved} unresolved decision${unresolved === 1 ? '' : 's'}.`
+              : '.'}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function UnderstandingField({
+  label,
+  absent,
+  children,
+}: {
+  label: string
+  absent: string
+  children: string
+}) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">{label}</p>
+      {children ? (
+        <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">{children}</p>
+      ) : (
+        <p className="mt-1 text-[13px] italic text-ink-subtle">{absent}</p>
+      )}
     </div>
   )
 }
@@ -429,12 +494,7 @@ function ContextPanelContent({ onDiscuss }: { onDiscuss?: (area: string) => void
           <PanelTitle>What can be generated now</PanelTitle>
         </PanelHeader>
         <PanelBody className="space-y-2.5">
-          <p className="text-[12.5px] leading-relaxed text-ink-muted">
-            The project context package and the Report Management module package can be generated.
-            The Approval Workflow package can be generated, but it will carry{' '}
-            {projection.openDecisions.filter((d) => d.blocks.includes('MOD-APR')).length} unresolved
-            decisions.
-          </p>
+          <GenerableNow projection={projection} />
           <Button variant="secondary" size="sm" asChild>
             <Link to="/deliverables">
               Open Deliverables

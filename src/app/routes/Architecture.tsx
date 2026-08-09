@@ -18,7 +18,11 @@ export function Architecture() {
           'Architecture decision records with alternatives and consequences',
           'Constraints that bind the design',
         ]}
-        whyNotReady="The architecture interview has not been conducted. Two module boundaries are still proposed rather than accepted, and the authority model that shapes the security design is undecided. Generating a component diagram now would present a design nobody has discussed as though it were decided."
+        // Says nothing about *this* project, for the reason given in Plan.tsx:
+        // the second and third sentences here were fixture prose about module
+        // boundaries and an authority model belonging to a project that does
+        // not exist. The first sentence was always true of every project.
+        whyNotReady="The architecture interview has not been conducted. Generating a component diagram before one would present a design nobody has discussed as though it were decided."
         nextAction={
           <Button variant="secondary" size="sm" asChild>
             <Link to="/workspace">

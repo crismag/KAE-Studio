@@ -703,7 +703,9 @@ function ModuleSpecification({
 export function Modules() {
   const { data: projection, isLoading } = useProjection()
   const decide = useModuleDecision()
-  const [expandedId, setExpandedId] = useState<string | null>('MOD-APR')
+  // Nothing expanded by default. This was 'MOD-APR', a fixture module key, so
+  // the prototype opened on a module that exists in no real project.
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   if (isLoading || !projection) {
     return (

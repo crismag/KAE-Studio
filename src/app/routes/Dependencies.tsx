@@ -47,7 +47,10 @@ function computeLayers(modules: ProjectModule[]): ProjectModule[][] {
 
 export function Dependencies() {
   const { data: projection, isLoading } = useProjection()
-  const [selectedId, setSelectedId] = useState<string>('MOD-APR')
+  // Empty, not 'MOD-APR'. That was a fixture module key; it selected nothing on
+  // a real project and fell through to `modules[0]`, which is what this now
+  // says outright.
+  const [selectedId, setSelectedId] = useState<string>('')
 
   if (isLoading || !projection) {
     return (
@@ -82,6 +85,12 @@ export function Dependencies() {
     (n, m) => n + m.dependencies.filter((d) => d.blocking).length,
     0,
   )
+  // Named from the graph, not from the prototype. The warning below used to
+  // assert that "Approval Workflow has a blocking dependency on Identity and
+  // Access" for every project, including ones with neither module.
+  const blockedNames = projection.modules
+    .filter((m) => m.dependencies.some((d) => d.blocking))
+    .map((m) => m.name)
 
   return (
     <PageLayout
@@ -151,20 +160,22 @@ export function Dependencies() {
               </div>
             ))}
 
-            <div className="rounded-md border border-attention-line bg-attention-soft/50 px-4 py-3">
-              <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-muted">
-                <TriangleAlert
-                  className="mt-0.5 size-3.5 shrink-0 text-attention"
-                  aria-hidden="true"
-                />
-                <span>
-                  Build order past layer 1 is provisional. Approval Workflow has a blocking
-                  dependency on Identity and Access, and the authority model it needs is undecided (
-                  <span className="font-mono">OD-011</span>). Scheduling delivery on this order
-                  would assume an answer nobody has given.
-                </span>
-              </p>
-            </div>
+            {blockingCount > 0 && (
+              <div className="rounded-md border border-attention-line bg-attention-soft/50 px-4 py-3">
+                <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-muted">
+                  <TriangleAlert
+                    className="mt-0.5 size-3.5 shrink-0 text-attention"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    Build order is provisional past the first blocking dependency.{' '}
+                    {blockedNames.join(', ')}{' '}
+                    {blockedNames.length === 1 ? 'has a dependency that blocks' : 'have dependencies that block'}{' '}
+                    it. Scheduling delivery on this order would assume answers nobody has given.
+                  </span>
+                </p>
+              </div>
+            )}
           </PanelBody>
         </Panel>
 
