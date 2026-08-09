@@ -299,3 +299,104 @@ def test_a_failed_assumption_write_does_not_cost_the_reply() -> None:
 
     assert response.status_code == 200
     assert response.json()["move"] == "Weekly, then."
+
+
+def test_the_disclosure_a_user_sees_matches_the_runs_behind_it() -> None:
+    """The seam, which is where every defect today actually lived.
+
+    Memory counts abandoned extraction runs and Studio renders a sentence about
+    them. Both halves are covered; nothing asserted that the number in the
+    sentence is the number Memory reported. That is exactly the gap that let
+    `enqueue_review` sit on a route with no caller, `origin` sit on a service
+    and not its schema, and `metadata` be persisted and never returned.
+    """
+
+    class Lossy(RecordingMemory):
+        async def get_project(self, project_id: str) -> Any:
+            return {"id": project_id, "name": "Lossy", "knowledge_revision": 5}
+
+        async def readiness(self, project_id: str) -> Any:
+            return {"percentage": 8, "status": "discovering", "areas": []}
+
+        async def knowledge(self, project_id: str, lifecycle: Any = None) -> Any:
+            return []
+
+        async def clarifications(self, project_id: str, limit: int = 20) -> Any:
+            return []
+
+        async def blockers(self, project_id: str) -> Any:
+            return []
+
+        async def preliminary_context(self, project_id: str) -> Any:
+            return {}
+
+        async def extraction_coverage(self, project_id: str) -> Any:
+            return {"succeeded": 45, "abandoned": 12, "total": 57, "complete": False}
+
+    app = create_app(
+        Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "token",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+            }
+        )
+    )
+    with TestClient(app) as browser:
+        app.state.memory = Lossy()
+        projection = browser.get("/api/projects/p1/projection").json()
+
+    assert projection["extractionCoverage"] == {
+        "succeeded": 45,
+        "abandoned": 12,
+        "complete": False,
+    }
+    # And it stays out of the health figure, which is the whole rule:
+    # content loss is reported separately and never folded in.
+    assert projection["health"]["percentage"] == 8
+
+
+def test_a_memory_that_cannot_report_loss_does_not_produce_a_warning() -> None:
+    """Silence on ignorance.
+
+    A Memory too old to answer has told us nothing about loss. Defaulting to
+    "incomplete" would put the notice on every project running an older version,
+    which is the definition of a banner nobody reads.
+    """
+
+    class Older(RecordingMemory):
+        async def get_project(self, project_id: str) -> Any:
+            return {"id": project_id, "name": "Older"}
+
+        async def readiness(self, project_id: str) -> Any:
+            return {}
+
+        async def knowledge(self, project_id: str, lifecycle: Any = None) -> Any:
+            return []
+
+        async def clarifications(self, project_id: str, limit: int = 20) -> Any:
+            return []
+
+        async def blockers(self, project_id: str) -> Any:
+            return []
+
+        async def preliminary_context(self, project_id: str) -> Any:
+            return {}
+
+        async def extraction_coverage(self, project_id: str) -> Any:
+            raise RuntimeError("this Memory has no such route")
+
+    app = create_app(
+        Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "token",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+            }
+        )
+    )
+    with TestClient(app) as browser:
+        app.state.memory = Older()
+        projection = browser.get("/api/projects/p1/projection").json()
+
+    assert projection["extractionCoverage"]["complete"] is True
