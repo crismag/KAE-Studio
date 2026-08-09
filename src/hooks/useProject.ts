@@ -103,6 +103,46 @@ export function useConfirmReading() {
   })
 }
 
+/**
+ * Record a disposition on KAE's advice.
+ *
+ * Invalidates the projection: accepting a recommendation adds an assumption to
+ * the project, and the point of the gesture is that agreeing visibly changes
+ * something.
+ */
+export function useDecideRecommendation() {
+  const { interview, projectId } = useServices()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      recommendation,
+      disposition,
+      modifiedTo,
+      subject,
+    }: {
+      recommendation: { advice: string; reason: string; consequence: string }
+      disposition: 'accept' | 'modify' | 'keep_open'
+      modifiedTo?: string
+      subject?: string
+    }) =>
+      interview.decideRecommendation(projectId, {
+        disposition,
+        advice: recommendation.advice,
+        reason: recommendation.reason,
+        consequence: recommendation.consequence,
+        subject,
+        modifiedTo,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+      ])
+    },
+  })
+}
+
 export function useModuleDecision() {
   const { memory, projectId } = useServices()
   const queryClient = useQueryClient()

@@ -787,6 +787,13 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         subject: string
         provenance?: string[]
         next_action?: { kind: string; label: string; reason: string }[]
+        recommendation?: { advice: string; reason: string; consequence: string } | null
+        concluded?: {
+          statement: string
+          consequence: string
+          revisit_when: string
+          material: boolean
+        }[]
         source: string
       }>(`/api/projects/${resolve(projectId)}/turn`, {
         method: 'POST',
@@ -816,9 +823,29 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
           // Carried, never re-ordered. The ranking is CIE's reasoning about
           // this turn; a client that sorted it would be ranking.
           nextAction: result.next_action ?? [],
+          recommendation: result.recommendation ?? null,
+          concluded: (result.concluded ?? []).map((c) => ({
+            statement: c.statement,
+            consequence: c.consequence,
+            revisitWhen: c.revisit_when,
+            material: c.material,
+          })),
         } as ConversationMessage,
         session,
       }
+    },
+    decideRecommendation: async (projectId, decision) => {
+      await call(`/api/projects/${resolve(projectId)}/recommendations`, {
+        method: 'POST',
+        body: JSON.stringify({
+          disposition: decision.disposition,
+          advice: decision.advice,
+          reason: decision.reason,
+          consequence: decision.consequence,
+          subject: decision.subject ?? '',
+          modified_to: decision.modifiedTo ?? '',
+        }),
+      })
     },
     confirmReading: async (projectId, knowledgeIds) => {
       await call(`/api/projects/${resolve(projectId)}/knowledge/confirm`, {

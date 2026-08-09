@@ -122,6 +122,23 @@ export interface InterviewProvider {
    * arrives. KAE-Memory applies the set all or nothing.
    */
   confirmReading(projectId: string, knowledgeIds: string[]): Promise<void>
+  /**
+   * Record what a person did with KAE's advice.
+   *
+   * All three dispositions cost one call. If accepting were cheap and
+   * disagreeing expensive, the agreement collected would mean less for it.
+   */
+  decideRecommendation(
+    projectId: string,
+    decision: {
+      disposition: 'accept' | 'modify' | 'keep_open'
+      advice: string
+      reason: string
+      consequence: string
+      subject?: string
+      modifiedTo?: string
+    },
+  ): Promise<void>
 }
 
 /** Assembles the projection the UI renders from current Memory knowledge. */

@@ -370,6 +370,11 @@ class MockInterviewProvider implements InterviewProvider {
   async confirmReading(_projectId: string, _knowledgeIds: string[]): Promise<void> {
     await delay(undefined, 200)
   }
+
+  /** Records nothing, for the reason `confirmReading` records nothing. */
+  async decideRecommendation(_projectId: string, _decision: unknown): Promise<void> {
+    await delay(undefined, 200)
+  }
 }
 
 /* --------------------------------------------------------- projection mock */

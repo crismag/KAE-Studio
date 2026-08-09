@@ -90,6 +90,21 @@ export interface ConversationMessage {
    * the panel would disagree with the move beside it.
    */
   nextAction?: { kind: string; label: string; reason: string }[]
+  /**
+   * What KAE advises, when it advises anything.
+   *
+   * Distinct from a conclusion: a conclusion is something KAE settled without
+   * asking, this is something it deliberately did not settle. The interface
+   * must not blur them, or advice becomes a decision by omission.
+   */
+  recommendation?: { advice: string; reason: string; consequence: string } | null
+  /** What the turn settled on its own account, and how much each one costs. */
+  concluded?: {
+    statement: string
+    consequence: string
+    revisitWhen: string
+    material: boolean
+  }[]
 }
 
 export interface InterviewSession {

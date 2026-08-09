@@ -27,12 +27,19 @@ import {
 } from '@/components/ui/primitives'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import {
+  ConcludedList,
+  RecommendationCard,
+  type Disposition,
+  type Recommendation,
+} from '@/components/project/RecommendationCard'
+import {
   NextAction,
   floorAction,
   type RecommendedAction,
 } from '@/components/project/NextAction'
 import {
   useConfirmReading,
+  useDecideRecommendation,
   useDeferDecision,
   useInterviewSession,
   useMessages,
@@ -141,10 +148,16 @@ export function AssistantMessage({
   message,
   onSuggestion,
   onConfirmReading,
+  onDecideRecommendation,
 }: {
   message: ConversationMessage
   onSuggestion: (text: string) => void
   onConfirmReading?: (ids: string[]) => Promise<void> | void
+  onDecideRecommendation?: (
+    recommendation: Recommendation,
+    disposition: Disposition,
+    modifiedTo?: string,
+  ) => Promise<void> | void
 }) {
   return (
     <article className="flex flex-col gap-3">
@@ -178,6 +191,19 @@ export function AssistantMessage({
                 <WhyThisQuestion points={message.understanding.points} />
               </div>
             </details>
+          )}
+
+          {message.concluded && message.concluded.length > 0 && (
+            <ConcludedList concluded={message.concluded} />
+          )}
+
+          {onDecideRecommendation && message.recommendation && (
+            <RecommendationCard
+              recommendation={message.recommendation}
+              onDecide={(disposition, modifiedTo) =>
+                onDecideRecommendation(message.recommendation!, disposition, modifiedTo)
+              }
+            />
           )}
 
           {onConfirmReading && message.provenance && message.provenance.length > 0 && (
@@ -708,6 +734,7 @@ export function Workspace() {
   const { data: session } = useInterviewSession()
   const sendMessage = useSendMessage()
   const confirmReading = useConfirmReading()
+  const decideRecommendation = useDecideRecommendation()
   // The most recent turn that recommended anything. Read from the transcript
   // already loaded, so showing it costs nothing — which is what lets the panel
   // be always-present rather than present-after-a-request.
@@ -811,6 +838,14 @@ export function Workspace() {
                   message={message}
                   onSuggestion={handleSuggestion}
                   onConfirmReading={(ids) => confirmReading.mutateAsync(ids)}
+                  onDecideRecommendation={(recommendation, disposition, modifiedTo) =>
+                    decideRecommendation.mutateAsync({
+                      recommendation,
+                      disposition,
+                      modifiedTo,
+                      subject: '',
+                    })
+                  }
                 />
               ),
             )}
