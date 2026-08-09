@@ -470,6 +470,85 @@ export interface PublisherAvailability {
   reason: string
 }
 
+/* ------------------------------------------------------------- acquisition */
+
+/**
+ * Reading an existing project in. STI-1 exists; STI-2 to STI-4 do not.
+ *
+ * The types below are shaped so the interface cannot accidentally claim more
+ * than has happened. `SourceState` has four values and only the first three are
+ * reachable — `analyzed` is declared so that `pinned` cannot quietly stand in
+ * for it.
+ */
+
+export type ConnectionState = 'configured' | 'verified' | 'refused' | 'unreachable'
+
+export interface ProviderConnection {
+  connectionId: string
+  provider: string
+  label: string
+  state: ConnectionState
+  /** Separate grants. One boolean would assert both on the evidence of one. */
+  canRead: boolean
+  canWrite: boolean
+  account: string
+  verifiedAt: string
+  detail: string
+}
+
+/**
+ * How far a source has actually got.
+ *
+ * `analyzed` is **not reachable**. Nothing sets it, because nothing reads a
+ * repository into findings yet. It exists in the type so a component that
+ * renders state cannot treat `pinned` as the finish line.
+ */
+export type SourceState = 'configured' | 'readable' | 'pinned' | 'analyzed'
+
+export interface SourceSnapshot {
+  revision: string
+  resolvedAt: string
+  fileCount: number
+  totalBytes: number
+  excludedCount: number
+  contentDigest: string
+}
+
+/** A capability that does not exist, reported as a fact rather than an empty list. */
+export interface CapabilityGap {
+  capability: string
+  reason: string
+  state: 'planned'
+  /** What *was* proved, so the UI can show how far the user actually got. */
+  provedInstead: string[]
+}
+
+export interface ProjectSource {
+  sourceId: string
+  projectId: string
+  kind: 'github' | 's3' | 'upload'
+  connectionId: string
+  location: string
+  reference: string
+  state: SourceState
+  snapshot: SourceSnapshot | null
+  lastError: string
+  /** Present on every source, always. A conditional field is one a UI forgets. */
+  analysis: CapabilityGap
+}
+
+export interface ConnectivityResult {
+  ok: boolean
+  provider: string
+  account: string
+  canRead: boolean
+  canWrite: boolean
+  detail: string
+  checkedAt: string
+  /** In words, on every result: what this does and does not establish. */
+  proves: string
+}
+
 /* ---------------------------------------------------------------- health */
 
 export interface CoverageTopic {

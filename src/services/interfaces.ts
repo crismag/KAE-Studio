@@ -17,6 +17,9 @@
  */
 
 import type {
+  ConnectivityResult,
+  ProjectSource,
+  ProviderConnection,
   ArtifactApproval,
   ArtifactPackage,
   ArtifactPlan,
@@ -185,6 +188,34 @@ export interface ArtifactPipeline {
   getProvenance(publicationId: string): Promise<Record<string, unknown>>
 }
 
+/**
+ * Connections and sources. STI-1 only.
+ *
+ * There is no `analyze` method, and that absence is deliberate. A port that
+ * declared one would invite a mock to implement it, and a mock that returned
+ * findings would let the entire interface be built and demoed against a
+ * capability that does not exist.
+ */
+export interface AcquisitionPort {
+  listConnections(): Promise<ProviderConnection[]>
+  addConnection(input: {
+    provider: string
+    label: string
+    /** `env:NAME`. A reference to a secret, never one. */
+    connectionRef: string
+  }): Promise<ProviderConnection>
+  /** Ask the provider what a credential can do. **Writes nothing.** */
+  checkConnectivity(connectionId: string, location: string): Promise<ConnectivityResult>
+
+  listSources(projectId: string): Promise<ProjectSource[]>
+  addSource(
+    projectId: string,
+    input: { kind: string; connectionId: string; location: string; reference: string },
+  ): Promise<ProjectSource>
+  /** Resolve to an immutable commit. The furthest a source can currently go. */
+  pinSource(sourceId: string): Promise<ProjectSource>
+}
+
 export interface ArtifactPlanEdit {
   type: string
   logicalPath?: string
@@ -228,4 +259,5 @@ export interface StudioServices {
   projection: ProjectProjectionService
   artifacts: ArtifactService
   pipeline: ArtifactPipeline
+  acquisition: AcquisitionPort
 }

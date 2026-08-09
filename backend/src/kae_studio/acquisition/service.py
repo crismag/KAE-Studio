@@ -1,0 +1,246 @@
+"""Connections and sources, as far as they can honestly go.
+
+The application service for STI-1. It can verify a connection, confirm a source
+is readable, and pin it to an immutable commit. It cannot analyze anything, and
+`analyze()` says so rather than returning an empty result.
+
+## Held in memory, on purpose
+
+Studio owns no durable project state (ADR-0006). Connections and sources are
+configuration rather than knowledge, so they will eventually belong in a Studio
+store or in Memory — that decision is open, and inventing a schema for it here
+would settle it by accident. Until then this holds them for the process
+lifetime, and says so at the API rather than implying persistence it does not
+have.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+
+from .github_source import GitHubSourceClient, SourceReadError, snapshot_digest
+from .model import (
+    Connection,
+    ConnectionState,
+    ConnectivityCheck,
+    Source,
+    SourceKind,
+    SourceScope,
+    SourceSnapshot,
+    SourceState,
+)
+
+
+class UnknownResource(LookupError):
+    """A connection or source that does not exist."""
+
+
+class AcquisitionService:
+    """Configure sources, verify them, pin them. Analysis is not here."""
+
+    def __init__(self, github: GitHubSourceClient | None = None) -> None:
+        self._github = github
+        self._connections: dict[str, Connection] = {}
+        self._sources: dict[str, Source] = {}
+
+    # -- connections -------------------------------------------------------
+
+    def add_connection(self, provider: str, label: str, connection_ref: str) -> Connection:
+        connection = Connection(
+            connection_id=f"con_{uuid.uuid4().hex[:12]}",
+            provider=provider,
+            label=label,
+            connection_ref=connection_ref,
+        )
+        self._connections[connection.connection_id] = connection
+        return connection
+
+    def connections(self) -> list[Connection]:
+        return list(self._connections.values())
+
+    def connection(self, connection_id: str) -> Connection:
+        found = self._connections.get(connection_id)
+        if found is None:
+            raise UnknownResource(f"unknown connection {connection_id}")
+        return found
+
+    def check(self, connection_id: str, repo: str) -> ConnectivityCheck:
+        """Ask the provider what this credential can do. Writes nothing.
+
+        Read and write capability are recorded separately, because they are
+        separate grants — and a check that reported one boolean would assert
+        both on the evidence of whichever it happened to test.
+        """
+
+        connection = self.connection(connection_id)
+        if self._github is None:
+            self._connections[connection_id] = _with(
+                connection, state=ConnectionState.UNREACHABLE,
+                detail="no GitHub connection is configured for this deployment",
+            )
+            return ConnectivityCheck(
+                ok=False,
+                provider=connection.provider,
+                detail="no GitHub connection is configured for this deployment",
+            )
+
+        try:
+            capability = self._github.check(repo)
+        except SourceReadError as error:
+            state = (
+                ConnectionState.REFUSED
+                if error.kind in {"not_authorized", "not_found"}
+                else ConnectionState.UNREACHABLE
+            )
+            self._connections[connection_id] = _with(
+                connection, state=state, detail=str(error)
+            )
+            return ConnectivityCheck(
+                ok=False, provider=connection.provider, detail=str(error)
+            )
+
+        self._connections[connection_id] = _with(
+            connection,
+            state=ConnectionState.VERIFIED,
+            can_read=capability["can_read"],
+            can_write=capability["can_write"],
+            account=capability["account"],
+            verified_at=datetime.now(UTC),
+            detail="",
+        )
+        return ConnectivityCheck(
+            ok=True,
+            provider=connection.provider,
+            account=capability["account"],
+            can_read=capability["can_read"],
+            can_write=capability["can_write"],
+        )
+
+    # -- sources -----------------------------------------------------------
+
+    def add_source(
+        self,
+        project_id: str,
+        kind: SourceKind,
+        connection_id: str,
+        location: str,
+        reference: str,
+        scope: SourceScope | None = None,
+    ) -> Source:
+        self.connection(connection_id)
+        source = Source(
+            source_id=f"src_{uuid.uuid4().hex[:12]}",
+            project_id=project_id,
+            kind=kind,
+            connection_id=connection_id,
+            location=location,
+            reference=reference,
+            scope=scope or SourceScope(),
+        )
+        self._sources[source.source_id] = source
+        return source
+
+    def sources(self, project_id: str) -> list[Source]:
+        return [s for s in self._sources.values() if s.project_id == project_id]
+
+    def source(self, source_id: str) -> Source:
+        found = self._sources.get(source_id)
+        if found is None:
+            raise UnknownResource(f"unknown source {source_id}")
+        return found
+
+    def pin(self, source_id: str) -> Source:
+        """Resolve the reference to an immutable commit and describe the scope.
+
+        This is the most a source can currently become. The state it reaches is
+        `PINNED`, **not** `ANALYZED`, and the difference is everything a product
+        would like to claim at this point: a pinned source means we know exactly
+        which bytes we *would* read, not that we have read or understood any.
+        """
+
+        source = self.source(source_id)
+        if source.kind is not SourceKind.GITHUB:
+            raise NotImplementedError(
+                f"pinning a {source.kind.value} source is not implemented. Only "
+                f"GitHub sources can currently be resolved to an immutable revision."
+            )
+        if self._github is None:
+            updated = _with_source(
+                source,
+                state=SourceState.CONFIGURED,
+                last_error="no GitHub connection is configured for this deployment",
+            )
+            self._sources[source_id] = updated
+            return updated
+
+        try:
+            revision = self._github.resolve(source.location, source.reference or "HEAD")
+            entries, truncated = self._github.tree(source.location, revision)
+        except SourceReadError as error:
+            updated = _with_source(source, state=SourceState.CONFIGURED, last_error=str(error))
+            self._sources[source_id] = updated
+            return updated
+
+        in_scope = [e for e in entries if not source.scope.excludes(e["path"])]
+        snapshot = SourceSnapshot(
+            revision=revision,
+            resolved_at=datetime.now(UTC),
+            file_count=len(in_scope),
+            total_bytes=sum(e["size"] for e in in_scope),
+            excluded_count=len(entries) - len(in_scope),
+            content_digest=snapshot_digest(in_scope),
+        )
+        updated = _with_source(
+            source,
+            state=SourceState.PINNED,
+            snapshot=snapshot,
+            # Truncation is surfaced rather than swallowed. A partial listing
+            # described as a total is a snapshot digest that means nothing.
+            last_error=(
+                "this repository is larger than one listing; the counts above are "
+                "partial" if truncated else ""
+            ),
+        )
+        self._sources[source_id] = updated
+        return updated
+
+    def sample(self, source_id: str, path: str) -> str:
+        """Read one harmless file, proving the source is genuinely readable.
+
+        A capability check proves a credential reaches a repository. This proves
+        content comes back — a distinction worth keeping, because a token with
+        metadata-only scope passes the first and fails the second.
+        """
+
+        source = self.source(source_id)
+        if self._github is None:
+            raise SourceReadError(501, "no GitHub connection is configured")
+        if source.scope.excludes(path):
+            raise SourceReadError(
+                403, f"{path} is outside the configured scope for this source"
+            )
+        revision = source.snapshot.revision if source.snapshot else (source.reference or "HEAD")
+        content = self._github.read_file(source.location, path, revision)
+
+        readable = _with_source(
+            source,
+            state=SourceState.READABLE if source.state is SourceState.CONFIGURED else source.state,
+        )
+        self._sources[source_id] = readable
+        return content
+
+
+def _with(connection: Connection, **changes: object) -> Connection:
+    from dataclasses import replace
+
+    return replace(connection, **changes)  # type: ignore[arg-type]
+
+
+def _with_source(source: Source, **changes: object) -> Source:
+    from dataclasses import replace
+
+    return replace(source, **changes)  # type: ignore[arg-type]
+
+
+__all__ = ["AcquisitionService", "UnknownResource"]

@@ -19,7 +19,11 @@ import type {
   ArtifactPreview,
   ArtifactProfile,
   ArtifactPublication,
+  CapabilityGap,
+  ConnectivityResult,
   Deliverable,
+  ProjectSource,
+  ProviderConnection,
   GenerationRun,
   InterviewSession,
   ProjectModule,
@@ -28,6 +32,7 @@ import type {
   ValidationResult,
 } from '@/domain/types'
 import type {
+  AcquisitionPort,
   ArtifactContent,
   ArtifactPipeline,
   ArtifactPlanEdit,
@@ -766,6 +771,132 @@ function referenceFor(target: ArtifactDestination['type']): string {
   }
 }
 
+/**
+ * Connections and sources, as far as they honestly go.
+ *
+ * The mock deliberately models the **incomplete** shape: a source can be
+ * configured, verified and pinned, and there is no method that analyzes one.
+ * A mock that returned findings would let the whole interface be built and
+ * demoed against a capability nothing implements — which is precisely how a
+ * product ends up shipping a screen that lies.
+ */
+class MockAcquisition implements AcquisitionPort {
+  private connections: ProviderConnection[] = []
+  private sources: ProjectSource[] = []
+  private counter = 0
+
+  listConnections(): Promise<ProviderConnection[]> {
+    return delay(this.connections.map((c) => ({ ...c })))
+  }
+
+  addConnection(input: {
+    provider: string
+    label: string
+    connectionRef: string
+  }): Promise<ProviderConnection> {
+    this.counter += 1
+    const connection: ProviderConnection = {
+      connectionId: `con_${String(this.counter).padStart(4, '0')}`,
+      provider: input.provider,
+      label: input.label,
+      // Configured, not verified. Somebody typed it in; nobody has used it.
+      state: 'configured',
+      canRead: false,
+      canWrite: false,
+      account: '',
+      verifiedAt: '',
+      detail: '',
+    }
+    this.connections.push(connection)
+    return delay({ ...connection })
+  }
+
+  checkConnectivity(connectionId: string, location: string): Promise<ConnectivityResult> {
+    const index = this.connections.findIndex((c) => c.connectionId === connectionId)
+    if (index !== -1) {
+      this.connections[index] = {
+        ...this.connections[index],
+        state: 'verified',
+        canRead: true,
+        // Read without write, so the interface has to render the distinction
+        // rather than assuming a connection grants both.
+        canWrite: false,
+        account: location.split('/')[0] ?? '',
+        verifiedAt: nextTimestamp(),
+      }
+    }
+    return delay({
+      ok: true,
+      provider: 'github',
+      account: location.split('/')[0] ?? '',
+      canRead: true,
+      canWrite: false,
+      detail: '',
+      checkedAt: nextTimestamp(),
+      proves:
+        'the credential can reach this location. Nothing has been read or analyzed.',
+    })
+  }
+
+  listSources(projectId: string): Promise<ProjectSource[]> {
+    return delay(this.sources.filter((s) => s.projectId === projectId).map((s) => ({ ...s })))
+  }
+
+  addSource(
+    projectId: string,
+    input: { kind: string; connectionId: string; location: string; reference: string },
+  ): Promise<ProjectSource> {
+    this.counter += 1
+    const source: ProjectSource = {
+      sourceId: `src_${String(this.counter).padStart(4, '0')}`,
+      projectId,
+      kind: input.kind as ProjectSource['kind'],
+      connectionId: input.connectionId,
+      location: input.location,
+      reference: input.reference,
+      state: 'configured',
+      snapshot: null,
+      lastError: '',
+      analysis: ANALYSIS_GAP,
+    }
+    this.sources.push(source)
+    return delay({ ...source })
+  }
+
+  pinSource(sourceId: string): Promise<ProjectSource> {
+    const index = this.sources.findIndex((s) => s.sourceId === sourceId)
+    if (index === -1) throw new Error(`Unknown source: ${sourceId}`)
+    const pinned: ProjectSource = {
+      ...this.sources[index],
+      // `pinned`, never `analyzed`. The state a product most wants to claim,
+      // and the one nothing here can reach.
+      state: 'pinned',
+      snapshot: {
+        revision: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+        resolvedAt: nextTimestamp(),
+        fileCount: 128,
+        totalBytes: 486_213,
+        excludedCount: 41,
+        contentDigest: 'sha256:mockdigest0001',
+      },
+      lastError: '',
+    }
+    this.sources[index] = pinned
+    return delay({ ...pinned }, 700)
+  }
+}
+
+/** The gap, stated identically to the backend's. */
+const ANALYSIS_GAP: CapabilityGap = {
+  capability: 'source.analysis',
+  reason:
+    'Reading a repository into proposed findings is not implemented. A source can be ' +
+    'connected, read and pinned to an exact commit; nothing yet turns that snapshot ' +
+    'into project knowledge.',
+  state: 'planned',
+  provedInstead: ['connection verified', 'source readable', 'revision pinned'],
+}
+
 /* ------------------------------------------------------------------ factory */
 
 export function createMockServices(): StudioServices {
@@ -777,5 +908,6 @@ export function createMockServices(): StudioServices {
     projection: new MockProjectProjectionService(),
     artifacts: new MockArtifactService(),
     pipeline: new MockArtifactPipeline(),
+    acquisition: new MockAcquisition(),
   }
 }

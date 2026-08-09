@@ -1,0 +1,293 @@
+"""The acquisition vocabulary, with the gaps named as gaps.
+
+Every type here exists to keep two things apart that a user interface wants to
+merge. The setup prompt says it directly: *"A successful connection does not
+imply a readable source. A readable source does not imply a writable
+destination."*
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
+
+
+class ConnectionState(StrEnum):
+    """How much is known about a provider authorization.
+
+    `CONFIGURED` and `VERIFIED` are deliberately separate. A connection somebody
+    typed in is not a connection anybody has used, and the difference is one
+    round trip — which is exactly the round trip a setup wizard is tempted to
+    skip because it makes the form feel slower.
+    """
+
+    CONFIGURED = "configured"
+    VERIFIED = "verified"
+    #: The provider answered, and said no. Distinct from unreachable: one is a
+    #: permissions problem, the other is an outage, and they send an operator to
+    #: completely different places.
+    REFUSED = "refused"
+    UNREACHABLE = "unreachable"
+
+
+class SourceKind(StrEnum):
+    GITHUB = "github"
+    S3 = "s3"
+    UPLOAD = "upload"
+
+
+class SourceState(StrEnum):
+    """What is actually true about a source, in the order it becomes true.
+
+    The whole point of this enumeration is that **`ANALYZED` cannot currently be
+    reached**. Nothing in this package sets it; nothing can, because analysis is
+    not implemented. It is declared so the states below it cannot quietly stand
+    in for it — a `PINNED` source rendered as "analyzed" would be a claim about
+    understanding a project made on the strength of a successful HTTP GET.
+    """
+
+    #: Configured, never contacted.
+    CONFIGURED = "configured"
+    #: The provider confirmed the location exists and is readable.
+    READABLE = "readable"
+    #: Resolved to an immutable revision. A branch moves; a commit does not.
+    PINNED = "pinned"
+    #: Content has been read, findings proposed, and evidence retained.
+    #: **Not reachable yet.**
+    ANALYZED = "analyzed"
+
+
+#: Returned wherever a caller asks for analysis. A capability gap reported as a
+#: fact, in the same shape Studio already uses for Memory's MCP-only gaps —
+#: because a UI that receives an empty findings list cannot tell it apart from a
+#: repository in which nothing was found.
+ANALYSIS_UNAVAILABLE = {
+    "capability": "source.analysis",
+    "reason": (
+        "Reading a repository into proposed findings is not implemented. A source "
+        "can be connected, read and pinned to an exact commit; nothing yet turns "
+        "that snapshot into project knowledge."
+    ),
+    "state": "planned",
+    "proved_instead": ["connection verified", "source readable", "revision pinned"],
+}
+
+
+@dataclass(frozen=True, slots=True)
+class Connection:
+    """A revocable authorization relationship with a provider account.
+
+    **Holds a reference, never a secret.** `connection_ref` names where the
+    credential lives — `env:KAE_GITHUB_TOKEN` — and the trusted backend resolves
+    it at the moment of a call. A connection object travels into API responses
+    that reach a browser; a token in one would be a token in a browser.
+    """
+
+    connection_id: str
+    provider: str
+    #: What a person calls it. Never the account's credentials, and never an
+    #: identifier that would let somebody else use it.
+    label: str
+    connection_ref: str
+    state: ConnectionState = ConnectionState.CONFIGURED
+    #: Capabilities the provider confirmed, separately. Read permission does not
+    #: imply write permission, and a single `verified: true` would assert both
+    #: on the evidence of whichever was checked.
+    can_read: bool = False
+    can_write: bool = False
+    account: str = ""
+    verified_at: datetime | None = None
+    detail: str = ""
+
+    def redacted(self) -> dict[str, object]:
+        """What a browser may see. **Never `connection_ref`.**
+
+        It is not a secret itself, but it names one — and a reference published
+        to a browser tells an attacker exactly which environment variable or
+        file to go after.
+        """
+
+        return {
+            "connection_id": self.connection_id,
+            "provider": self.provider,
+            "label": self.label,
+            "state": self.state.value,
+            "can_read": self.can_read,
+            "can_write": self.can_write,
+            "account": self.account,
+            "verified_at": self.verified_at.isoformat() if self.verified_at else "",
+            "detail": self.detail,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SourceScope:
+    """How much of a source KAE may read.
+
+    Defaults exclude the things that are large, generated, or secret. Not a
+    performance concern: `.env` files and key material are exactly what a
+    repository reader would otherwise hoover into an evidence store.
+    """
+
+    include_paths: tuple[str, ...] = ()
+    exclude_paths: tuple[str, ...] = (
+        ".git/",
+        "node_modules/",
+        "vendor/",
+        "dist/",
+        "build/",
+        ".venv/",
+        "__pycache__/",
+        ".env",
+        ".env.*",
+        "*.pem",
+        "*.key",
+        "*.p12",
+        "id_rsa*",
+    )
+    max_file_bytes: int = 1_000_000
+    documentation_only: bool = False
+
+    def excludes(self, path: str) -> bool:
+        """Whether a path is out of scope. Prefix and simple-glob matching."""
+
+        from fnmatch import fnmatch
+
+        for pattern in self.exclude_paths:
+            if pattern.endswith("/") and (path.startswith(pattern) or f"/{pattern}" in f"/{path}"):
+                return True
+            if fnmatch(path, pattern) or fnmatch(path.rsplit("/", 1)[-1], pattern):
+                return True
+        if self.include_paths:
+            return not any(path.startswith(prefix) for prefix in self.include_paths)
+        return False
+
+
+@dataclass(frozen=True, slots=True)
+class SourceSnapshot:
+    """An immutable resolved revision. The thing analysis would run against.
+
+    A branch is not a snapshot: it moves, and a finding traced to `main` is
+    traced to whatever `main` happens to be when somebody reads the trace. The
+    commit SHA is what makes provenance mean anything later.
+    """
+
+    revision: str
+    resolved_at: datetime
+    #: What the scope actually admitted, at that revision. Counts rather than
+    #: contents — this is a description of a snapshot, not the snapshot.
+    file_count: int = 0
+    total_bytes: int = 0
+    excluded_count: int = 0
+    #: A digest over the paths and blob ids in scope. Two snapshots with the
+    #: same digest hold the same files, which is what makes "has this changed
+    #: since we read it?" answerable without reading it again.
+    content_digest: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class Source:
+    """A provider location KAE may read from."""
+
+    source_id: str
+    project_id: str
+    kind: SourceKind
+    connection_id: str
+    #: `owner/repo` for GitHub, a bucket for S3, an upload id otherwise.
+    location: str
+    #: The branch, tag or prefix a user chose. **Not** what gets analyzed —
+    #: `snapshot.revision` is, and the two differ the moment somebody commits.
+    reference: str = ""
+    scope: SourceScope = field(default_factory=SourceScope)
+    state: SourceState = SourceState.CONFIGURED
+    snapshot: SourceSnapshot | None = None
+    last_error: str = ""
+
+    def describe(self) -> dict[str, object]:
+        """What a browser sees, including what is *not* true yet.
+
+        `analysis` is present on every source and always reports the gap. A
+        field that appeared only when analysis was unavailable would be a field
+        a UI could forget to check.
+        """
+
+        return {
+            "source_id": self.source_id,
+            "project_id": self.project_id,
+            "kind": self.kind.value,
+            "connection_id": self.connection_id,
+            "location": self.location,
+            "reference": self.reference,
+            "state": self.state.value,
+            "scope": {
+                "include_paths": list(self.scope.include_paths),
+                "exclude_paths": list(self.scope.exclude_paths),
+                "max_file_bytes": self.scope.max_file_bytes,
+                "documentation_only": self.scope.documentation_only,
+            },
+            "snapshot": (
+                {
+                    "revision": self.snapshot.revision,
+                    "resolved_at": self.snapshot.resolved_at.isoformat(),
+                    "file_count": self.snapshot.file_count,
+                    "total_bytes": self.snapshot.total_bytes,
+                    "excluded_count": self.snapshot.excluded_count,
+                    "content_digest": self.snapshot.content_digest,
+                }
+                if self.snapshot
+                else None
+            ),
+            "last_error": self.last_error,
+            "analysis": ANALYSIS_UNAVAILABLE,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectivityCheck:
+    """The result of asking a provider what a credential can do.
+
+    **Non-destructive by definition.** The setup prompt requires that a
+    connectivity check "must not silently publish user content" — so this is
+    produced by reads alone, and write capability is inferred from the
+    permissions the provider reports rather than by writing something to find
+    out.
+    """
+
+    ok: bool
+    provider: str
+    account: str = ""
+    can_read: bool = False
+    can_write: bool = False
+    #: Neutral. A provider's own message names the account and the installation.
+    detail: str = ""
+    checked_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def describe(self) -> dict[str, object]:
+        return {
+            "ok": self.ok,
+            "provider": self.provider,
+            "account": self.account,
+            "can_read": self.can_read,
+            "can_write": self.can_write,
+            "detail": self.detail,
+            "checked_at": self.checked_at.isoformat(),
+            # Said explicitly, every time. A green tick beside a repository name
+            # is read as "KAE understands this project", and the distance
+            # between that and what a connectivity check proves is the whole
+            # reason this field exists.
+            "proves": "the credential can reach this location. Nothing has been read or analyzed.",
+        }
+
+
+__all__ = [
+    "ANALYSIS_UNAVAILABLE",
+    "Connection",
+    "ConnectionState",
+    "ConnectivityCheck",
+    "Source",
+    "SourceKind",
+    "SourceScope",
+    "SourceSnapshot",
+    "SourceState",
+]

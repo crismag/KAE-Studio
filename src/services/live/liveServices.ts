@@ -25,10 +25,13 @@ import type {
   FileOutcome,
   GenerationRun,
   ProjectProjection,
+  ProjectSource,
+  ProviderConnection,
   Requirement,
   ValidationResult,
 } from '@/domain/types'
 import type {
+  AcquisitionPort,
   ArtifactPipeline,
   ArtifactService,
   InterviewProvider,
@@ -342,6 +345,92 @@ function publication(wire: WirePublication): ArtifactPublication {
     reviewUrl: wire.review_url,
     filesWritten: wire.files_written,
     detail: wire.detail,
+  }
+}
+
+interface WireConnection {
+  connection_id: string
+  provider: string
+  label: string
+  state: ProviderConnection['state']
+  can_read: boolean
+  can_write: boolean
+  account: string
+  verified_at: string
+  detail: string
+}
+
+interface WireConnectivity {
+  ok: boolean
+  provider: string
+  account: string
+  can_read: boolean
+  can_write: boolean
+  detail: string
+  checked_at: string
+  proves: string
+}
+
+interface WireSource {
+  source_id: string
+  project_id: string
+  kind: ProjectSource['kind']
+  connection_id: string
+  location: string
+  reference: string
+  state: ProjectSource['state']
+  snapshot: {
+    revision: string
+    resolved_at: string
+    file_count: number
+    total_bytes: number
+    excluded_count: number
+    content_digest: string
+  } | null
+  last_error: string
+  analysis: { capability: string; reason: string; state: 'planned'; proved_instead: string[] }
+}
+
+function connection(wire: WireConnection): ProviderConnection {
+  return {
+    connectionId: wire.connection_id,
+    provider: wire.provider,
+    label: wire.label,
+    state: wire.state,
+    canRead: wire.can_read,
+    canWrite: wire.can_write,
+    account: wire.account,
+    verifiedAt: wire.verified_at,
+    detail: wire.detail,
+  }
+}
+
+function projectSource(wire: WireSource): ProjectSource {
+  return {
+    sourceId: wire.source_id,
+    projectId: wire.project_id,
+    kind: wire.kind,
+    connectionId: wire.connection_id,
+    location: wire.location,
+    reference: wire.reference,
+    state: wire.state,
+    snapshot: wire.snapshot
+      ? {
+          revision: wire.snapshot.revision,
+          resolvedAt: wire.snapshot.resolved_at,
+          fileCount: wire.snapshot.file_count,
+          totalBytes: wire.snapshot.total_bytes,
+          excludedCount: wire.snapshot.excluded_count,
+          contentDigest: wire.snapshot.content_digest,
+        }
+      : null,
+    lastError: wire.last_error,
+    analysis: {
+      capability: wire.analysis.capability,
+      reason: wire.analysis.reason,
+      state: wire.analysis.state,
+      provedInstead: wire.analysis.proved_instead,
+    },
   }
 }
 
@@ -842,5 +931,74 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       ),
   }
 
-  return { projectId: projectIdOverride ?? '', memory, interview, projection, artifacts, pipeline }
+  const acquisition: AcquisitionPort = {
+    listConnections: async () => {
+      const body = await callArtifacts<{ connections: WireConnection[] }>('/api/connections')
+      return body.connections.map(connection)
+    },
+
+    addConnection: async (input) =>
+      connection(
+        await callArtifacts<WireConnection>('/api/connections', {
+          method: 'POST',
+          body: JSON.stringify({
+            provider: input.provider,
+            label: input.label,
+            connection_ref: input.connectionRef,
+          }),
+        }),
+      ),
+
+    checkConnectivity: async (connectionId, location) => {
+      const body = await callArtifacts<WireConnectivity>('/api/connectivity-checks', {
+        method: 'POST',
+        body: JSON.stringify({ connection_id: connectionId, location }),
+      })
+      return {
+        ok: body.ok,
+        provider: body.provider,
+        account: body.account,
+        canRead: body.can_read,
+        canWrite: body.can_write,
+        detail: body.detail,
+        checkedAt: body.checked_at,
+        proves: body.proves,
+      }
+    },
+
+    listSources: async (id) => {
+      const body = await callArtifacts<{ sources: WireSource[] }>(
+        `/api/projects/${resolve(id)}/sources`,
+      )
+      return body.sources.map(projectSource)
+    },
+
+    addSource: async (id, input) =>
+      projectSource(
+        await callArtifacts<WireSource>(`/api/projects/${resolve(id)}/sources`, {
+          method: 'POST',
+          body: JSON.stringify({
+            kind: input.kind,
+            connection_id: input.connectionId,
+            location: input.location,
+            reference: input.reference,
+          }),
+        }),
+      ),
+
+    pinSource: async (sourceId) =>
+      projectSource(
+        await callArtifacts<WireSource>(`/api/sources/${sourceId}/pin`, { method: 'POST' }),
+      ),
+  }
+
+  return {
+    projectId: projectIdOverride ?? '',
+    memory,
+    interview,
+    projection,
+    artifacts,
+    pipeline,
+    acquisition,
+  }
 }

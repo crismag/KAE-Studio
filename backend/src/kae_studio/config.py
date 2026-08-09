@@ -44,6 +44,11 @@ class Settings:
     #: A bearer token for KAE-Artifacts, if it requires one. Never reaches a
     #: browser — like the Memory token, it lives on this side of the boundary.
     artifacts_token: str
+    #: The **read-only** GitHub credential acquisition uses. Deliberately
+    #: separate from any publishing credential: source access and destination
+    #: access are separate grants, and sharing one token would mean connecting a
+    #: source silently granted a destination.
+    github_source_token: str
     session_secret: str
     operator_password: str
     operator_name: str
@@ -146,6 +151,7 @@ class Settings:
             # a different problem wearing the same error message.
             artifacts_base_url=env.get("KAE_ARTIFACTS_URL", "").strip().rstrip("/"),
             artifacts_token=env.get("KAE_ARTIFACTS_TOKEN", "").strip(),
+            github_source_token=env.get("STUDIO_GITHUB_SOURCE_TOKEN", "").strip(),
             session_secret=secret,
             operator_password=env.get("STUDIO_PASSWORD", ""),
             authentication_required=authentication_required,
@@ -169,6 +175,13 @@ class Settings:
             "memory_url": self.memory_base_url,
             "artifacts_url": self.artifacts_base_url,
             "artifacts": "configured" if self.artifacts_base_url else "not configured",
+            # Whether, not what. An operator needs to know a source credential
+            # exists; nobody needs it echoed back.
+            "github_source": "configured" if self.github_source_token else "not configured",
+            # Stated at the status endpoint because the setup wizard offers a
+            # Sources step, and a deployment where that step cannot lead
+            # anywhere should say so somewhere an operator looks.
+            "source_analysis": "planned",
             "operator": self.operator_name,
             "secure_cookies": self.secure_cookies,
             "cookie_samesite": self.cookie_samesite,

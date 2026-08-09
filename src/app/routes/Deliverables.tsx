@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/primitives'
 import { useDeliverables, useProjection } from '@/hooks/useProject'
 import { GeneratePackage } from '@/components/project/GeneratePackage'
+import { ProjectSources } from '@/components/project/ProjectSources'
 import type { Deliverable, DeliverableState } from '@/domain/types'
 
 const STATE_META: Record<
@@ -207,9 +208,11 @@ export function Deliverables() {
   return (
     <PageLayout
       title="Deliverables"
-      lead="Generated context packages, pinned to an exact memory revision. Generation and publication are separate: the same bundle goes to GitHub, a local workspace, or managed storage without changing."
+      lead="Where this project's material comes from, and where generated packages go. Sources can be connected and pinned; analysing them is not built yet. Generation and publication are separate — the same package goes to GitHub or managed storage without changing."
     >
       <div className="space-y-6">
+        <ProjectSources />
+
         <GeneratePackage />
 
         {openDecisions > 0 && (

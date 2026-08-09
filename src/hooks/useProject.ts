@@ -281,3 +281,63 @@ export function useProvenance(publicationId: string | undefined) {
     enabled: Boolean(publicationId),
   })
 }
+
+/* ------------------------------------------------------------- acquisition */
+
+export function useConnections() {
+  const { acquisition } = useServices()
+  return useQuery({ queryKey: ['connections'], queryFn: () => acquisition.listConnections() })
+}
+
+export function useAddConnection() {
+  const { acquisition } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { provider: string; label: string; connectionRef: string }) =>
+      acquisition.addConnection(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['connections'] }),
+  })
+}
+
+/** Ask the provider what a credential can do. Writes nothing. */
+export function useCheckConnectivity() {
+  const { acquisition } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ connectionId, location }: { connectionId: string; location: string }) =>
+      acquisition.checkConnectivity(connectionId, location),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['connections'] }),
+  })
+}
+
+export function useSources() {
+  const { acquisition, projectId } = useServices()
+  return useQuery({
+    queryKey: ['sources', projectId],
+    queryFn: () => acquisition.listSources(projectId),
+  })
+}
+
+export function useAddSource() {
+  const { acquisition, projectId } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: {
+      kind: string
+      connectionId: string
+      location: string
+      reference: string
+    }) => acquisition.addSource(projectId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+  })
+}
+
+/** Resolve to an immutable commit. **Not** analysis — see `ProjectSources`. */
+export function usePinSource() {
+  const { acquisition, projectId } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sourceId: string) => acquisition.pinSource(sourceId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+  })
+}

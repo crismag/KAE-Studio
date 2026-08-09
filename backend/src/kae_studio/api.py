@@ -29,6 +29,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from .acquisition import ANALYSIS_UNAVAILABLE, GitHubSourceClient, SourceKind, SourceReadError
+from .acquisition.service import AcquisitionService, UnknownResource
 from .artifacts_client import ArtifactsClient, ArtifactsRefused, ArtifactsUnavailable
 from .config import Settings
 from .generation_input import ContextNotUsable, to_generation_input
@@ -96,6 +98,28 @@ class PublishRequest(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=200)
 
 
+class ConnectionIn(BaseModel):
+    provider: str = "github"
+    label: str = Field(min_length=1)
+    #: A reference to a secret — `env:NAME` — never the secret. A browser that
+    #: could send a token here would be a browser that held one.
+    connection_ref: str = Field(min_length=1)
+
+
+class ConnectivityIn(BaseModel):
+    connection_id: str = Field(min_length=1)
+    location: str = Field(min_length=1)
+
+
+class SourceIn(BaseModel):
+    kind: str = "github"
+    connection_id: str = Field(min_length=1)
+    location: str = Field(min_length=1)
+    reference: str = "HEAD"
+    include_paths: list[str] = Field(default_factory=list)
+    documentation_only: bool = False
+
+
 class SignIn(BaseModel):
     password: str = Field(min_length=1)
 
@@ -140,6 +164,13 @@ def create_app(settings: Settings) -> FastAPI:
             ArtifactsClient(settings.artifacts_base_url, settings.artifacts_token)
             if settings.artifacts_base_url
             else None
+        )
+        # Acquisition (STI-1). Read-only, and its own client: source access and
+        # destination access are separate grants even when they name the same
+        # repository, and one client would make them one credential.
+        source_token = settings.github_source_token
+        app.state.acquisition = AcquisitionService(
+            GitHubSourceClient(source_token) if source_token else None
         )
         # Built once. Constructing an interviewer per request would rebuild a
         # Memory client on every turn for no gain.
@@ -716,6 +747,137 @@ def create_app(settings: Settings) -> FastAPI:
 
         return await artifacts(request).provenance(publication_id)
 
+    # -- acquisition (STI-1) ----------------------------------------------
+    #
+    # Connections, sources and pinning. **Analysis is not here**, and every
+    # source carries a field saying so — see `ANALYSIS_UNAVAILABLE`. The
+    # temptation this section exists to resist is letting a verified connection
+    # and a pinned commit read, on screen, as "we have analyzed your project".
+
+    def acquisition(request: Request) -> AcquisitionService:
+        service: AcquisitionService = request.app.state.acquisition
+        return service
+
+    @app.get("/api/connections")
+    async def list_connections(
+        request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        # `redacted()`, never the raw object: a connection holds a reference
+        # naming where a secret lives, and publishing that to a browser tells an
+        # attacker which variable to go after.
+        return {"connections": [c.redacted() for c in acquisition(request).connections()]}
+
+    @app.post("/api/connections", status_code=status.HTTP_201_CREATED)
+    async def add_connection(
+        body: ConnectionIn, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        connection = acquisition(request).add_connection(
+            body.provider, body.label, body.connection_ref
+        )
+        return connection.redacted()
+
+    @app.post("/api/connectivity-checks")
+    async def check_connectivity(
+        body: ConnectivityIn, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Ask the provider what this credential can do. **Writes nothing.**
+
+        Read and write capability come back separately, because they are
+        separate grants. The response says in words what it proves, because a
+        green tick beside a repository name is otherwise read as "KAE
+        understands this project".
+        """
+
+        result = await run_in_threadpool(
+            acquisition(request).check, body.connection_id, body.location
+        )
+        return result.describe()
+
+    @app.get("/api/projects/{project_id}/sources")
+    async def list_sources(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        return {
+            "sources": [s.describe() for s in acquisition(request).sources(project_id)],
+            "analysis": ANALYSIS_UNAVAILABLE,
+        }
+
+    @app.post("/api/projects/{project_id}/sources", status_code=status.HTTP_201_CREATED)
+    async def add_source(
+        project_id: str,
+        body: SourceIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        from .acquisition.model import SourceScope
+
+        scope = SourceScope(
+            include_paths=tuple(body.include_paths),
+            documentation_only=body.documentation_only,
+        )
+        source = acquisition(request).add_source(
+            project_id=project_id,
+            kind=SourceKind(body.kind),
+            connection_id=body.connection_id,
+            location=body.location,
+            reference=body.reference,
+            scope=scope,
+        )
+        return source.describe()
+
+    @app.post("/api/sources/{source_id}/pin")
+    async def pin_source(
+        source_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Resolve the reference to an immutable commit and describe the scope.
+
+        The furthest a source can currently go. It reaches `pinned` — which
+        means we know exactly which bytes we *would* read, and not that we have
+        read or understood a single one of them.
+        """
+
+        source = await run_in_threadpool(acquisition(request).pin, source_id)
+        return source.describe()
+
+    @app.post("/api/sources/{source_id}/sample")
+    async def sample_source(
+        source_id: str,
+        body: dict[str, str],
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Read one file, proving content genuinely comes back.
+
+        Distinct from a connectivity check: a token with metadata-only scope
+        passes that and fails this.
+        """
+
+        path = body.get("path", "")
+        if not path:
+            raise HTTPException(422, "a path is required")
+        content = await run_in_threadpool(acquisition(request).sample, source_id, path)
+        return {
+            "source_id": source_id,
+            "path": path,
+            "bytes": len(content.encode()),
+            "excerpt": content[:2000],
+            "proves": "this credential can read file content at this revision.",
+        }
+
+    @app.post("/api/sources/{source_id}/analysis", status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    async def analyze_source(
+        source_id: str, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """The route that would start an acquisition run. **It does not exist.**
+
+        Present and returning 501 rather than absent, so a client discovers the
+        gap by asking rather than by a 404 it would read as a wrong URL. The
+        body says what *is* proved, so a UI can show the user how far they have
+        actually got.
+        """
+
+        return {"error": {"code": "analysis_not_implemented", **ANALYSIS_UNAVAILABLE}}
+
     @app.get("/api/projects/{project_id}/modules")
     async def modules(
         project_id: str, _: Operator = Depends(require_operator)
@@ -784,6 +946,42 @@ def create_app(settings: Settings) -> FastAPI:
                     "message": str(error),
                     "remedy": "Check the publication list before retrying; the request may not have arrived.",
                     "retryable": True,
+                }
+            },
+        )
+
+    @app.exception_handler(SourceReadError)
+    async def _source_unreadable(_: Request, error: SourceReadError) -> Response:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=error.status if error.status >= 400 else 502,
+            content={
+                "error": {
+                    "code": error.kind,
+                    "message": str(error),
+                    "remedy": {
+                        "not_authorized": "Check the source credential's repository access.",
+                        "not_found": "Check the repository name and that the credential can see it.",
+                        "rate_limited": "Wait and try again.",
+                    }.get(error.kind, "Try again once the provider recovers."),
+                    "retryable": error.kind == "rate_limited",
+                }
+            },
+        )
+
+    @app.exception_handler(UnknownResource)
+    async def _unknown_acquisition(_: Request, error: UnknownResource) -> Response:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "error": {
+                    "code": "not_found",
+                    "message": str(error),
+                    "remedy": "Check the identifier.",
+                    "retryable": False,
                 }
             },
         )
