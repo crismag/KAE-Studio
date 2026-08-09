@@ -47,13 +47,23 @@ const NAV: NavItem[] = [
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: projection } = useProjection()
-  const openFindings = projection?.findings.length ?? 0
+  // How many need a person, not how many exist.
+  //
+  // R13. This counted every finding, so a first project showed `Reviews 81` —
+  // which reads as "KAE has found 81 things wrong with your idea" and is the
+  // customer's original problem restated in the product's own words. A badge
+  // that cannot be driven to zero is decoration; one that can is a queue.
+  //
+  // Critical only. Major and minor are real and stay on the page; what they are
+  // not is a reason to interrupt someone who has just described their idea.
+  const needsAttention =
+    projection?.findings.filter((f) => f.severity === 'critical').length ?? 0
   const workItems = NAV.filter((n) => !n.system)
   const systemItems = NAV.filter((n) => n.system)
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon
-    const showCount = item.to === '/reviews' && openFindings > 0
+    const showCount = item.to === '/reviews' && needsAttention > 0
     return (
       <NavLink
         key={item.to}
@@ -76,8 +86,13 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             />
             <span className="truncate">{item.label}</span>
             {showCount && (
-              <span className="ml-auto rounded bg-attention-soft px-1.5 py-px text-[11px] font-medium text-attention">
-                {openFindings}
+              <span
+                className="ml-auto rounded bg-attention-soft px-1.5 py-px text-[11px] font-medium text-attention"
+                // Spoken, because "3" beside "Reviews" is ambiguous to anyone
+                // not looking at the screen — and ambiguous to most who are.
+                aria-label={`${needsAttention} need review`}
+              >
+                {needsAttention}
               </span>
             )}
           </>

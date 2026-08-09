@@ -20,6 +20,13 @@ import {
 import { useProjection } from '@/hooks/useProject'
 import type { AcceptanceTest, ProjectModule, Requirement } from '@/domain/types'
 
+//: Above this, a group arrives closed.
+//
+// Eight because a reader can hold that many in view and decide; forty they
+// scroll past. The number is a judgement rather than a measurement, and it is
+// named here so changing it is one edit rather than a hunt.
+const LARGE_GROUP = 8
+
 const CATEGORY_ORDER: Requirement['category'][] = [
   'functional',
   'business_rule',
@@ -361,24 +368,43 @@ export function Requirements() {
         {CATEGORY_ORDER.map((category) => {
           const items = filtered.filter((r) => r.category === category)
           if (items.length === 0) return null
+          // R13: a badge means attention, not a count. "12" beside a heading is
+          // ambiguous — twelve what? — while "3 need review" is something a
+          // person can act on and drive to zero.
+          const awaiting = items.filter(
+            (r) => r.status === 'proposed' || r.status === 'contested',
+          ).length
+          // R10: KAE does not hand its organisational burden back. A group of
+          // forty derived items is the customer's original problem restated, so
+          // a large one arrives closed with its heading readable — the reader
+          // chooses what to open rather than scrolling past what they did not.
+          const large = items.length > LARGE_GROUP
           return (
             <Panel key={category}>
-              <PanelHeader>
-                <PanelTitle>{CATEGORY_LABEL[category]}</PanelTitle>
-                <Badge tone="neutral">{items.length}</Badge>
-              </PanelHeader>
-              <PanelBody className="px-0 py-0">
-                <ul className="divide-y divide-line">
-                  {items.map((r) => (
-                    <RequirementRow
-                      key={r.id}
-                      requirement={r}
-                      modules={projection.modules}
-                      tests={projection.acceptanceTests}
-                    />
-                  ))}
-                </ul>
-              </PanelBody>
+              <details open={!large}>
+                <summary className="cursor-pointer list-none">
+                  <PanelHeader>
+                    <PanelTitle>{CATEGORY_LABEL[category]}</PanelTitle>
+                    {awaiting > 0 ? (
+                      <Badge tone="attention">{awaiting} need review</Badge>
+                    ) : (
+                      <Badge tone="confirmed">{items.length} settled</Badge>
+                    )}
+                  </PanelHeader>
+                </summary>
+                <PanelBody className="px-0 py-0">
+                  <ul className="divide-y divide-line">
+                    {items.map((r) => (
+                      <RequirementRow
+                        key={r.id}
+                        requirement={r}
+                        modules={projection.modules}
+                        tests={projection.acceptanceTests}
+                      />
+                    ))}
+                  </ul>
+                </PanelBody>
+              </details>
             </Panel>
           )
         })}
