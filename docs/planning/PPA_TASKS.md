@@ -164,10 +164,35 @@ source-intake portion stays marked **planned** until acquisition exists, and
 repository selection is never presented as *"repository analyzed"* while it
 proves only connectivity or configuration.
 
-## Sequence
+## Status, 2026-08-09 evening
 
-S-1 and S-4 first — correctness. Then S-3, which is what closes PPA/STATE-01.
-Then S-2, S-5, S-6. S-7 waits on the ranking decision. S-8/S-9 follow once
-requirements are worth organising.
+**All ten shipped**, across four Phase 2 slices.
 
-Suites stay green: 77 backend, 42 frontend.
+| | | |
+|---|---|---|
+| **S-1** fixture content deleted | `a94bbd9` | six sites, not the three recorded |
+| **S-2** three channels | `456bb91` | one disclosure per turn, on demand |
+| **S-3** the confirmation gesture | `48111a0` · `29fa528` | one click confirms a reading |
+| **S-4** Definition renders real content | `6bc90ca` · `8837b03` | the problem statement can be shown |
+| **S-5** stage readiness | `ffbba95` | Architecture and Plan only — the other two already said something true |
+| **S-6** Discovery Progress as navigation | `7c3b3cb` | it sends, and asks CIE to continue rather than restart |
+| **S-7** the navigator | `c15fcb8` · `f4ec671` | ranked by CIE, durable, no model call to render |
+| **S-8** requirements gains structure | `3ec8c1c` | grouping by category; similarity grouping is still owed |
+| **S-9** badges mean attention | `3ec8c1c` | critical only in the navigation |
+| **S-10** setup honesty | — | unchanged and still true |
+
+Plus two the slices added: the recommendation card with Accept · Modify · Keep
+open (`06987dd`), and content loss disclosed beside the coverage figure
+(`8e8d41f`).
+
+**One defect found while building, worth remembering:** "Bring back" on a
+deferred decision sent `answered`, which settles — so it closed the question it
+existed to reopen, silently, because a settled question simply stops appearing
+(`ba94c53`).
+
+**What Studio still owes.** Similarity grouping for requirements (EM-3/ES-5),
+which is real work rather than a finishing touch. And every one of these is
+proved by test rather than by use — the replay against a running deployment has
+not happened.
+
+Suites: **108 backend, 85 frontend.**
