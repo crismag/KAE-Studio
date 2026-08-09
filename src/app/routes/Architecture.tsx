@@ -1,14 +1,25 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { PageLayout, FutureState } from '@/components/project/PageLayout'
+import { StageReadiness, prerequisitesFor } from '@/components/project/StageReadiness'
+import { useProjection } from '@/hooks/useProject'
 import { Button } from '@/components/ui/primitives'
 
 export function Architecture() {
+  const { data: projection } = useProjection()
+
   return (
     <PageLayout
       title="Architecture"
       lead="How this system will be designed, and why. Nothing here is generated until the architecture interview has been run."
     >
+      {/* What this page is waiting for, read from the project rather than
+          asserted. S-1 removed the prose that claimed to know; this is what
+          replaces it with something true. */}
+      {projection && (
+        <StageReadiness stage="Architecture" prerequisites={prerequisitesFor(projection)} />
+      )}
+
       <FutureState
         willContain={[
           'System context — the system and everything it talks to',

@@ -1,14 +1,25 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { PageLayout, FutureState } from '@/components/project/PageLayout'
+import { StageReadiness, prerequisitesFor } from '@/components/project/StageReadiness'
+import { useProjection } from '@/hooks/useProject'
 import { Button } from '@/components/ui/primitives'
 
 export function Plan() {
+  const { data: projection } = useProjection()
+
   return (
     <PageLayout
       title="Plan"
       lead="Delivery phases, work packages, and sequencing. Availability is tied to a derivable build order."
     >
+      {/* What this page is waiting for, read from the project rather than
+          asserted. S-1 removed the prose that claimed to know; this is what
+          replaces it with something true. */}
+      {projection && (
+        <StageReadiness stage="Development plan" prerequisites={prerequisitesFor(projection)} />
+      )}
+
       <FutureState
         willContain={[
           'Delivery phases with entry and exit conditions',
