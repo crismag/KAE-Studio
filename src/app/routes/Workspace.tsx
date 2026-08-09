@@ -158,23 +158,26 @@ export function AssistantMessage({
         <div className="min-w-0 max-w-[52rem] space-y-3">
           <p className="text-[14px] leading-relaxed text-ink">{message.body}</p>
 
+          {/* Explanation is on demand — R2's third channel.
+
+              This was an always-open panel listing "Interviewing skill: x" and
+              "Subject: y", and the same two facts were rendered again at the
+              foot of the transcript as a sentence (PPA-04). Two renderings of
+              one source, both inline, in a conversation where roughly a quarter
+              of the text was already machine-facing.
+
+              One disclosure now, closed by default, carrying the sentence
+              rather than the raw fields. WhyThisQuestion was always the better
+              of the two — right idea, wrong position. */}
           {message.understanding && (
-            <div className="rounded-panel border border-line bg-surface-sunken/60 px-4 py-3">
-              <h3 className="text-[12px] font-semibold text-ink">
-                {message.understanding.heading}
-              </h3>
-              <ul className="mt-2 space-y-1.5">
-                {message.understanding.points.map((point) => (
-                  <li key={point} className="flex gap-2 text-[13px] leading-relaxed text-ink-muted">
-                    <span
-                      className="mt-[7px] size-1 shrink-0 rounded-full bg-ink-subtle"
-                      aria-hidden="true"
-                    />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <details>
+              <summary className="cursor-pointer list-none text-[11.5px] text-ink-subtle underline-offset-2 hover:text-ink-muted hover:underline">
+                Why this?
+              </summary>
+              <div className="mt-1.5">
+                <WhyThisQuestion points={message.understanding.points} />
+              </div>
+            </details>
           )}
 
           {onConfirmReading && message.provenance && message.provenance.length > 0 && (
@@ -691,11 +694,6 @@ export function Workspace() {
   const lastTurn = sendMessage.data?.turn.assistantMessage
   const advisory = lastTurn && !lastTurn.question ? lastTurn.body : null
 
-  // How the last turn was produced. The reply itself arrives through the
-  // transcript, which is read back from Memory and carries no interviewing
-  // metadata — so this is the only place it can be shown, and it is shown for
-  // the latest turn only rather than pretending the whole history has it.
-  const provenance = lastTurn?.understanding?.points ?? []
   const [contextOpen, setContextOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -773,17 +771,6 @@ export function Workspace() {
                 <Loader2 className="size-3.5 animate-spin text-accent" aria-hidden="true" />
                 Updating project understanding…
               </div>
-            )}
-
-            {/* A turn that produced no question is not stored, on purpose: a
-                filler message per turn would put words in the evidence log that
-                nobody said and no gap produced. But unstored meant unseen — the
-                transcript renders only what Memory holds — so a message would
-                send, the backend would answer 200, and the screen showed
-                nothing at all. This says what happened without pretending to be
-                part of the record. */}
-            {!sendMessage.isPending && provenance.length > 0 && (
-              <WhyThisQuestion points={provenance} />
             )}
 
             {!sendMessage.isPending && advisory && (

@@ -488,6 +488,14 @@ def create_app(settings: Settings) -> FastAPI:
             # once, from this turn's projection; keeping them only in the reply
             # meant a refresh either lost them or paid for them again.
             metadata={
+                # How the turn was produced, so the explanation can live beside
+                # the turn it explains instead of at the foot of the transcript.
+                # Before this the transcript carried no interviewing metadata,
+                # so "why did KAE ask that" could only be shown for the latest
+                # turn — and was shown twice, once per message and once at the
+                # bottom, from the same source (PPA-04).
+                "skill": move.skill,
+                "subject": move.subject,
                 "provenance": list(move.provenance),
                 "next_action": next_action,
                 # So staleness is checkable: a ranking reasoned against a

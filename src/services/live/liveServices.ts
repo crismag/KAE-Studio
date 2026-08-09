@@ -660,6 +660,8 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
           actor_type: string
           created_at: string
           metadata?: {
+            skill?: string
+            subject?: string
             provenance?: string[]
             next_action?: { kind: string; label: string; reason: string }[]
           }
@@ -679,6 +681,18 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         // call to decide them again.
         provenance: m.metadata?.provenance ?? [],
         nextAction: m.metadata?.next_action ?? [],
+        // Rebuilt from metadata, so every turn can explain itself rather than
+        // only the most recent one. Absent for messages recorded before this
+        // existed, and for anything a person wrote.
+        understanding: m.metadata?.skill
+          ? {
+              heading: 'How this reply was produced',
+              points: [
+                `Interviewing skill: ${m.metadata.skill}`,
+                ...(m.metadata.subject ? [`Subject: ${m.metadata.subject}`] : []),
+              ],
+            }
+          : undefined,
       })) as ConversationMessage[]
     },
 
