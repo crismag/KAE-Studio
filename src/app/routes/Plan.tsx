@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { PageLayout, FutureState } from '@/components/project/PageLayout'
-import { StageReadiness, prerequisitesFor } from '@/components/project/StageReadiness'
+import { StageReadiness } from '@/components/project/StageReadiness'
+import { prerequisitesFor } from '@/components/project/stagePrerequisites'
 import { useProjection } from '@/hooks/useProject'
 import { Button } from '@/components/ui/primitives'
 

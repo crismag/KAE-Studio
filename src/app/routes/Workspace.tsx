@@ -32,11 +32,11 @@ import {
   type Disposition,
   type Recommendation,
 } from '@/components/project/RecommendationCard'
+import { NextAction } from '@/components/project/NextAction'
 import {
-  NextAction,
   floorAction,
   type RecommendedAction,
-} from '@/components/project/NextAction'
+} from '@/components/project/nextActionFloor'
 import {
   useConfirmReading,
   useDecideRecommendation,

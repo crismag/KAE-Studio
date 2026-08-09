@@ -10,7 +10,8 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { ProjectProjection } from '@/domain/types'
-import { NextAction, floorAction } from './NextAction'
+import { NextAction } from './NextAction'
+import { floorAction } from './nextActionFloor'
 
 function projection(overrides: Partial<ProjectProjection> = {}): ProjectProjection {
   return {

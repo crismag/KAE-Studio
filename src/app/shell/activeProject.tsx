@@ -33,6 +33,11 @@ export function ActiveProjectProvider({
  * between. Callers render the switcher only when it means something rather than
  * offering a control that cannot do anything.
  */
+/* A hook belongs beside the context it reads. Splitting them to satisfy fast
+   refresh would scatter one concept across two files for no runtime benefit,
+   and the file is under forty lines. Exempted here rather than weakened
+   globally, so the rule keeps working everywhere else. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useActiveProject(): ActiveProject | null {
   return useContext(ActiveProjectContext)
 }

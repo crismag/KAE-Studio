@@ -27,50 +27,7 @@
 
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/primitives'
-import type { ProjectProjection } from '@/domain/types'
-
-export interface RecommendedAction {
-  kind: 'answer' | 'review' | 'decide' | 'configure' | 'generate'
-  label: string
-  reason: string
-}
-
-/**
- * What to suggest when nothing has been ranked yet.
- *
- * Derived from the project's state through the actions-follow-state table in
- * `PLANNING_MODEL.md`: nothing known → explore, statements waiting → review,
- * otherwise keep going. It says *nothing* about which area matters most, because
- * that judgement is CIE's and guessing it here is precisely what ADR-0002
- * forbids.
- */
-export function floorAction(projection: ProjectProjection): RecommendedAction {
-  const proposed = projection.requirements?.length ?? 0
-  const confirmed = projection.definition.objectives.length +
-    projection.definition.stakeholders.length +
-    projection.definition.constraints.length +
-    projection.definition.assumptions.length
-
-  if (confirmed === 0 && proposed === 0) {
-    return {
-      kind: 'answer',
-      label: 'Describe what you are building',
-      reason: 'Nothing has been established yet, so every other kind of work has nothing to read.',
-    }
-  }
-  if (proposed > 0) {
-    return {
-      kind: 'review',
-      label: `Review what KAE has derived`,
-      reason: 'Statements are waiting for a decision, and readiness counts what you have confirmed.',
-    }
-  }
-  return {
-    kind: 'answer',
-    label: 'Keep going with KAE',
-    reason: 'The conversation is where this project is being built.',
-  }
-}
+import type { RecommendedAction } from './nextActionFloor'
 
 export function NextAction({
   action,

@@ -11,7 +11,8 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { ProjectProjection } from '@/domain/types'
-import { StageReadiness, prerequisitesFor } from './StageReadiness'
+import { StageReadiness } from './StageReadiness'
+import { type Prerequisite, prerequisitesFor } from './stagePrerequisites'
 
 function projection(definition: Partial<ProjectProjection['definition']> = {}): ProjectProjection {
   return {
@@ -45,15 +46,15 @@ describe('what a stage is waiting for', () => {
       projection({ stakeholders: entries(3) as never, objectives: entries(4) as never }),
     )
 
-    expect(met.find((p) => p.label === 'Users understood')?.state).toBe('met')
-    expect(met.find((p) => p.label === 'Scope developing')?.state).toBe('met')
+    expect(met.find((p: Prerequisite) => p.label === 'Users understood')?.state).toBe('met')
+    expect(met.find((p: Prerequisite) => p.label === 'Scope developing')?.state).toBe('met')
   })
 
   it('distinguishes some evidence from none', () => {
     const partial = prerequisitesFor(projection({ stakeholders: entries(1) as never }))
 
-    expect(partial.find((p) => p.label === 'Users understood')?.state).toBe('developing')
-    expect(partial.find((p) => p.label === 'Scope developing')?.state).toBe('absent')
+    expect(partial.find((p: Prerequisite) => p.label === 'Users understood')?.state).toBe('developing')
+    expect(partial.find((p: Prerequisite) => p.label === 'Scope developing')?.state).toBe('absent')
   })
 
   it('reports the problem statement as a fact about the project', () => {

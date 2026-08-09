@@ -18,9 +18,9 @@
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { STORAGE_KEY, readActiveProject } from './activeProjectStorage'
 
 const API = (import.meta.env.VITE_STUDIO_API as string | undefined) ?? ''
-const STORAGE_KEY = 'kae-studio.active-project'
 
 export type ProjectSummary = {
   id: string
@@ -56,16 +56,6 @@ async function fetchProjects(): Promise<ProjectSummary[]> {
         typeof row.knowledge_revision === 'number' ? row.knowledge_revision : undefined,
     }
   })
-}
-
-export function readActiveProject(): string | null {
-  try {
-    return window.localStorage.getItem(STORAGE_KEY)
-  } catch {
-    // Private browsing, or storage disabled. Losing the preference is a worse
-    // session, not a broken one — the picker simply appears every time.
-    return null
-  }
 }
 
 function writeActiveProject(id: string | null): void {
