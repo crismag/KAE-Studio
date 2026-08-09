@@ -217,6 +217,10 @@ def _statements(payload: Any) -> list[dict[str, Any]]:
                 "text": item.get("current_content") or item.get("content") or item.get("text", ""),
                 "kind": item.get("kind", ""),
                 "lifecycle": item.get("lifecycle", ""),
+                # What this statement is about. Memory always held it; the
+                # listing started returning it, which is what lets Definition
+                # show a problem statement at all.
+                "areas": list(item.get("areas") or []),
                 # Like the timestamp, the number lives on the version, not the
                 # item. Defaulting to 1 made every reject claim to have seen the
                 # first wording, which is the opposite of what the check is for.

@@ -62,13 +62,14 @@ export function prerequisitesFor(projection: ProjectProjection): Prerequisite[] 
   return [
     {
       label: 'Problem understood',
-      // The Definition block reports this section as uncomputable rather than
-      // empty — it needs area classification Memory does not return per item.
-      // Saying "absent" would claim the project has no problem statement.
       state: definition.problem ? 'met' : 'absent',
+      // Now a fact about the project rather than about the API. Until the
+      // knowledge listing returned each statement's areas, this row said
+      // "absent" for every project in existence and had to explain that it was
+      // the product that could not tell, not the project that had nothing.
       detail: definition.problem
         ? undefined
-        : 'Not established yet — it needs area classification, which this deployment cannot read per statement.',
+        : 'No confirmed statement has been classified as the problem yet.',
     },
     {
       label: 'Users understood',

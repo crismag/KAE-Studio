@@ -140,7 +140,6 @@ class TestWhatItRefusesToInvent:
 
         sections = {entry["section"] for entry in unavailable}
         assert sections == {
-            "definition.problem",
             "definition.value",
             "definition.inScope",
             "definition.outOfScope",
@@ -156,8 +155,9 @@ class TestWhatItRefusesToInvent:
     def test_the_problem_statement_is_never_guessed_from_a_goal(self) -> None:
         """The most tempting guess, and the one that would read as a fact.
 
-        Picking the first goal and calling it the problem statement would put a
-        sentence nobody wrote at the top of the page a user checks KAE's
+        `goal` fits both `problem_and_value` and `scope_and_boundaries`, so a
+        goal with no area says nothing about which. Picking the first one would
+        put a sentence nobody wrote at the top of the page a user checks KAE's
         understanding against.
         """
 
@@ -170,3 +170,45 @@ class TestWhatItRefusesToInvent:
 
         assert definition["problem"] == ""
         assert definition["value"] == ""
+
+
+class TestTheProblemStatement:
+    def test_it_is_composed_from_the_area_a_statement_was_classified_into(self) -> None:
+        definition, _ = build_definition(
+            [
+                {**statement("goal", "People lose track of tasks."),
+                 "areas": ["problem_and_value"]},
+                {**statement("goal", "Reports go out weekly."),
+                 "areas": ["scope_and_boundaries"]},
+            ]
+        )
+
+        assert definition["problem"] == "People lose track of tasks."
+
+    def test_every_qualifying_statement_is_shown_not_the_best_one(self) -> None:
+        """Choosing between them is ranking, and ranking is CIE's (ADR-0002).
+
+        It would also discard the rest of what a person confirmed, which is
+        worse than a longer paragraph.
+        """
+
+        definition, _ = build_definition(
+            [
+                {**statement("goal", "People lose track of tasks."),
+                 "areas": ["problem_and_value"]},
+                {**statement("rule", "Nothing is ever deleted."),
+                 "areas": ["problem_and_value"]},
+            ]
+        )
+
+        assert definition["problem"] == "People lose track of tasks. Nothing is ever deleted."
+
+    def test_a_proposed_statement_does_not_become_the_problem(self) -> None:
+        definition, _ = build_definition(
+            [
+                {**statement("goal", "KAE's reading of the problem.", lifecycle="proposed"),
+                 "areas": ["problem_and_value"]}
+            ]
+        )
+
+        assert definition["problem"] == ""

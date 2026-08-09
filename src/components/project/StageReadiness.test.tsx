@@ -56,14 +56,19 @@ describe('what a stage is waiting for', () => {
     expect(partial.find((p) => p.label === 'Scope developing')?.state).toBe('absent')
   })
 
-  it('does not claim a project has no problem statement when it cannot tell', () => {
-    // The Definition block reports `problem` as uncomputable — it needs area
-    // classification Memory does not return per item. Saying "absent" with no
-    // explanation would read as a fact about the project.
-    const [problem] = prerequisitesFor(projection())
+  it('reports the problem statement as a fact about the project', () => {
+    // Until the knowledge listing returned areas, this row said "absent" for
+    // every project and had to explain that the *product* could not tell. Now
+    // absent means the project has nothing classified as the problem yet.
+    const [absent] = prerequisitesFor(projection())
 
-    expect(problem.state).toBe('absent')
-    expect(problem.detail).toMatch(/cannot read per statement/i)
+    expect(absent.state).toBe('absent')
+    expect(absent.detail).toMatch(/no confirmed statement has been classified/i)
+
+    const [met] = prerequisitesFor(projection({ problem: 'People lose track of tasks.' }))
+
+    expect(met.state).toBe('met')
+    expect(met.detail).toBeUndefined()
   })
 
   it('says how far along the page is, not just that it is not ready', () => {

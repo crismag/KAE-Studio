@@ -17,16 +17,22 @@ appears in it — mapped to a section or excluded with a reason. A kind that
 appears in neither is a test failure, not a statement quietly dropped from the
 page.
 
-## Why several sections stay empty
+## The problem statement comes from an area, not from a kind
 
-`problem`, `value`, `inScope`, `outOfScope` and `workflows` cannot be filled
-from kind alone.
+`goal` fits both `problem_and_value` and `scope_and_boundaries`, so kind alone
+cannot say which goal is the problem — and picking the first one would be a
+guess rendered as a fact. Which is why `problem` was reported uncomputable until
+the knowledge listing began returning each statement's areas.
 
-- **problem and value** need to know which statements belong to
-  `problem_and_value`, and that is an *area* classification. Memory's knowledge
-  listing returns kind and lifecycle; it does not return area links per item.
-  Picking the first `goal` and calling it the problem statement would be a
-  guess rendered as a fact.
+It joins **every** confirmed statement in that area rather than choosing one.
+Choosing is ranking, and ranking is CIE's (ADR-0002); it would also discard the
+rest of what a person confirmed.
+
+## Why three sections stay empty
+
+- **value** shares its area with the problem and nothing inside distinguishes
+  them, so splitting the statements between the two fields would be a guess
+  rendered as a distinction.
 - **inScope and outOfScope** need a scope *polarity* nothing records. A
   `decision` may put something in or out and the text does not say which in any
   machine-readable way.
@@ -87,17 +93,19 @@ EXCLUDED_KINDS: dict[str, str] = {
     ),
 }
 
+#: The area whose statements compose the problem and value sections.
+#:
+#: Not a guess from kind. `goal` fits both `problem_and_value` and
+#: `scope_and_boundaries`, so kind alone cannot say which — this is why the two
+#: sections were reported uncomputable until the listing began returning areas.
+PROBLEM_AREA = "problem_and_value"
+
 #: Sections that cannot be computed from what Memory exposes, and why.
 _UNCOMPUTABLE: dict[str, str] = {
-    "problem": (
-        "The problem statement is the project's `problem_and_value` knowledge, "
-        "and Memory's knowledge listing does not return area links per item. "
-        "Choosing a goal statement to stand for it would be a guess shown as a "
-        "fact."
-    ),
     "value": (
-        "Same as the problem statement: it needs area classification, which is "
-        "not on this response."
+        "The area covers problem *and* value together, and nothing inside it "
+        "distinguishes one from the other. Splitting its statements between the "
+        "two fields would be a guess rendered as a distinction."
     ),
     "inScope": (
         "Scope needs a polarity — in or out — that nothing records. A decision "
@@ -150,8 +158,24 @@ def build_definition(statements: list[dict[str, Any]]) -> tuple[dict[str, Any], 
             }
         )
 
+    # Every confirmed statement about the problem, joined — not the best one.
+    #
+    # Choosing *which* of several qualifying statements to show is ranking, and
+    # ranking is CIE's (ADR-0002). Picking one here would also throw away the
+    # rest of what a person confirmed, which is worse than a longer paragraph.
+    #
+    # `value` stays empty deliberately. The area covers problem *and* value and
+    # nothing distinguishes them within it, so splitting the statements between
+    # the two fields would be a guess rendered as a distinction.
+    problem = " ".join(
+        statement.get("text", "")
+        for statement in statements
+        if statement.get("lifecycle") == "validated"
+        and PROBLEM_AREA in (statement.get("areas") or [])
+    ).strip()
+
     definition: dict[str, Any] = {
-        "problem": "",
+        "problem": problem,
         "value": "",
         "objectives": sections["objectives"],
         # Stakeholders carry a name rather than a text, because that is the
