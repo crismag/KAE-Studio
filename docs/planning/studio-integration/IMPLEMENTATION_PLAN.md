@@ -1,8 +1,8 @@
 # Studio Integration Implementation Plan
 
-Status: ordered plan and acceptance contract. **STI-5, STI-6 and STI-7 are
-implemented; STI-1 through STI-4 are not started.** See the status block below
-before reading a slice as work outstanding.
+Status: ordered plan and acceptance contract. **STI-1 and STI-5 to STI-7 are
+implemented; STI-2 to STI-4 are not.** See the status block below before reading
+a slice as work outstanding.
 
 ## Where this stands
 
@@ -10,19 +10,25 @@ Done, and provable today against the download destination:
 
 | Slice | State |
 | --- | --- |
+| STI-1 Connections and sources | **Implemented** — verify, pin to a commit, read a sample |
+| STI-2 Repository acquisition | **Not started.** Analysis does not exist |
+| STI-3 Finding review and Memory handoff | Not started — depends on STI-2 |
+| STI-4 CIE repository-aware clarification | Not started — depends on STI-2 and STI-3 |
 | STI-5 Artifact planning and generation | **Implemented** |
 | STI-6 Destination preview and approval | **Implemented** |
-| STI-7 GitHub publication and provenance | **Implemented in Studio**, blocked on one adapter in KAE-Artifacts |
-| STI-8 S3 parity | Reachable through the same surface; nothing Studio-side remains |
-| STI-1 Connections and sources | Not started |
-| STI-2 Repository acquisition | Not started — **no acquisition layer exists in any repository** |
-| STI-3 Finding review and Memory handoff | Not started |
-| STI-4 CIE repository-aware clarification | Not started |
+| STI-7 GitHub publication and provenance | **Implemented and proved live** |
+| STI-8 S3 parity | Studio-side complete; a live S3 run needs AWS credentials |
 
-The output half was built first because it was blocked only on wiring. The
-intake half needs a subsystem that does not exist anywhere yet — a repository
-reader, a traversal policy, and an acquisition run model — and that is a larger
-question than a Studio surface.
+The output half was built first because it was blocked only on wiring. STI-1
+followed because everything in it is provable read-only. STI-2 is where the real
+missing subsystem is: turning a pinned snapshot into proposed findings.
+
+**The line between STI-1 and STI-2 is the one to keep.** A verified connection
+and a pinned commit are easy to present as "your repository has been analyzed",
+and they are nothing of the kind. `SourceState` declares `analyzed` and nothing
+can reach it; every source carries an analysis gap on every response; the
+analysis route answers 501 with what *was* proved; and each state on screen sits
+beside a sentence saying what it does not mean.
 
 **The trusted backend question is answered.** `backend/` is a FastAPI service
 that already holds the KAE-Memory credential and issues session cookies. It now
@@ -44,12 +50,22 @@ and none is embedded in a Vite variable.
   real KAE-Artifacts app in process, so a renamed field fails there rather than
   in a browser.
 
-### The one external blocker
+### The live proof
 
-KAE-Artifacts has no HTTP client adapter for GitHub or S3 — a six-method and a
-three-method protocol respectively. Everything above them is complete and
-tested. Until one exists, STI-7 is provable against `download` and not against a
-repository.
+STI-7 has been run against a real repository, through Studio's own API:
+
+```bash
+export KAE_STUDIO_LIVE_GITHUB_REPO=you/a-throwaway-repo
+export KAE_STUDIO_LIVE_GITHUB_TOKEN="$(gh auth token)"
+.venv/bin/pytest tests/test_live_journey.py -q -s
+```
+
+Memory revision → plan → generate → validate → preview → approval → branch →
+commit → draft PR → read-back → provenance, with an identical retry returning the
+same publication and a direct-mode attempt refused.
+
+**Still blocked:** a live S3 run needs working AWS credentials. Nothing in the
+code waits on it.
 
 ### Corrections to the slices below
 
@@ -87,7 +103,11 @@ Older planning documents contain stale execution statements. Preserve valid owne
 
 ## Slice STI-1 — Connections and Sources
 
-Status: **Not started.** Needs a provider connection model and a trusted-side GitHub read client.
+Status: **Implemented.** `backend/src/kae_studio/acquisition/` — connections with
+separate read/write capability, sources, scope, and pinning a branch to an
+immutable commit. Read-only: the source client has no method that writes, and it
+is deliberately not the client KAE-Artifacts publishes with, because source
+access and destination access are separate grants.
 
 ### User outcome
 
@@ -121,7 +141,9 @@ Do not show raw tokens.
 
 ## Slice STI-2 — Repository Acquisition
 
-Status: **Not started.** No acquisition layer exists in any repository; this is the largest missing piece in the whole plan.
+Status: **Not started, and the largest missing piece in the plan.** A source can
+be pinned; nothing reads it into findings. Everything below is outstanding, and
+the UI states this rather than implying otherwise.
 
 ### User outcome
 
