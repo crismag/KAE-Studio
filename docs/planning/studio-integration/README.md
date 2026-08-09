@@ -76,6 +76,7 @@ Do not put repository parsing into KAE-Artifacts. Do not put document generation
 - **ARCHITECTURE_AND_CONTRACTS.md** — boundaries, domain vocabulary, Studio-facing contracts, lifecycle and trust model.
 - **IMPLEMENTATION_PLAN.md** — ordered vertical slices, UI behavior, test matrix and Definition of Done.
 - **CLAUDE_IMPLEMENTATION_PROMPT.md** — execution prompt for a coding agent to implement the work against current repository evidence.
+- **PROJECT_SETUP_VIBECODE_PROMPT.md** — focused implementation directive for the Project Setup wizard, permanent Sources & Outputs settings, and provider-backed read/write/read-back proofs.
 
 ## Scope
 
