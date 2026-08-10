@@ -35,6 +35,7 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `planning/VERTICAL_SLICE.md` | First demonstrable product flow and acceptance criteria |
 | `planning/IMPLEMENTATION_DIRECTIVE.md` | Work order and instructions for Claude |
 | `ui/UI_GENERATION_CONTEXT.md` | Governing brief for KAE-Studio's own interface |
+| `ui/WORKSPACE_VISUAL_DESIGN_PROPOSAL.md` | Workspace review and proposal for visual navigation, graphical state, themes, responsive views, and truthful content |
 
 Note the distinction between the two UI documents: `product/UI_DEFINITION.md` covers the interface Studio **defines for the project being specified**; `ui/UI_GENERATION_CONTEXT.md` covers **Studio's own** interface.
 
