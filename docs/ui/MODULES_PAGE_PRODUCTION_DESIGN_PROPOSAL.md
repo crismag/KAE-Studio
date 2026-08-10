@@ -125,7 +125,7 @@ The route should always be navigable. Its **mode** changes with project state.
 
 Never hide the page simply because modules do not exist. An unavailable page should still explain why and launch the correct workflow.
 
-## 4. Minimum signals for decomposition
+## 5. Minimum signals for decomposition
 
 Decomposition should not require a perfectly complete Project Definition. It should require enough evidence to propose meaningful boundaries and label uncertainty.
 
@@ -157,7 +157,7 @@ type DecompositionEligibility = {
 
 Eligibility is not module readiness. It only states whether producing a reviewable candidate decomposition is worthwhile.
 
-## 5. Triggers
+## 6. Triggers
 
 ### 5.1 Explicit triggers
 
@@ -199,7 +199,7 @@ A minor wording correction should not stale the entire map. The backend returns 
 
 Accept, rename, add, reject, defer, split, and merge are decomposition decisions. Each creates a revision request with provenance and impact preview. Split and merge require explicit mapping of requirements, interfaces, data, dependencies, tests, and open decisions; unresolved mappings remain visible and block completion.
 
-## 6. Valuable page contents
+## 7. Valuable page contents
 
 ### 6.1 Header and portfolio status
 
@@ -306,7 +306,7 @@ Rank a small number of actions based on downstream value:
 
 Avoid a long undifferentiated issue list.
 
-## 7. Best data representations
+## 8. Best data representations
 
 The default view should be a **portfolio**, not a graph. Graphs become noisy and less useful as the project grows.
 
@@ -372,7 +372,7 @@ Compare the current decomposition revision with a selected earlier revision:
 
 Use a change table and focused before/after diagram. Avoid animation as the only explanation.
 
-## 8. Decomposition review workflow
+## 9. Decomposition review workflow
 
 A review queue should support one candidate or coherent batch at a time.
 
@@ -401,7 +401,7 @@ Actions:
 
 “Accept all” is allowed only after a review summary identifies every candidate and outstanding conflict. Acceptance does not mean implementation-ready.
 
-## 9. Truth, status, and consistency rules
+## 10. Truth, status, and consistency rules
 
 - All counts and graphics belong to one project and revision.
 - Unknown/unavailable is never serialized or rendered as zero.
@@ -415,7 +415,7 @@ Actions:
 - Fixture/example modules never appear as current project state.
 - Repository folders may provide evidence but are not automatically equivalent to product modules.
 
-## 10. Suggested projection contract
+## 11. Suggested projection contract
 
 ```ts
 type ModulesProjection = {
@@ -449,7 +449,7 @@ POST /v1/projects/{project_id}/model/traversals
 
 Exact endpoints must be reconciled with current KAE-Memory contracts. Studio must not create a second authoritative module store.
 
-## 11. Empty, pending, stale, and failure behavior
+## 12. Empty, pending, stale, and failure behavior
 
 ### Empty/not ready
 
@@ -475,7 +475,7 @@ Render available portfolio data and mark unavailable graphics/sections. A failed
 
 For a legitimately tiny project, allow a confirmed single-module or “no further decomposition” decision with rationale. This is different from no data.
 
-## 12. Responsive, themed, and accessible behavior
+## 13. Responsive, themed, and accessible behavior
 
 ### Desktop
 
@@ -508,7 +508,7 @@ For a legitimately tiny project, allow a confirmed single-module or “no furthe
 - no hover-only details;
 - screen-reader summary announces portfolio state and changes after a revision.
 
-## 13. Permissions and collaboration
+## 14. Permissions and collaboration
 
 Suggested roles:
 
@@ -519,7 +519,7 @@ Suggested roles:
 
 Use revision guards for concurrent edits. If the model advanced, show the conflicting change and require reconciliation. Audit decomposition decisions, actor, source revision, target entities, result revision, and reason.
 
-## 14. Performance and observability
+## 15. Performance and observability
 
 - cache by project and revision;
 - load portfolio before large topology traversals;
@@ -529,7 +529,7 @@ Use revision guards for concurrent edits. If the model advanced, show the confli
 - measure projection latency, decomposition-run completion, review completion, stale frequency, graph failures, and time to first accepted decomposition;
 - do not prefetch unauthorized project evidence.
 
-## 15. Delivery sequence
+## 16. Delivery sequence
 
 ### Phase 0 — Truth prerequisite
 
@@ -567,7 +567,7 @@ Use revision guards for concurrent edits. If the model advanced, show the confli
 - Harden responsive themes, accessibility, resilience, and performance.
 - Integrate bounded module package generation.
 
-## 16. Acceptance criteria
+## 17. Acceptance criteria
 
 - **MOD-AC-01 — Honest zero:** Zero modules is always accompanied by a specific state and useful action.
 - **MOD-AC-02 — Activation:** The page explains whether decomposition is premature, eligible, running, ready for review, curated, stale, or unavailable.
@@ -585,7 +585,7 @@ Use revision guards for concurrent edits. If the model advanced, show the confli
 - **MOD-AC-14 — Responsive access:** Core review and curation work on desktop, tablet, and mobile.
 - **MOD-AC-15 — Accessibility:** Every graphic has keyboard, non-color, and screen-reader-equivalent meaning.
 
-## 17. Non-goals
+## 18. Non-goals
 
 This proposal does not:
 
@@ -597,7 +597,7 @@ This proposal does not:
 - imply accepted means implementation-ready;
 - fabricate modules or relationships to make the page look populated.
 
-## 18. Product outcome
+## 19. Product outcome
 
 The production Modules page should tell one coherent story:
 
