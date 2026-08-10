@@ -34,6 +34,9 @@ import {
   type Recommendation,
 } from '@/components/project/RecommendationCard'
 import { NextAction } from '@/components/project/NextAction'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
+import { SectionsNotRead } from '@/components/project/SectionsNotRead'
+import { sectionsNotRead } from '@/components/project/sectionsNotRead'
 import { floorAction, type RecommendedAction } from '@/components/project/nextActionFloor'
 import {
   useConfirmReading,
@@ -382,6 +385,13 @@ export function CoverageSection({
   projection: ProjectProjection
   onDiscuss?: (area: string) => void
 }) {
+  // An empty coverage list has two opposite causes, and one of them is us.
+  // When the readiness call failed the backend substitutes `{}`, which becomes
+  // no areas at all — rendered bare, that reads as a project with nothing in
+  // any area rather than as a project nobody could read (`AUD-040`).
+  const notRead = sectionsNotRead(projection.unavailable).find((e) => e.section === 'readiness')
+  if (notRead) return <CapabilityNote reason={notRead.reason} />
+
   return (
     <ul className="space-y-2">
       {projection.health.coverage.map((topic) => (
@@ -594,6 +604,11 @@ function ContextPanelContent({
 
   return (
     <div className="space-y-4 pb-6">
+      {/* Above the recommendation, deliberately. A next action derived from a
+          projection with a section missing is a recommendation made on partial
+          information, and the reader has to know that before they act on it. */}
+      <SectionsNotRead unavailable={projection.unavailable} />
+
       <NextAction action={action} derived={recommended === undefined} />
 
       <Panel>
