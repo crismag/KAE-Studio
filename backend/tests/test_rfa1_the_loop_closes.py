@@ -53,12 +53,22 @@ class _RecordingMemory:
 
     def __init__(self, readiness: dict[str, Any] | None = None) -> None:
         self.reviews: list[tuple[str, str]] = []
-        self._readiness = readiness if readiness is not None else {
-            "percentage": 0,
-            "current_knowledge_revision": 25,
-            "knowledge_revision": 12,
-            "classification": {"engine": None, "degraded": False, "note": "", "reviewed_at": None},
-        }
+        self._readiness = (
+            readiness
+            if readiness is not None
+            else {
+                "percentage": 0,
+                "current_knowledge_revision": 25,
+                "knowledge_revision": 12,
+                "is_stale": True,
+                "classification": {
+                    "engine": None,
+                    "degraded": False,
+                    "note": "",
+                    "reviewed_at": None,
+                },
+            }
+        )
 
     async def readiness(self, project_id: str) -> Any:
         return dict(self._readiness)
@@ -150,6 +160,76 @@ class TestStudioAsksForTheClassification:
             client.post("/api/projects/p2/classify", json={})
 
         assert memory.reviews[0][1] != memory.reviews[1][1]
+
+
+class TestItRefusesToBuyAPassItDoesNotNeed:
+    """The key alone does not hold, and the deployed system proved it.
+
+    A review assigns area links, which bumps the knowledge revision — so the
+    revision *after* a review is never the revision the key was taken at.
+    Pressing twice in a row therefore bought two model passes over every
+    statement in the project. The second request returned a different run id on
+    the live stack, which is how this was found rather than reasoned about.
+
+    `is_stale` is the question actually being asked: false means readiness was
+    calculated at the project's current revision, which is exactly "the
+    classification covers what the project holds now".
+    """
+
+    def test_a_current_classification_is_not_recomputed(self) -> None:
+        memory = _RecordingMemory(
+            readiness={
+                "percentage": 16,
+                "current_knowledge_revision": 9,
+                "knowledge_revision": 9,
+                "is_stale": False,
+                "classification": {"engine": "reviewed_by_model", "degraded": False},
+            }
+        )
+        with _client(memory) as client:
+            response = client.post("/api/projects/p1/classify", json={})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "already_current"
+        assert memory.reviews == [], "a second model pass was bought for no new knowledge"
+
+    def test_new_knowledge_since_the_last_review_is_classified(self) -> None:
+        """The other direction, which is what makes the refusal a guard and not
+        a wall. A project that has grown must be reviewable again."""
+
+        memory = _RecordingMemory(
+            readiness={
+                "percentage": 16,
+                "current_knowledge_revision": 14,
+                "knowledge_revision": 9,
+                "is_stale": True,
+                "classification": {"engine": "reviewed_by_model", "degraded": False},
+            }
+        )
+        with _client(memory) as client:
+            client.post("/api/projects/p1/classify", json={})
+
+        assert memory.reviews, "knowledge moved and nothing reclassified it"
+        assert "14" in memory.reviews[0][1]
+
+    def test_a_project_nothing_has_reviewed_is_never_refused(self) -> None:
+        """`is_stale` is false on a project whose readiness has never been
+        calculated over anything. Reading it alone would refuse the one case
+        this whole route exists for."""
+
+        memory = _RecordingMemory(
+            readiness={
+                "percentage": 0,
+                "current_knowledge_revision": 5,
+                "knowledge_revision": 5,
+                "is_stale": False,
+                "classification": {"engine": None, "degraded": False},
+            }
+        )
+        with _client(memory) as client:
+            client.post("/api/projects/p1/classify", json={})
+
+        assert memory.reviews, "a project no review has run over was refused a review"
 
 
 class TestTheProjectionSaysWhetherAnythingClassified:

@@ -677,16 +677,35 @@ def create_app(settings: Settings) -> FastAPI:
         """
 
         readiness = await memory(request).readiness(project_id)
-        revision = (
-            readiness.get("current_knowledge_revision")
-            if isinstance(readiness, dict)
-            else None
-        )
+        payload = readiness if isinstance(readiness, dict) else {}
+        classification = payload.get("classification")
+        engine = classification.get("engine") if isinstance(classification, dict) else None
+
+        # **Refuse when there is nothing to classify**, and refuse *here* rather
+        # than relying on the idempotency key.
+        #
+        # The key alone does not hold. A review assigns area links, which bumps
+        # the knowledge revision, so the revision after a review is never the
+        # revision the key was taken at — pressing twice in a row bought two
+        # model passes over every statement in the project. Measured on the
+        # deployed system: the second request returned a different run id.
+        #
+        # `is_stale` is the question actually being asked. It is false when
+        # readiness was calculated at the project's current revision, which is
+        # exactly "the classification covers what the project holds now".
+        if engine is not None and payload.get("is_stale") is False:
+            return {
+                "status": "already_current",
+                "engine": engine,
+                "knowledge_revision": payload.get("current_knowledge_revision"),
+            }
+
+        revision = payload.get("current_knowledge_revision")
         # Falls back to the snapshot's own revision, then to the project id
         # alone. A missing revision must not silently become a shared key that
         # makes every project's first review the same run.
-        if revision is None and isinstance(readiness, dict):
-            revision = readiness.get("knowledge_revision")
+        if revision is None:
+            revision = payload.get("knowledge_revision")
         key = f"studio-review-{project_id}-{revision if revision is not None else 'unknown'}"
         return await memory(request).enqueue_review(project_id, key)
 
