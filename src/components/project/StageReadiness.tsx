@@ -54,7 +54,13 @@ export function StageReadiness({
     >
       <h2 className="text-[13px] font-semibold text-ink">{stage} — not ready yet</h2>
       <p className="mt-1 text-[12.5px] text-ink-muted">
-        {met} of {prerequisites.length} prerequisites met. This page fills in as they are.
+        {/* Not "this page fills in as they are" (AUD-021). Nothing is
+            implemented behind Architecture or Plan, so meeting all four
+            prerequisites fills in nothing — a promise of automatic delivery
+            that the product cannot keep. What is true is what the
+            prerequisites are for: the work becomes possible, not automatic. */}
+        {met} of {prerequisites.length} prerequisites met. They are what this stage needs before it
+        can be worked on.
       </p>
       <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
         {prerequisites.map((prerequisite) => {

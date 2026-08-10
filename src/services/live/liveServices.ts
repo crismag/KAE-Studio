@@ -690,6 +690,68 @@ function accepted(response?: unknown): MemoryWriteResult {
   }
 }
 
+/** Memory's deliverable, as it arrives. Snake case, and its own vocabulary. */
+interface WireDeliverable {
+  deliverable_id: string
+  purpose: string
+  scope: string
+  module: string | null
+  state: string
+  knowledge_revision: number
+  content_hash: string
+  stale: boolean
+  artifacts: { logical_path?: string; path?: string }[]
+  source_knowledge: string[]
+  manifest: Record<string, unknown>
+  recorded_by: string | null
+  superseded_by: string | null
+}
+
+/**
+ * Memory's deliverable states are not Studio's, and pretending otherwise crashed.
+ *
+ * `AUD-023`. This was the one adapter method in the file with no mapping —
+ * `return items as Deliverable[]` — while every other Memory and Artifacts
+ * payload gets an explicit snake→camel mapper. The cast produced objects whose
+ * `state` was `recorded`, `superseded` or `withdrawn`, and `Deliverables.tsx`
+ * looks that up in a `STATE_META` keyed on `not_generated`, `generated`,
+ * `reviewed`, `published`, `outdated`. Every one missed, `meta.label` threw, and
+ * the page died in `RouteError` — for any project that actually held one.
+ *
+ * The audit classified this `I` because nobody had run it against such a
+ * project. It is a crash.
+ *
+ * The states mean different things and the mapping says which. Memory records
+ * that an output *existed*; it deliberately performs no rendering or
+ * publication, so nothing it returns can mean `published`.
+ */
+const DELIVERABLE_STATE: Record<string, Deliverable['state']> = {
+  recorded: 'generated',
+  superseded: 'outdated',
+  withdrawn: 'outdated',
+}
+
+function deliverable(wire: WireDeliverable): Deliverable {
+  return {
+    id: wire.deliverable_id,
+    name: wire.purpose,
+    description: '',
+    // Memory scopes a deliverable to a module by naming one, not by a keyword.
+    scope: wire.module ? 'module' : 'project',
+    moduleId: wire.module ?? undefined,
+    // `stale` outranks the recorded state: an output whose knowledge has moved
+    // on is outdated whatever it was recorded as.
+    state: wire.stale ? 'outdated' : (DELIVERABLE_STATE[wire.state] ?? 'not_generated'),
+    sourceMemoryRevision: wire.knowledge_revision,
+    contentHash: wire.content_hash,
+    includes: wire.artifacts.map((a) => a.logical_path ?? a.path ?? '').filter(Boolean),
+    files: [],
+    // Memory returns the ids it pinned; the questions themselves live elsewhere.
+    unresolvedDecisionIds: [],
+    generatedAt: undefined,
+  }
+}
+
 export function createLiveServices(projectIdOverride?: string): StudioServices {
   const resolve = (given: string) => projectIdOverride ?? given
 
@@ -908,11 +970,11 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
 
   const artifacts: ArtifactService = {
     listDeliverables: async (id) => {
-      const raw = await call<{ results?: unknown[] } | unknown[]>(
+      const raw = await call<{ results?: WireDeliverable[] } | WireDeliverable[]>(
         `/api/projects/${resolve(id)}/deliverables`,
       )
       const items = Array.isArray(raw) ? raw : (raw.results ?? [])
-      return items as Deliverable[]
+      return items.map(deliverable)
     },
   }
 

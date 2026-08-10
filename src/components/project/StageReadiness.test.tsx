@@ -83,7 +83,11 @@ describe('what a stage is waiting for', () => {
     )
 
     expect(screen.getByText(/1 of 4 prerequisites met/i)).toBeInTheDocument()
-    expect(screen.getByText(/fills in as they are/i)).toBeInTheDocument()
+    // It used to assert "fills in as they are", which was a promise nothing
+    // behind Architecture or Plan can keep — meeting all four fills in nothing
+    // (AUD-021). What it may say is what the prerequisites are for.
+    expect(screen.getByText(/before it can be worked on/i)).toBeInTheDocument()
+    expect(screen.queryByText(/fills in as they are/i)).not.toBeInTheDocument()
   })
 
   it('never says which prerequisite matters most', () => {
