@@ -13,7 +13,6 @@ import {
   MessagesSquare,
   PanelsTopLeft,
   ScanSearch,
-  Share2,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
@@ -36,7 +35,6 @@ const NAV: NavItem[] = [
   { to: '/definition', label: 'Project Definition', icon: ClipboardList },
   { to: '/modules', label: 'Modules', icon: Boxes },
   { to: '/requirements', label: 'Requirements', icon: ListChecks },
-  { to: '/interfaces', label: 'Interfaces', icon: Share2 },
   { to: '/architecture', label: 'Architecture', icon: PanelsTopLeft },
   { to: '/dependencies', label: 'Dependencies', icon: GitBranch },
   { to: '/plan', label: 'Plan', icon: LayoutGrid },

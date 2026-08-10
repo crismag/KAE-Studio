@@ -12,7 +12,6 @@ import { Workspace } from '@/app/routes/Workspace'
 import { ProjectDefinition } from '@/app/routes/ProjectDefinition'
 import { Modules } from '@/app/routes/Modules'
 import { Requirements } from '@/app/routes/Requirements'
-import { Interfaces } from '@/app/routes/Interfaces'
 import { Architecture } from '@/app/routes/Architecture'
 import { Dependencies } from '@/app/routes/Dependencies'
 import { Plan } from '@/app/routes/Plan'
@@ -31,9 +30,7 @@ const router = createHashRouter([
       { path: 'workspace', element: <Workspace />, errorElement: <RouteError /> },
       { path: 'definition', element: <ProjectDefinition />, errorElement: <RouteError /> },
       { path: 'modules', element: <Modules />, errorElement: <RouteError /> },
-      { path: 'modules/:moduleId', element: <Modules />, errorElement: <RouteError /> },
       { path: 'requirements', element: <Requirements />, errorElement: <RouteError /> },
-      { path: 'interfaces', element: <Interfaces />, errorElement: <RouteError /> },
       { path: 'architecture', element: <Architecture />, errorElement: <RouteError /> },
       { path: 'dependencies', element: <Dependencies />, errorElement: <RouteError /> },
       { path: 'plan', element: <Plan />, errorElement: <RouteError /> },
