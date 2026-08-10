@@ -33,6 +33,8 @@ import type {
 } from '@/domain/types'
 import type {
   AcquisitionPort,
+  IngestOutcome,
+  SourceFileListing,
   ArtifactContent,
   ArtifactPipeline,
   ArtifactPlanEdit,
@@ -912,6 +914,45 @@ class MockAcquisition implements AcquisitionPort {
     }
     this.sources[index] = pinned
     return delay({ ...pinned }, 700)
+  }
+
+  listFiles(sourceId: string, limit = 50): Promise<SourceFileListing> {
+    const source = this.sources.find((s) => s.sourceId === sourceId)
+    if (!source) throw new Error(`Unknown source: ${sourceId}`)
+    if (!source.snapshot) throw new Error('this source has not been pinned to a revision')
+
+    // Paths a repository of this shape would plausibly hold. Fixture content,
+    // and it stays in the mock layer where fixture content belongs.
+    const files = [
+      { path: 'README.md', size: 4_812 },
+      { path: 'docs/ARCHITECTURE.md', size: 12_408 },
+      { path: 'docs/REQUIREMENTS.md', size: 9_133 },
+      { path: 'CONTRIBUTING.md', size: 2_204 },
+    ]
+    return delay({ files: files.slice(0, limit), truncated: files.length > limit }, 400)
+  }
+
+  ingestFiles(sourceId: string, _projectId: string, paths: string[]): Promise<IngestOutcome> {
+    const source = this.sources.find((s) => s.sourceId === sourceId)
+    if (!source) throw new Error(`Unknown source: ${sourceId}`)
+    if (!source.snapshot) throw new Error('this source has not been pinned to a revision')
+
+    return delay(
+      {
+        revision: source.snapshot.revision,
+        ingested: paths.map((path) => ({
+          path,
+          ingested: { chunks_recorded: 3, truncated_chunks: 0, warnings: [] },
+        })),
+        // Word for word the backend's, because a mock that promises more than
+        // the real path is how a prototype teaches somebody the wrong product.
+        proves:
+          'these files were read at this revision and recorded as evidence. ' +
+          'Extraction proposes candidates from them; nothing is confirmed, and ' +
+          'no structure has been derived.',
+      },
+      600,
+    )
   }
 }
 

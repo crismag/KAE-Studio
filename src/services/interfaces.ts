@@ -261,6 +261,45 @@ export interface AcquisitionPort {
   ): Promise<ProjectSource>
   /** Resolve to an immutable commit. The furthest a source can currently go. */
   pinSource(sourceId: string): Promise<ProjectSource>
+
+  /**
+   * The in-scope files of a pinned source, largest first. **Reads nothing into
+   * the project** — it lists what an ingest would read.
+   *
+   * The tree was always resolved and never returned, so a user could see
+   * "412 files" and not one of their names.
+   */
+  listFiles(sourceId: string, limit?: number): Promise<SourceFileListing>
+
+  /**
+   * Read chosen files at the pinned revision and record them as evidence.
+   *
+   * **Ingestion, not analysis.** Nothing derives structure: the text becomes
+   * durable evidence, extraction proposes candidates, a person confirms.
+   * `source.analysis` stays a capability gap, and calling this analysis would
+   * be the specific dishonesty `ANALYSIS_UNAVAILABLE` exists to prevent.
+   *
+   * Paths are explicit. Ingesting a whole repository unasked is the bulk import
+   * the acquisition contract warns against, and choosing is how a person tells
+   * KAE what matters.
+   */
+  ingestFiles(sourceId: string, projectId: string, paths: string[]): Promise<IngestOutcome>
+}
+
+export interface SourceFileListing {
+  files: { path: string; size: number }[]
+  /** The repository was larger than one listing, or the limit cut it. */
+  truncated: boolean
+}
+
+export interface IngestOutcome {
+  revision: string
+  ingested: {
+    path: string
+    /** Memory's 202 body: chunk counts, truncation and warnings. */
+    ingested: Record<string, unknown>
+  }[]
+  proves: string
 }
 
 export interface ArtifactPlanEdit {

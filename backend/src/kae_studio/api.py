@@ -1083,6 +1083,87 @@ def create_app(settings: Settings) -> FastAPI:
             "proves": "this credential can read file content at this revision.",
         }
 
+    @app.get("/api/sources/{source_id}/files")
+    async def source_files(
+        source_id: str,
+        request: Request,
+        limit: int = 50,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """The in-scope files of a pinned source, largest first.
+
+        The tree has always been resolved — `pin` reads it to count files and
+        bytes — and it was never returned, so a user could see *412 files* and
+        not one of their names. Read-only, and at the pinned revision, so what
+        this lists is exactly what an ingest would read.
+        """
+
+        files, truncated = await run_in_threadpool(
+            acquisition(request).readable_files, source_id, limit
+        )
+        return {
+            "source_id": source_id,
+            "files": files,
+            "truncated": truncated,
+            "proves": "these paths exist in scope at the pinned revision.",
+        }
+
+    @app.post("/api/sources/{source_id}/ingest")
+    async def ingest_source(
+        source_id: str,
+        body: dict[str, Any],
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Read chosen files at the pinned revision and hand them to Memory.
+
+        **This is ingestion, and calling it analysis would be the lie this
+        module exists to avoid.** Nothing here derives structure: the files
+        become durable evidence, extraction proposes candidates from their text,
+        and a person confirms. `ANALYSIS_UNAVAILABLE` stays accurate, and
+        `/analysis` still returns 501.
+
+        What it does close is the gap GitHub issue #3 recorded — a user offering
+        a repository and being asked to paste its contents. Now there is
+        something for *"connect it here"* to mean.
+
+        Paths are explicit rather than "everything in scope". A person choosing
+        what KAE reads is a person who can tell it what matters, and ingesting a
+        whole repository unasked is the bulk-import the acquisition contract
+        warns against.
+        """
+
+        paths = [p for p in body.get("paths", []) if isinstance(p, str) and p.strip()]
+        if not paths:
+            raise HTTPException(422, "name at least one file to ingest")
+
+        read = await run_in_threadpool(acquisition(request).read_for_ingest, source_id, paths)
+        source = acquisition(request).source(source_id)
+        revision = source.snapshot.revision if source.snapshot else ""
+
+        results = []
+        for path, text in read:
+            # One document per file, named for where it came from and pinned to
+            # the revision. That name is the provenance a reader sees later, so
+            # it carries both or it carries neither.
+            outcome = await memory(request).ingest_document(
+                body.get("project_id", ""),
+                document=f"{source.location}@{revision[:7]}:{path}",
+                text=text,
+            )
+            results.append({"path": path, "ingested": outcome})
+
+        return {
+            "source_id": source_id,
+            "revision": revision,
+            "ingested": results,
+            "proves": (
+                "these files were read at this revision and recorded as evidence. "
+                "Extraction proposes candidates from them; nothing is confirmed, "
+                "and no structure has been derived."
+            ),
+        }
+
     @app.post("/api/sources/{source_id}/analysis", status_code=status.HTTP_501_NOT_IMPLEMENTED)
     async def analyze_source(
         source_id: str, _: Operator = Depends(require_operator)

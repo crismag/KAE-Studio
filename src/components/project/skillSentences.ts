@@ -27,6 +27,7 @@ export const SKILL_SENTENCES: Record<string, string> = {
   derive_acceptance: 'nothing yet says how you would know this was met',
   reflect_for_confirmation: 'enough has accumulated to be worth confirming',
   challenge_premature_design: 'the conversation moved to design before the problem was settled',
+  reach_for_offered_evidence: 'you pointed at something that already holds the answer',
   handle_non_answer: 'the last reply did not answer the question',
   follow_thread: 'you raised something more important than the current subject',
   acknowledge_sufficiency: 'this subject is established well enough',

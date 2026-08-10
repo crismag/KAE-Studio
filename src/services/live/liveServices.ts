@@ -1213,6 +1213,26 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       }
     },
 
+    listFiles: async (sourceId, limit = 50) => {
+      const raw = await call<{
+        files: { path: string; size: number }[]
+        truncated: boolean
+      }>(`/api/sources/${sourceId}/files?limit=${limit}`)
+      return { files: raw.files ?? [], truncated: Boolean(raw.truncated) }
+    },
+
+    ingestFiles: async (sourceId, projectId, paths) => {
+      const raw = await call<{
+        revision: string
+        ingested: { path: string; ingested: Record<string, unknown> }[]
+        proves: string
+      }>(`/api/sources/${sourceId}/ingest`, {
+        method: 'POST',
+        body: JSON.stringify({ project_id: resolve(projectId), paths }),
+      })
+      return { revision: raw.revision, ingested: raw.ingested ?? [], proves: raw.proves }
+    },
+
     listSources: async (id) => {
       const body = await callArtifacts<{ sources: WireSource[] }>(
         `/api/projects/${resolve(id)}/sources`,

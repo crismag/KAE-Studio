@@ -17,6 +17,7 @@ have.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from .github_source import GitHubSourceClient, SourceReadError, snapshot_digest
@@ -229,6 +230,64 @@ class AcquisitionService:
         )
         self._sources[source_id] = readable
         return content
+
+
+    def readable_files(self, source_id: str, limit: int = 50) -> tuple[list[dict[str, Any]], bool]:
+        """The in-scope files of a pinned source, largest first.
+
+        Reads the tree the pin already resolved rather than re-listing, so what
+        this returns is exactly what that revision contained. `truncated` says
+        the repository was larger than one listing — surfaced rather than
+        swallowed, because a partial set presented as a total is what a snapshot
+        digest is supposed to make impossible.
+        """
+
+        source = self.source(source_id)
+        if self._github is None:
+            raise SourceReadError(501, "no GitHub connection is configured")
+        if source.snapshot is None:
+            raise SourceReadError(409, "this source has not been pinned to a revision")
+
+        entries, truncated = self._github.tree(source.location, source.snapshot.revision)
+        in_scope = [
+            entry
+            for entry in entries
+            if not source.scope.excludes(entry["path"])
+            and entry["size"] <= source.scope.max_file_bytes
+        ]
+        in_scope.sort(key=lambda entry: entry["size"], reverse=True)
+        return in_scope[:limit], truncated or len(in_scope) > limit
+
+    def read_for_ingest(self, source_id: str, paths: Sequence[str]) -> list[tuple[str, str]]:
+        """Read several in-scope files at a pinned revision.
+
+        **Ingestion, not analysis.** This returns text and the path it came
+        from. It derives no structure, and `ANALYSIS_UNAVAILABLE` stays accurate
+        until something does — relabelling this as analysis is the specific
+        dishonesty the module docstring was written against.
+
+        Scope is enforced per file rather than trusted from the caller, because
+        the caller is a route and a route takes its list from a browser. A path
+        outside scope raises rather than being skipped: silently dropping one is
+        how a person ends up believing their configuration covered something it
+        did not.
+        """
+
+        source = self.source(source_id)
+        if self._github is None:
+            raise SourceReadError(501, "no GitHub connection is configured")
+        if source.snapshot is None:
+            raise SourceReadError(409, "this source has not been pinned to a revision")
+
+        revision = source.snapshot.revision
+        read: list[tuple[str, str]] = []
+        for path in paths:
+            if source.scope.excludes(path):
+                raise SourceReadError(
+                    403, f"{path} is outside the configured scope for this source"
+                )
+            read.append((path, self._github.read_file(source.location, path, revision)))
+        return read
 
 
 def _with(connection: Connection, **changes: object) -> Connection:

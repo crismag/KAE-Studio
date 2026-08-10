@@ -135,6 +135,30 @@ class MemoryClient:
             "GET", f"/v1/projects/{project_id}/clarifications/candidates", params={"limit": limit}
         )
 
+    async def ingest_document(
+        self, project_id: str, document: str, text: str, max_chunks: int | None = None
+    ) -> Any:
+        """Hand Memory a document. It chunks, records verbatim, and queues extraction.
+
+        The method that did not exist, and whose absence was the whole of
+        "acquire before asking" on Studio's side: `POST /v1/projects/{id}/documents`
+        has been there the entire time, and Studio had no way to call it — so a
+        user who offered a repository was asked to paste its contents.
+
+        Text, not bytes. Memory parses no file formats, so decoding is the
+        caller's problem and pretending otherwise here would push a gap one
+        layer down where it is harder to see.
+
+        Returns Memory's 202 body, which carries `truncated_chunks` and
+        `warnings`. **Both must reach a person.** A document silently cut at
+        `max_chunks` is the failure `AUD-024` was about.
+        """
+
+        body: dict[str, Any] = {"document": document, "text": text}
+        if max_chunks is not None:
+            body["max_chunks"] = max_chunks
+        return await self._request("POST", f"/v1/projects/{project_id}/documents", json=body)
+
     async def extraction_coverage(self, project_id: str) -> Any:
         """How much of what was submitted became knowledge.
 
