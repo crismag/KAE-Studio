@@ -106,6 +106,32 @@ export function useConfirmReading() {
 }
 
 /**
+ * Ask KAE-Memory to classify what the project holds into discovery areas.
+ *
+ * **The middle link of the loop, reachable from the product for the first
+ * time.** Extraction writes knowledge, review assigns each statement to an
+ * area, readiness counts per area. Studio drove the first and read the third
+ * and never asked for the second, so a project could hold thirty confirmed
+ * statements and report `0% · not_started` — which is what the deployed
+ * acceptance project did (`AUD-041`).
+ *
+ * Queued, not done. The invalidation on success will usually read the same
+ * numbers back; the run finishes in a worker, and the surface says so rather
+ * than implying the click classified anything.
+ */
+export function useClassify() {
+  const { projection, projectId } = useServices()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => projection.classify(projectId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['projection', projectId] })
+    },
+  })
+}
+
+/**
  * Record a disposition on KAE's advice.
  *
  * Invalidates the projection: accepting a recommendation adds an assumption to

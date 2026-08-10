@@ -36,9 +36,11 @@ import {
 import { NextAction } from '@/components/project/NextAction'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { SectionsNotRead } from '@/components/project/SectionsNotRead'
+import { ClassificationState } from '@/components/project/ClassificationState'
 import { sectionsNotRead } from '@/components/project/sectionsNotRead'
 import { floorAction, type RecommendedAction } from '@/components/project/nextActionFloor'
 import {
+  useClassify,
   useConfirmReading,
   useDecideRecommendation,
   useDeferDecision,
@@ -594,6 +596,7 @@ function ContextPanelContent({
   recommended?: RecommendedAction
 }) {
   const { data: projection } = useProjection()
+  const classify = useClassify()
   if (!projection) return null
 
   const blocking = projection.openDecisions.filter((d) => !d.deferred)
@@ -627,6 +630,15 @@ function ContextPanelContent({
         </PanelHeader>
         <PanelBody>
           <CoverageSection projection={projection} onDiscuss={onDiscuss} />
+          {/* Beside the areas, because it is the reason they are empty. A
+              person reading "0 of 1 confirmed" ten times over needs to know
+              whether anything has looked. */}
+          <ClassificationState
+            classification={projection.classification}
+            onClassify={() => classify.mutate()}
+            pending={classify.isPending}
+            queued={classify.isSuccess}
+          />
           <ContentLoss coverage={projection.extractionCoverage} />
           <div className="mt-3 border-t border-line pt-2">
             <WhatTheseMean />

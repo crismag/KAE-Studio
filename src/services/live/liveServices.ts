@@ -504,6 +504,12 @@ interface BackendProjection {
   preliminary: { warnings: string[]; materialUnknowns: unknown[] }
   modules: { available: boolean; gap: { capability: string; reason: string } }
   unavailable: { section: string; reason: string }[]
+  classification?: {
+    engine: string | null
+    degraded: boolean
+    note: string
+    reviewedAt: string | null
+  }
 }
 
 export function toProjection(raw: BackendProjection): ProjectProjection {
@@ -635,6 +641,17 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
     // the backend computes these reasons carefully and the adapter used to
     // discard them into a field with no reader.
     unavailable: raw.unavailable.map((u) => ({ section: u.section, reason: u.reason })),
+    // Carried, not summarised. Whether a number came from a model, from the
+    // offline rule, or from no review at all is the reader's judgement to make
+    // and Memory already wrote the sentence for it.
+    classification: raw.classification
+      ? {
+          engine: raw.classification.engine,
+          degraded: raw.classification.degraded,
+          note: raw.classification.note,
+          reviewedAt: raw.classification.reviewedAt,
+        }
+      : undefined,
     contradictions: {
       count: raw.contradictions.count,
       listable: raw.contradictions.listable,
@@ -920,6 +937,13 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
   const projection: ProjectProjectionService = {
     getProjection: async (id) =>
       toProjection(await call<BackendProjection>(`/api/projects/${resolve(id)}/projection`)),
+    // 202. The backend derives the idempotency key from the knowledge
+    // revision, so asking twice about unchanged knowledge returns the run that
+    // already happened rather than buying a second model pass over every
+    // statement.
+    classify: async (id) => {
+      await call(`/api/projects/${resolve(id)}/classify`, { method: 'POST', body: '{}' })
+    },
   }
 
   const interview: InterviewProvider = {

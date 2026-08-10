@@ -674,6 +674,25 @@ export interface MemoryRecord {
  * Kept structured rather than prose precisely so a surface can find *its own*
  * section rather than parsing a list of sentences.
  */
+/**
+ * How a project's knowledge reached its discovery areas — beside the number,
+ * never folded into it.
+ *
+ * `engine: null` is the state a bare percentage hides completely: **no review
+ * has run**, so no statement is in any area and readiness is 0 whatever the
+ * project holds. That is not a thin project, and telling the two apart is the
+ * difference between "keep talking" and "press the button nobody knew about".
+ *
+ * `'unknown'` is a Memory too old to say, which is a third thing again.
+ */
+export interface ClassificationState {
+  engine: string | null | 'unknown'
+  degraded: boolean
+  /** Memory's own sentence about its limits. Never rewritten on the way through. */
+  note: string
+  reviewedAt: string | null
+}
+
 export interface SectionUnavailable {
   /** The projection key, e.g. `workflows`, `value`, `inScope`. */
   section: string
@@ -697,6 +716,12 @@ export interface ProjectProjection {
    * Empty when everything asked for was computable.
    */
   unavailable: SectionUnavailable[]
+  /**
+   * How the readiness number was reached. Absent on a backend older than the
+   * block, which is why every reader must tolerate `undefined` rather than
+   * assuming "never classified".
+   */
+  classification?: ClassificationState
   /**
    * Present when module derivation is unavailable. `null` when modules are
    * genuinely derivable — at which point an empty `modules` array means the

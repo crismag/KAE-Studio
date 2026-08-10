@@ -172,6 +172,35 @@ class MemoryClient:
     async def blockers(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}/blockers")
 
+    async def enqueue_review(self, project_id: str, idempotency_key: str) -> Any:
+        """Ask Memory to classify what the project holds into discovery areas.
+
+        **The middle link of the product's own heartbeat, and Studio never
+        pulled it.** Extraction writes knowledge, review assigns each statement
+        to an area, readiness counts statements per area. `EM-5` found the
+        middle link had no caller outside a unit test and exposed it over HTTP
+        and MCP — and Studio, the only interface a person uses, still did not
+        call it. Measured on the deployed system: `Cris Test 2` holds five
+        successful extraction runs, zero review runs, and readiness `0% ·
+        not_started` that no amount of confirming could move (`AUD-041`).
+
+        The key is required rather than optional, and that is Memory's decision
+        rather than ours: review is a model call over every statement the
+        project holds, so a retried request without one is a second bill and a
+        second set of classifications for one intent. Studio derives it from the
+        knowledge revision, which means one review per state of the project —
+        pressing twice on unchanged knowledge returns the first run.
+
+        202. A worker does the work, and the caller returns as soon as the run
+        is durable.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/review/runs",
+            json={"idempotency_key": idempotency_key},
+        )
+
     # No contradictions listing exists over HTTP — the routes are POST to record
     # and POST to resolve. Readiness carries `unresolved_contradiction_count`,
     # so the count is reportable and the items are not. Recorded here rather

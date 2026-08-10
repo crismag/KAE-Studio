@@ -60,6 +60,7 @@ function renderWithProjection(node: React.ReactNode) {
   const patched: StudioServices = {
     ...services,
     projection: {
+      ...services.projection,
       getProjection: async (id: string) => withGaps(await original(id)),
     },
   }

@@ -650,6 +650,46 @@ def create_app(settings: Settings) -> FastAPI:
             project_id, clarification_id, body.answer, operator.name, body.disposition
         )
 
+    @app.post("/api/projects/{project_id}/classify")
+    async def classify(
+        project_id: str,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Classify what the project holds into discovery areas.
+
+        **The middle link of the heartbeat, reachable from the product for the
+        first time.** Extraction writes knowledge; review assigns each statement
+        to an area; readiness counts statements per area. Without the middle
+        one, a project accumulates confirmed statements and reports `0% ·
+        not_started` forever — which is what the deployed `Cris Test 2` did
+        across five extraction runs and no review runs (`AUD-041`).
+
+        **Explicit rather than automatic, and that is a deferral not a
+        judgement.** Review is a model call over every statement the project
+        holds, so running it after each turn changes what the product costs to
+        operate. That decision belongs to whoever pays for it; making the
+        capability reachable does not.
+
+        The idempotency key is the project's knowledge revision, so one review
+        exists per state of the project. Pressing again on unchanged knowledge
+        returns the run that already happened rather than buying a second one.
+        """
+
+        readiness = await memory(request).readiness(project_id)
+        revision = (
+            readiness.get("current_knowledge_revision")
+            if isinstance(readiness, dict)
+            else None
+        )
+        # Falls back to the snapshot's own revision, then to the project id
+        # alone. A missing revision must not silently become a shared key that
+        # makes every project's first review the same run.
+        if revision is None and isinstance(readiness, dict):
+            revision = readiness.get("knowledge_revision")
+        key = f"studio-review-{project_id}-{revision if revision is not None else 'unknown'}"
+        return await memory(request).enqueue_review(project_id, key)
+
     @app.post("/api/projects/{project_id}/knowledge/{knowledge_id}/confirm")
     async def confirm(
         project_id: str,

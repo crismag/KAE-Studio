@@ -128,6 +128,11 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # is most of what a review surface is for.
         "rejected": [s for s in statements if s["lifecycle"] == "rejected"],
         "health": _health(readiness_data),
+        # How the number was reached, beside the number. Memory computes this
+        # carefully (`AUD-025`, `AUD-026`, `AUD-039`) and Studio dropped it, so
+        # a percentage produced by the 16% offline ceiling — or by no review at
+        # all — read exactly like one a model produced.
+        "classification": _classification(readiness_data),
         # Beside the health percentage, never inside it. `PLANNING_MODEL.md`:
         # content loss is reported separately and never folded in, because a
         # percentage computed over content that was never captured is a
@@ -271,6 +276,34 @@ def _recorded_at(item: dict[str, Any]) -> str:
         if isinstance(latest, dict):
             return str(latest.get("recorded_at") or "")
     return str(item.get("updated_at") or item.get("recorded_at") or "")
+
+
+def _classification(readiness: Any) -> dict[str, Any]:
+    """How this project's knowledge reached its areas, if it ever did.
+
+    `engine: null` is the state that matters most and the one a bare percentage
+    hides: **no review has run**, so no statement is in any area and the number
+    is 0 whatever the project holds. On the deployed system that described the
+    acceptance project exactly — five successful extraction runs, no review runs
+    (`AUD-041`).
+
+    Passed through rather than summarised. `note` is Memory's sentence about its
+    own limits, and a client that rewrote it would be deciding how alarmed to
+    be on the reader's behalf.
+    """
+
+    payload = readiness.get("classification") if isinstance(readiness, dict) else None
+    if not isinstance(payload, dict):
+        # A Memory older than the classification block tells us nothing about
+        # how it classified. `unknown` says that; `null` would claim the
+        # stronger thing, that no review has run.
+        return {"engine": "unknown", "degraded": False, "note": "", "reviewedAt": None}
+    return {
+        "engine": payload.get("engine"),
+        "degraded": bool(payload.get("degraded", False)),
+        "note": payload.get("note", ""),
+        "reviewedAt": payload.get("reviewed_at"),
+    }
 
 
 def _health(readiness: Any) -> dict[str, Any]:

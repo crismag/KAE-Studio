@@ -406,7 +406,23 @@ class MockProjectProjectionService implements ProjectProjectionService {
       unavailable: [],
       modulesGap: null,
       contradictions: { count: 0, listable: true, reason: '' },
+      // The fixture project is one a model reviewed. A prototype that showed
+      // "never classified" on every screen would train the eye to ignore the
+      // one signal that means a project's number is not real.
+      classification: {
+        engine: 'reviewed_by_model',
+        degraded: false,
+        note: 'Classified by the configured review model.',
+        reviewedAt: null,
+      },
     })
+  }
+
+  classify(): Promise<void> {
+    // The prototype's project is already classified, so this is the honest
+    // no-op: queued, nothing to change. It exists because the interface
+    // requires it, and a mock that threw would fail a surface that is correct.
+    return delay(undefined)
   }
 }
 

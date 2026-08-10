@@ -162,6 +162,18 @@ export interface InterviewProvider {
 /** Assembles the projection the UI renders from current Memory knowledge. */
 export interface ProjectProjectionService {
   getProjection(projectId: string): Promise<ProjectProjection>
+  /**
+   * Ask KAE-Memory to classify what the project holds into discovery areas.
+   *
+   * The middle link of the product's own loop: extraction writes knowledge,
+   * review assigns each statement to an area, readiness counts per area.
+   * Without it a project accumulates confirmed statements and reports `0% ·
+   * not_started` forever (`AUD-041`).
+   *
+   * Queued, not done — a worker runs it. The caller should expect the
+   * projection to change on a later read rather than on this one's return.
+   */
+  classify(projectId: string): Promise<void>
 }
 
 /** Deliverables Memory recorded. Read-only history, not generation. */
