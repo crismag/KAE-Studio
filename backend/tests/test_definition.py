@@ -37,9 +37,30 @@ MEMORY_KINDS = {
 }
 
 
-def statement(kind: str, text: str, lifecycle: str = "validated") -> dict[str, object]:
-    return {"id": f"k-{kind}-{abs(hash(text)) % 1000}", "text": text, "kind": kind,
-            "lifecycle": lifecycle, "version": 1}
+def statement(
+    kind: str,
+    text: str,
+    lifecycle: str = "validated",
+    areas: list[str] | None = None,
+    claims: dict[str, str] | None = None,
+) -> dict[str, object]:
+    """A knowledge statement as the listing returns it.
+
+    `areas` defaults to empty, which is the honest default: a statement belongs
+    to no area until review classifies it. Defaulting a `goal` into
+    `problem_and_value` would have quietly satisfied the test asserting that a
+    goal is *not* a problem statement on its own.
+    """
+
+    return {
+        "id": f"k-{kind}-{abs(hash(text)) % 1000}",
+        "text": text,
+        "kind": kind,
+        "lifecycle": lifecycle,
+        "version": 1,
+        "areas": list(areas or []),
+        "claims": claims or {},
+    }
 
 
 class TestTheMappingIsDeclared:
@@ -139,8 +160,11 @@ class TestWhatItRefusesToInvent:
         )
 
         sections = {entry["section"] for entry in unavailable}
+        # `definition.value` left this set when Memory began recording which
+        # claim a statement establishes (`RUN-D14`). It is computable now, so
+        # reporting it uncomputable would be the opposite failure: a capability
+        # gap claimed where none exists.
         assert sections == {
-            "definition.value",
             "definition.inScope",
             "definition.outOfScope",
             "definition.workflows",
@@ -212,3 +236,69 @@ class TestTheProblemStatement:
         )
 
         assert definition["problem"] == ""
+
+
+class TestValueIsComposedFromItsClaim:
+    """`RUN-D14`. `value` was empty for every project, for a stated reason.
+
+    The area covers problem *and* value, nothing inside it distinguished them,
+    and splitting the statements between the two fields would have been a guess
+    rendered as a distinction. Memory now records which claim a statement
+    establishes, so this is a read of what somebody classified.
+    """
+
+    def test_a_value_statement_reaches_the_value_field(self) -> None:
+        definition, _unavailable = build_definition(
+            [
+                statement(
+                    "goal",
+                    "People cannot move a project forward when their thinking is scattered.",
+                    areas=["problem_and_value"],
+                    claims={"problem_and_value": "problem_statement"},
+                ),
+                statement(
+                    "goal",
+                    "Deciding once is worth the week it saves.",
+                    areas=["problem_and_value"],
+                    claims={"problem_and_value": "value_proposition"},
+                ),
+            ]
+        )
+
+        assert "thinking is scattered" in definition["problem"]
+        assert definition["value"] == "Deciding once is worth the week it saves."
+        # And the two do not bleed into each other, which is the distinction the
+        # whole finding is about.
+        assert "week it saves" not in definition["problem"]
+
+    def test_an_unclaimed_statement_reads_as_a_problem_statement(self) -> None:
+        """What an assignment made before claims existed meant.
+
+        It said "this is about the problem and value of this project". Reading
+        it as the problem is the area's own first reading; inventing a value
+        statement from it would be the guess this was built to avoid.
+        """
+
+        definition, _unavailable = build_definition(
+            [statement("goal", "Something about the problem.", areas=["problem_and_value"])]
+        )
+
+        assert definition["problem"] == "Something about the problem."
+        assert definition["value"] == ""
+
+    def test_a_project_with_no_value_statement_says_nothing_rather_than_guessing(self) -> None:
+        definition, unavailable = build_definition(
+            [
+                statement(
+                    "goal",
+                    "People cannot move a project forward.",
+                    areas=["problem_and_value"],
+                    claims={"problem_and_value": "problem_statement"},
+                )
+            ]
+        )
+
+        assert definition["value"] == ""
+        # Empty because the project has not said it, not because KAE cannot
+        # tell — so it must not reappear as a capability gap.
+        assert "definition.value" not in {entry["section"] for entry in unavailable}

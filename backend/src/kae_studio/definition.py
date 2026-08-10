@@ -102,11 +102,7 @@ PROBLEM_AREA = "problem_and_value"
 
 #: Sections that cannot be computed from what Memory exposes, and why.
 _UNCOMPUTABLE: dict[str, str] = {
-    "value": (
-        "The area covers problem *and* value together, and nothing inside it "
-        "distinguishes one from the other. Splitting its statements between the "
-        "two fields would be a guess rendered as a distinction."
-    ),
+
     "inScope": (
         "Scope needs a polarity — in or out — that nothing records. A decision "
         "may set either and the text does not say which."
@@ -164,19 +160,39 @@ def build_definition(statements: list[dict[str, Any]]) -> tuple[dict[str, Any], 
     # ranking is CIE's (ADR-0002). Picking one here would also throw away the
     # rest of what a person confirmed, which is worse than a longer paragraph.
     #
-    # `value` stays empty deliberately. The area covers problem *and* value and
-    # nothing distinguishes them within it, so splitting the statements between
-    # the two fields would be a guess rendered as a distinction.
-    problem = " ".join(
-        statement.get("text", "")
-        for statement in statements
-        if statement.get("lifecycle") == "validated"
-        and PROBLEM_AREA in (statement.get("areas") or [])
-    ).strip()
+    # **`value` is computable now** (`RUN-D14`). The area still covers problem
+    # *and* value, and Memory now records which claim a statement establishes —
+    # so this is a read of what somebody classified rather than the guess it
+    # would have been. A statement whose link names no claim stays in `problem`,
+    # because that is what an assignment made before claims existed meant and
+    # inventing a value statement from it would be exactly the guess this
+    # comment used to forbid.
+    def _claim(statement: dict[str, Any]) -> str:
+        claims = statement.get("claims") or {}
+        return str(claims.get(PROBLEM_AREA, "")) if isinstance(claims, dict) else ""
+
+    def _joined(claim: str) -> str:
+        """Every qualifying statement, joined — not the best one.
+
+        Choosing which to show is ranking, and ranking is CIE's (ADR-0002).
+        """
+
+        return " ".join(
+            statement.get("text", "")
+            for statement in statements
+            if statement.get("lifecycle") == "validated"
+            and PROBLEM_AREA in (statement.get("areas") or [])
+            and _claim(statement) == claim
+        ).strip()
+
+    # Unclaimed statements read as problem statements, which is the reading the
+    # area's own name puts first and the one a person would expect.
+    problem = " ".join(part for part in (_joined("problem_statement"), _joined("")) if part).strip()
+    value = _joined("value_proposition")
 
     definition: dict[str, Any] = {
         "problem": problem,
-        "value": "",
+        "value": value,
         "objectives": sections["objectives"],
         # Stakeholders carry a name rather than a text, because that is the
         # shape the interface reads. The name *is* the statement: "Ministry

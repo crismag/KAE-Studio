@@ -124,3 +124,37 @@ describe('capability gaps reach the user', () => {
     expect(projection.health.recommendedNext).toEqual(['a warning that is not a capability gap'])
   })
 })
+
+describe('the section names a page looks up are the ones the backend emits', () => {
+  /**
+   * The keys `build_definition` actually produces.
+   *
+   * Copied deliberately rather than derived: they cross a language boundary, so
+   * the only way this file can be wrong about them is if somebody changes the
+   * backend and not this list — which is what the test is for.
+   */
+  const EMITTED = [
+    'definition.value',
+    'definition.inScope',
+    'definition.outOfScope',
+    'definition.workflows',
+  ]
+
+  it('every emitted section is addressable by its full name', () => {
+    const unavailable = EMITTED.map((section) => ({ section, reason: 'a stated reason' }))
+
+    for (const section of EMITTED) {
+      expect(unavailableReason(unavailable, section)).toBe('a stated reason')
+    }
+  })
+
+  it('the bare name does not resolve, which is how the first attempt failed', () => {
+    // `/definition` looked up `value` while the backend sent `definition.value`,
+    // so the capability notes never rendered and the page stayed as blank as it
+    // had been. Asserted so nobody re-introduces the short form thinking it is
+    // equivalent.
+    const unavailable = [{ section: 'definition.value', reason: 'a stated reason' }]
+
+    expect(unavailableReason(unavailable, 'value')).toBeUndefined()
+  })
+})

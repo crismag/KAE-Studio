@@ -55,10 +55,16 @@ export function ProjectDefinition() {
   // Read per section rather than as a list, so each panel states its own limit
   // where the answer would have gone. `undefined` means the backend computed
   // that section fine — an empty result there is a fact about the project.
-  const valueGap = unavailableReason(projection.unavailable, 'value')
-  const inScopeGap = unavailableReason(projection.unavailable, 'inScope')
-  const outOfScopeGap = unavailableReason(projection.unavailable, 'outOfScope')
-  const workflowsGap = unavailableReason(projection.unavailable, 'workflows')
+  //
+  // **The `definition.` prefix is not decoration.** `build_definition` emits
+  // `definition.value`, and these looked up a bare `value` — so from the moment
+  // this was written until it was caught, every one of these returned
+  // `undefined` and the panels rendered exactly as blankly as before. A repair
+  // that looks right and does nothing is the same defect it was repairing.
+  const valueGap = unavailableReason(projection.unavailable, 'definition.value')
+  const inScopeGap = unavailableReason(projection.unavailable, 'definition.inScope')
+  const outOfScopeGap = unavailableReason(projection.unavailable, 'definition.outOfScope')
+  const workflowsGap = unavailableReason(projection.unavailable, 'definition.workflows')
 
   return (
     <PageLayout
