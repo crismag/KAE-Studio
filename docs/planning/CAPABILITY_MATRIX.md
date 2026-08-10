@@ -1,6 +1,8 @@
 # Joint Capability Matrix: Studio Needs vs. KAE-Memory Today
 
-Status: **historical evidence-based analysis of KAE-Memory at commit `de37cc4` (branch `feat/local-development-and-enablement`), 2026-08-01.** The program register now records newer KAE-Memory work through 2026-08-04, so refresh this matrix before implementing a real Studio HTTP adapter. No implementation is proposed or authorized by this document.
+Status: **historical evidence-based analysis of KAE-Memory at commit `de37cc4` (branch `feat/local-development-and-enablement`), 2026-08-01.** No implementation is proposed or authorized by this document.
+
+**Do not use its rows as current fact.** Several "Absent" verdicts have since been built and would misdirect work: `kae_relate_modules` provides a general relationship write path, `ModuleService.graph`/`build_order` traverse it, and question candidacy — asked, answered, deferred — is now observable through `GET /v1/projects/{id}/clarifications/candidates`. KAE-Memory's own generated `docs/reference/` is the live capability list; regenerate against it rather than reading this table.
 
 See `STUDIO_PORT_DISPOSITION.md` for the current Studio-side method disposition that narrows the first integration slice while this matrix is refreshed.
 

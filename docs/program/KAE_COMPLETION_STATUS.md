@@ -8,8 +8,14 @@
 > KAE-Ecosystem, and this reference was not carried with it. Everything below
 > the line is preserved as of **2026-08-04** and is wrong in specifics: it says
 > Studio's adapters are still mocked, migrations are at `0010`, there are 13 MCP
-> tools and 792 tests. Studio is connected and deployed, the head is `0021`,
-> there are 30 tools and 1,728 tests.
+> tools and 792 tests. Studio is connected and deployed.
+>
+> **This banner is itself stale.** It was written 2026-08-07 and gave the then
+> current figures; they have moved again. As of 2026-08-09 the schema head is
+> `0022`, there are 31 MCP tools, KAE-Memory's suite is 1885 and Studio's is
+> 113 backend + 85 frontend. Take no number from this page — including this
+> paragraph, once it is a few days old. The registers named below carry the
+> current ones.
 >
 > **Where to look now:**
 >

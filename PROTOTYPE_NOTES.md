@@ -1,6 +1,12 @@
 # KAE-Studio Prototype — Notes for Review
 
-Status: **frontend product prototype.** No backend integration exists. Nothing here is authorized as platform implementation.
+Status: **historical.** This records the 2026-08-01 frontend prototype and the reasoning behind it. It is *not* a description of KAE-Studio today.
+
+**What changed.** Studio has a Python backend (`backend/`, 113 tests), live service adapters in `src/services/live/`, a deployed bundle behind `https://kae.crishub.com/studio/`, and CIE driving every conversational turn. Several statements below — "no backend integration exists", "the assistant is a fixed script", "Architecture and Plan are genuinely empty", "first-run onboarding not built" — were true when written and are not now. Each is marked where it appears.
+
+Read this for its *decisions* — why modules split conservatively, why Dependencies renders as layers, why there is no Studio-side message store — which still hold and are still the reason the code looks the way it does.
+
+For current state: [`docs/planning/PPA_TASKS.md`](docs/planning/PPA_TASKS.md) and the ecosystem's `deployment/DEPLOYED_STATE.md`.
 
 Built 2026-08-01 against the merged documentation set (`CLAUDE.md`, `docs/`, ADR-0001 through ADR-0006).
 
@@ -38,7 +44,9 @@ Following ADR-0006, `useSendMessage` submits to `ProjectMemoryClient` **first** 
 
 `MODULE_SPECIFICATION.md` names split/merge semantics as an unresolved platform question. Rather than guess, splitting keeps all requirements, interfaces, and data with the first module and starts the second empty. The dialog says so on screen. **This is a placeholder for a decision that must be made properly on the platform side.**
 
-### 5. The assistant is a fixed script, and says so when it runs out
+### 5. The assistant is a fixed script, and says so when it runs out — *no longer true*
+
+**CIE drives the conversation now**, through the backend, with skill selection, provenance on each turn and a ranked next action. The scripted path survives only in the no-`VITE_STUDIO_API` mock build. The original note, for the reasoning:
 
 Three scripted turns follow the fixture conversation. After that the assistant states plainly that the prototype script has ended and no response is being generated. It does not improvise plausible-sounding requirements — fabricated discovery would misrepresent the one thing the product is for.
 
@@ -46,7 +54,9 @@ Three scripted turns follow the fixture conversation. After that the assistant s
 
 Build order is the question that screen answers, and a layered reading answers it more legibly than an arbitrary force-directed layout. The layering function also detects a cycle (it would leave modules unplaced) — the fixture has none, so that path is unexercised.
 
-### 7. Architecture and Plan are genuinely empty
+### 7. Architecture and Plan are genuinely empty — *superseded*
+
+Both pages now report stage readiness: what the stage is waiting for, drawn from the projection (`ffbba95`). The principle below is what that implementation kept — absence renders as absence, tied to a specific reason. The original note:
 
 Both are designed future states naming what they will contain and **why they are not ready**, tied to a specific blocker. Neither is populated with fabricated conclusions. Plan cites the real reason: build order is not derivable past layer 1 while `OD-011` is open.
 
@@ -80,7 +90,7 @@ As the task instruction notes, `IMPLEMENTATION_DIRECTIVE.md`, `DATA_OWNERSHIP.md
 
 That document covers screen specifications KAE-Studio *produces for the customer's project* — a deliverable, not a Studio screen. The prototype models it in `Deliverable.includes` but has no dedicated view. Not a conflict, but easy to misread as an omission.
 
-### D. First-run onboarding state not built
+### D. First-run onboarding state not built — *superseded by project selection (`bfeeea3`); a project is chosen, not guessed*
 
 `UI_GENERATION_CONTEXT.md` specifies a calm no-project onboarding state with starter prompts. The prototype opens directly on the single sample project. Deferred deliberately — the brief's demonstration project is the point of this pass — but it is unbuilt, not merely unstyled.
 

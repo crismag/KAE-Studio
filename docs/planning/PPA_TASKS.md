@@ -29,7 +29,15 @@ real definition work, nothing on screen says the project grew.
 
 ## Tasks
 
-### S-1 · Delete the fixture content — *PPA-13, do this first*
+> **Read the status table at the end of this file first.** Every task below is
+> written in the present tense, describing behaviour as it was on 2026-08-08.
+> Most of it has since been fixed — `S-1`, `S-3`, `S-4`, `S-5`, `S-7`, `S-8`,
+> `S-9` all shipped. The prose is kept as written because each task states the
+> *reasoning* the fix was judged against, and a fix outlives the sentence that
+> asked for it. Where a task says "this happens today", read "this happened when
+> the task was written".
+
+### S-1 · Delete the fixture content — *PPA-13, do this first · shipped `a94bbd9`*
 
 `src/app/routes/Workspace.tsx:179` hard-codes *"Draft → submit → approve or
 reject → publish"* as the project's Core workflow. `Architecture.tsx` and
@@ -191,8 +199,14 @@ existed to reopen, silently, because a settled question simply stops appearing
 (`ba94c53`).
 
 **What Studio still owes.** Similarity grouping for requirements (EM-3/ES-5),
-which is real work rather than a finishing touch. And every one of these is
-proved by test rather than by use — the replay against a running deployment has
-not happened.
+which is real work rather than a finishing touch. And the questionnaire framing
+of GitHub issue #3 — Studio materialises questions by listing them, and does not
+yet call `GET /v1/projects/{id}/clarifications/candidates`, which exists.
 
-Suites: **108 backend, 85 frontend.**
+**None of this is deployed.** Every item above is proved by test rather than by
+use. The running bundle is `index-DsjJNjuL.js` from 2026-08-08 04:18 and the
+backend's `api.py` from 2026-08-08 03:37, so the replay against a running
+deployment has not happened *and the deployment would not exercise this code if
+it did*. Ecosystem debt `D-7`; see `deployment/DEPLOYED_STATE.md`.
+
+Suites: **113 backend, 85 frontend.**

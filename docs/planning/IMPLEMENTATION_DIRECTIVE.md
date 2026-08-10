@@ -1,6 +1,10 @@
 # Implementation Directive for Claude
 
-Status: execution prompt. **Resequenced by MCP-M1 and corrected by ADR-0006.**
+Status: **historical execution prompt**, resequenced by MCP-M1 and corrected by ADR-0006.
+
+**Superseded 2026-08-09.** The phases below are complete: the live adapter set is built, the backend runs, the bundle is deployed, and CIE drives every turn. The instruction *"do not replace mock adapters route-by-route"* described a phase two milestones behind where the repository now is, and following it today would undo shipped work.
+
+Current authority: the ecosystem's `roadmap/EXECUTION_SEQUENCE.md` for order, `decisions/ADR-0001` for the operating model, and [`PPA_TASKS.md`](PPA_TASKS.md) for this repository's queue.
 
 ## Objective
 
@@ -41,7 +45,7 @@ Evidence must cite repository paths, migrations, tests, or callable endpoints. D
 
 ## Implementation order
 
-**MCP-M1 and the Studio prototype are now demonstrated.** The remaining Studio implementation work starts by tightening the production contract instead of adding broader mock behavior. Do not replace mock adapters route-by-route until the required Memory HTTP operation is verified or explicitly added to the contract.
+~~**MCP-M1 and the Studio prototype are now demonstrated.** The remaining Studio implementation work starts by tightening the production contract instead of adding broader mock behavior. Do not replace mock adapters route-by-route until the required Memory HTTP operation is verified or explicitly added to the contract.~~ **Done.** The mock path survives only as the no-`VITE_STUDIO_API` build, and `deploy-studio-web.sh` refuses a bundle containing `createMockServices`.
 
 ### Phase 0: MCP-M1 in KAE-Memory
 
@@ -63,7 +67,7 @@ Do not implement the full project model. Keep module curation and module package
 
 ### Phase 4: Studio shell
 
-Complete as a frontend prototype. Keep the existing shell and routes, but replace deterministic adapters only where the Phase 3 contract has executable proof. Workspace remains the default project view. Future or unsupported destinations stay honest about their blockers.
+~~Complete as a frontend prototype.~~ **Complete as a product.** Keep the existing shell and routes; the deterministic adapters have been replaced where the Phase 3 contract had executable proof. Workspace remains the default project view. Future or unsupported destinations stay honest about their blockers.
 
 ### Phase 5: Connect Studio to Memory and one provider
 

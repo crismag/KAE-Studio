@@ -2,7 +2,8 @@
 
 Status: **resolved.** `ARCHITECTURE_AND_CONTRACTS.md` sketched an `ArtifactClient`
 and said *"adapt names to the actual KAE-Artifacts API"*. This is that API. It is
-implemented, covered by 200 tests, and callable both over HTTP and in process.
+implemented, covered by 244 offline tests plus a live GitHub proof, and callable
+both over HTTP and in process.
 
 Date: 2026-08-08
 
@@ -170,16 +171,22 @@ This covers the artifact half of this package's provenance chain. The intake hal
 — source SHA → acquisition run → evidence → confirmed knowledge → Memory revision
 — is Memory's, and joins at `input_revision`.
 
-## What is not yet available
+## What is not yet available — *updated 2026-08-09*
 
-**No HTTP client adapter for GitHub or S3 exists inside KAE-Artifacts.** The
-publishers are complete and proved against in-memory doubles that keep a real
-file tree and move branch heads; what is missing is one adapter per provider
-implementing a six-method and a three-method protocol.
+~~**No HTTP client adapter for GitHub or S3 exists inside KAE-Artifacts.**~~
+**Both exist** (`8fb6f1c`). GitHub has a live proof: seven draft pull requests on
+`crismag/kae-artifacts-proof`, branch → commit → draft PR, run end to end.
 
-STI-5 and STI-6 can be built now against the **download** destination, which
-needs no credentials and exercises every screen. STI-7 needs that adapter, and
-when it exists the same screens work against GitHub with no Studio change.
+~~**Studio does not call KAE-Artifacts at all yet.**~~ **STI-5, STI-6 and STI-7
+shipped** (`6548c36`), and the service is deployed on loopback `8300` with
+`KAE_ARTIFACTS_URL` set in Studio's environment.
 
-**Studio does not call KAE-Artifacts at all yet.** No client, no routes, no
-surfaces.
+**What is genuinely outstanding:**
+
+- **S3 has no live proof.** The adapter and its tests are complete; the live half
+  skips because the workstation's `aws-compute-lab-admin` key is invalid.
+- **Five registered generators are reachable by no request any caller can make** —
+  they appear in no profile and `Plan.edit()` cannot add them. Pinned by
+  `test_every_generator_is_reachable.py` (`350a2c6`). Twelve of thirteen types
+  have generators; twelve are not all *offered*.
+- **Model-assisted synthesis.** Generation is deterministic today.

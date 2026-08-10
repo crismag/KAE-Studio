@@ -1,9 +1,14 @@
 # Studio Port Disposition
 
-Status: **first production-contract pass for KAE-Studio**. This document converts
-prototype service ports into an implementation queue. It does not assert that a
-KAE-Memory HTTP endpoint exists unless the current Studio documentation already
-identifies one as verified.
+Status: **historical — the queue below is worked.** This document converted
+prototype service ports into an implementation queue during the first
+production-contract pass. The live adapters exist and are deployed, so its
+unchecked items no longer describe outstanding work; read it for the *port
+boundary* it defines, which the live services still honour.
+
+Where it says "keep visible as unavailable until first-class modules exist" or
+"replace mock services route-by-route, preserving the prototype badge", that is
+done. Current queue: [`PPA_TASKS.md`](PPA_TASKS.md).
 
 ## Purpose
 
