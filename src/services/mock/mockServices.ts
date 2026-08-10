@@ -403,6 +403,7 @@ class MockProjectProjectionService implements ProjectProjectionService {
       // against "no gaps" too.
       unavailable: [],
       modulesGap: null,
+      contradictions: { count: 0, listable: true, reason: '' },
     })
   }
 }

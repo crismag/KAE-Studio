@@ -11,12 +11,59 @@ import {
   PanelTitle,
   Skeleton,
 } from '@/components/ui/primitives'
-import { useProject, useProjection } from '@/hooks/useProject'
+import { useKnowledgeTrace, useProject, useProjection } from '@/hooks/useProject'
 
 /**
  * Memory is a trust and continuity surface, not the primary workflow. It shows
  * what the system believes, how sure it is, and where each belief came from.
  */
+/**
+ * One record's provenance, read on demand.
+ *
+ * The same question `/requirements` asks, against the same endpoint. It lives
+ * here as its own component so the query is scoped to a row that has actually
+ * been opened — a project holds hundreds of records, and reading provenance for
+ * all of them on page load would replace a dishonest page with a slow one.
+ *
+ * A failure says so. Provenance that could not be read must never render as
+ * provenance that does not exist, because on this page the difference is the
+ * entire point.
+ */
+function RecordProvenance({ knowledgeId, status }: { knowledgeId: string; status: string }) {
+  const { data, isLoading, isError } = useKnowledgeTrace(knowledgeId)
+
+  if (isLoading) return <p className="text-[12px] text-ink-subtle">Reading provenance…</p>
+  if (isError || !data)
+    return (
+      <p className="text-[12px] text-ink-subtle">
+        Provenance could not be read. Nothing is being guessed in its place.
+      </p>
+    )
+
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]">
+      <dt className="text-ink-subtle">Recorded as</dt>
+      <dd className="text-ink-muted">{data.kind}</dd>
+      <dt className="text-ink-subtle">State</dt>
+      <dd className="text-ink-muted">
+        {status === 'confirmed' ? 'confirmed by a person' : status}
+      </dd>
+      <dt className="text-ink-subtle">Derived from</dt>
+      <dd className="text-ink-muted">
+        {data.source_message_ids?.length
+          ? `${data.source_message_ids.length} message(s) in this project's conversation`
+          : 'no recorded source message'}
+      </dd>
+      {data.produced_by_run_id && (
+        <>
+          <dt className="text-ink-subtle">By</dt>
+          <dd className="text-ink-muted">an extraction run</dd>
+        </>
+      )}
+    </dl>
+  )
+}
+
 export function Memory() {
   const { data: projection, isLoading } = useProjection()
   const { data: project } = useProject()
@@ -29,7 +76,20 @@ export function Memory() {
     )
   }
 
-  const traced = projection.requirements.filter((r) => r.trace.length > 0)
+  // **Every record, not only those carrying an inline trace.**
+  //
+  // This used to be `requirements.filter((r) => r.trace.length > 0)`, and the
+  // live adapter sets `trace: []` on every requirement — so the page whose
+  // whole job is provenance rendered a heading, a badge reading `0`, and an
+  // empty list, directly beneath "Every item below is versioned and traceable
+  // to the evidence that produced it" (AUD-004).
+  //
+  // The endpoint was there the entire time. `/requirements` has been calling
+  // `GET /knowledge/{id}/trace` successfully, per row, on demand. This page
+  // now asks the same question — lazily, because a project holds hundreds of
+  // records and reading provenance for all of them on load would trade one
+  // dishonesty for a slow page.
+  const records = projection.requirements
 
   return (
     <PageLayout
@@ -76,17 +136,32 @@ export function Memory() {
         <Panel>
           <PanelHeader>
             <PanelTitle>Knowledge and its evidence</PanelTitle>
-            <Badge tone="neutral">{traced.length}</Badge>
+            <Badge tone="neutral">{records.length}</Badge>
           </PanelHeader>
           <PanelBody className="px-0 py-0">
+            {records.length === 0 && (
+              <div className="px-5 py-4">
+                <p className="text-[12.5px] text-ink-subtle">
+                  This project holds no knowledge records yet. Nothing has been derived to trace.
+                </p>
+              </div>
+            )}
             <ul className="divide-y divide-line">
-              {traced.map((r) => (
+              {records.map((r) => (
                 <li key={r.id} className="px-5 py-3.5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 gap-3">
                       <Mono className="mt-0.5 shrink-0">{r.id}</Mono>
                       <div className="min-w-0">
                         <p className="text-[13.5px] leading-relaxed text-ink">{r.statement}</p>
+                        <details className="mt-1.5 group">
+                          <summary className="cursor-pointer list-none text-[12px] text-accent-ink hover:underline">
+                            Where this came from
+                          </summary>
+                          <div className="mt-2 border-l border-line pl-3">
+                            <RecordProvenance knowledgeId={r.id} status={r.status} />
+                          </div>
+                        </details>
                         {r.trace.map((t) => (
                           <figure key={t.evidenceId} className="mt-2">
                             <blockquote className="flex gap-2 text-[12.5px] leading-relaxed text-ink-muted">

@@ -20,8 +20,30 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { EmptyState } from '@/components/ui/primitives'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { useConfirmFinding, useProjection, useRejectFinding } from '@/hooks/useProject'
 import type { FindingKind, ReviewFinding } from '@/domain/types'
+
+/**
+ * What Studio can populate, and why not, per group.
+ *
+ * Four of these five groups can never contain anything. `toProjection` builds
+ * `findings` only from proposed knowledge, so `agent_proposal` is the only kind
+ * that arrives — and the page rendered the other four as empty with a green
+ * badge, which reads as an all-clear on checks that were never run (AUD-003).
+ *
+ * Withdrawn rather than filled in. Each now says what it is waiting for, in the
+ * `Dependencies.tsx` tone: this is a limit of the product, not a finding about
+ * the user's project.
+ */
+const NOT_COMPUTED: Partial<Record<FindingKind, string>> = {
+  open_decision:
+    'Open decisions are shown on the workspace, where they can be answered in context. They are not duplicated here.',
+  requirement_gap:
+    'A gap is the difference between what the definition needs and what it holds. Nothing computes that difference yet.',
+  unverified_requirement:
+    'Verification needs a link between a requirement and a test. KAE records neither tests nor that link, so every requirement would appear here and the group would mean nothing.',
+}
 
 const GROUPS: { kind: FindingKind; title: string; description: string; icon: typeof CircleHelp }[] =
   [
@@ -177,6 +199,11 @@ export function Reviews() {
 
   const critical = projection.findings.filter((f) => f.severity === 'critical').length
 
+  // Reachable again: the live adapter grades a material unknown `critical`
+  // rather than `major`, so this counter can move. It could not before, and sat
+  // permanently at zero and permanently green beside a total that changed
+  // (AUD-012).
+
   return (
     <PageLayout
       title="Reviews"
@@ -184,7 +211,7 @@ export function Reviews() {
       actions={
         <div className="flex gap-2">
           <Badge tone={critical > 0 ? 'blocking' : 'confirmed'}>{critical} critical</Badge>
-          <Badge tone="neutral">{projection.findings.length} total</Badge>
+          <Badge tone="neutral">{projection.findings.length} awaiting review</Badge>
         </div>
       }
     >
@@ -192,6 +219,15 @@ export function Reviews() {
         {GROUPS.map((group) => {
           const items = projection.findings.filter((f) => f.kind === group.kind)
           const Icon = group.icon
+          // Contradictions are a special case: Memory *counts* them and will
+          // not list them, so the honest report is the number plus the reason
+          // the list is missing — not silence, and not a zero.
+          const uncomputable =
+            group.kind === 'contradiction'
+              ? projection.contradictions.listable
+                ? undefined
+                : `${projection.contradictions.count} recorded. ${projection.contradictions.reason}`
+              : NOT_COMPUTED[group.kind]
           return (
             <Panel key={group.kind}>
               <PanelHeader>
@@ -204,10 +240,21 @@ export function Reviews() {
                     </p>
                   </div>
                 </div>
-                <Badge tone={items.length > 0 ? 'attention' : 'confirmed'}>{items.length}</Badge>
+                {/* Neutral, never `confirmed`, when the group cannot be
+                    computed. Green on an unrun check is the all-clear this
+                    page existed to stop giving. */}
+                <Badge
+                  tone={uncomputable ? 'neutral' : items.length > 0 ? 'attention' : 'confirmed'}
+                >
+                  {uncomputable ? '—' : items.length}
+                </Badge>
               </PanelHeader>
               <PanelBody className="px-0 py-0">
-                {items.length === 0 ? (
+                {uncomputable ? (
+                  <div className="px-5 py-4">
+                    <CapabilityNote reason={uncomputable} />
+                  </div>
+                ) : items.length === 0 ? (
                   <div className="px-5 py-4">
                     <p className="text-[12.5px] text-ink-subtle">Nothing outstanding here.</p>
                   </div>
@@ -224,8 +271,13 @@ export function Reviews() {
         })}
 
         {projection.findings.length === 0 && (
-          <EmptyState title="No outstanding findings">
-            Everything recorded so far is confirmed, verified, and internally consistent.
+          <EmptyState title="Nothing is waiting on you here">
+            {/* This used to read "Everything recorded so far is confirmed,
+                verified, and internally consistent." Studio cannot know any of
+                those three things and structurally cannot compute two of them.
+                What it can say is what it looked at. */}
+            No knowledge is currently proposed and awaiting review. The groups above say what else
+            KAE does not yet check.
           </EmptyState>
         )}
       </div>

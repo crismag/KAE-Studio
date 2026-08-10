@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react'
 import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
 import {
   Badge,
   Mono,
@@ -73,6 +74,14 @@ export function Interfaces() {
       }
     >
       <div className="space-y-6">
+        {/* The register is `collectInterfaces(projection.modules)`, so when
+            module derivation is unavailable this page has nothing to show for
+            a reason that has nothing to do with the project's interfaces. */}
+        {projection.modulesGap && (
+          <CapabilityNote
+            reason={`Interfaces are read from module boundaries, and modules are not derived. ${projection.modulesGap.reason}`}
+          />
+        )}
         <Panel>
           <PanelHeader>
             <PanelTitle>Interface register</PanelTitle>
@@ -128,38 +137,15 @@ export function Interfaces() {
           </PanelBody>
         </Panel>
 
-        <Panel>
-          <PanelHeader>
-            <PanelTitle>Not yet established for any interface</PanelTitle>
-          </PanelHeader>
-          <PanelBody>
-            <p className="max-w-3xl text-[13px] leading-relaxed text-ink-muted">
-              The integration interview has not been run. Until it is, no interface here records the
-              questions that decide whether it can actually be built:
-            </p>
-            <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
-              {[
-                'Which system initiates the transaction',
-                'Authentication mechanism',
-                'Expected request volume',
-                'Behaviour when the receiver is unavailable',
-                'Who owns retry and duplicate detection',
-                'Which system is authoritative per field',
-                'Versioning guarantees',
-                'Timeout and recovery requirements',
-                'How the integration is tested and accepted',
-              ].map((q) => (
-                <li key={q} className="flex gap-2.5 text-[12.5px] leading-relaxed text-ink-muted">
-                  <span
-                    className="mt-[7px] size-1 shrink-0 rounded-full bg-ink-subtle"
-                    aria-hidden="true"
-                  />
-                  {q}
-                </li>
-              ))}
-            </ul>
-          </PanelBody>
-        </Panel>
+        {/* A hardcoded nine-item integration questionnaire used to sit here,
+            introduced as what is "not yet established for any interface" and
+            closing with a sentence about what no interface records. It is
+            generic integration vocabulary, so the fixture-content scan did not
+            catch it, and it read as analysis of the reader's project when it
+            was page copy (AUD-020).
+
+            What is true is simpler and is said above: this register is derived
+            from module interfaces, and module derivation does not exist. */}
       </div>
     </PageLayout>
   )

@@ -573,7 +573,11 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       // Severity here is about review effort, not danger. An unknown is the
       // model saying it could not determine something, which is worth a
       // person's attention before a rule it read straight off the sentence.
-      severity: (s.kind === 'unknown' ? 'major' : 'minor') as never,
+      // A material unknown is exactly what R5 says may interrupt: KAE recorded
+      // that it could not determine this rather than guessing. Graded `major`,
+      // it was invisible to every rule that counts `critical` — including the
+      // navigation badge, which could therefore never appear (AUD-012).
+      severity: (s.kind === 'unknown' ? 'critical' : 'minor') as never,
       summary: s.text,
       detail:
         s.kind === 'unknown'
@@ -619,6 +623,11 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
     // the backend computes these reasons carefully and the adapter used to
     // discard them into a field with no reader.
     unavailable: raw.unavailable.map((u) => ({ section: u.section, reason: u.reason })),
+    contradictions: {
+      count: raw.contradictions.count,
+      listable: raw.contradictions.listable,
+      reason: raw.contradictions.reason,
+    },
     modulesGap: raw.modules.available
       ? null
       : {

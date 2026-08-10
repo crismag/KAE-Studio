@@ -6,6 +6,7 @@ import { formatDateTime } from '@/lib/format'
 import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import { CATEGORY_LABEL } from '@/components/project/labels'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { useKnowledgeTrace } from '@/hooks/useProject'
 import {
   Badge,
@@ -210,14 +211,23 @@ function RequirementRow({
             <p className="text-[13.5px] leading-relaxed text-ink">{requirement.statement}</p>
 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-ink-subtle">
-              {module ? (
+              {/* Absence is stated only when KAE could have known.
+                  These two read "No owning module" and "Not verified by any
+                  test" in the attention tone on *every* row, always — because
+                  the live adapter has no module derivation and no concept of
+                  test verification, so `moduleId` and `verifiedBy` are empty
+                  for structural reasons rather than because of anything about
+                  the user's project (AUD-009).
+
+                  Rendering a product limit as a per-row warning tells someone
+                  their requirements are defective. The limit is stated once,
+                  on the page, in the capability note above. */}
+              {module && (
                 <span>
                   Implemented by <span className="text-ink-muted">{module.name}</span>
                 </span>
-              ) : (
-                <span className="text-attention">No owning module</span>
               )}
-              {verifying.length > 0 ? (
+              {verifying.length > 0 && (
                 <span>
                   Verified by{' '}
                   {verifying.map((t, i) => (
@@ -227,8 +237,6 @@ function RequirementRow({
                     </span>
                   ))}
                 </span>
-              ) : (
-                <span className="text-attention">Not verified by any test</span>
               )}
               {requirement.satisfies.length > 0 && (
                 <span>
@@ -325,9 +333,8 @@ export function Requirements() {
     ...(questions.length > 0
       ? [`${questions.length} open question${questions.length === 1 ? '' : 's'}`]
       : []),
-    ...(requirements.filter((r) => r.verifiedBy.length === 0).length > 0
-      ? [`${requirements.filter((r) => r.verifiedBy.length === 0).length} without verification`]
-      : []),
+    // "N without verification" is structurally always the total, because KAE
+    // records no tests. A count that cannot vary is not information.
   ].join(' · ')
   const counts = {
     all: projection.requirements.length,
@@ -343,7 +350,13 @@ export function Requirements() {
       lead="What this project must do and the conditions it must satisfy. Review proposed items, resolve open questions, assign ownership, and define how each confirmed requirement will be verified."
       actions={
         <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by status">
-          {(['all', 'confirmed', 'proposed', 'contested', 'rejected'] as const).map((key) => (
+          {/* `contested` is omitted. The live adapter maps every statement to
+              confirmed, proposed or rejected, so the count behind a "Needs
+              clarification" filter is structurally always zero — a control
+              indistinguishable from the working ones beside it that can never
+              return a row (AUD-022). It returns when a statement can actually
+              hold that state. */}
+          {(['all', 'confirmed', 'proposed', 'rejected'] as const).map((key) => (
             <Button
               key={key}
               variant={filter === key ? 'subtle' : 'ghost'}
@@ -352,7 +365,7 @@ export function Requirements() {
               aria-pressed={filter === key}
               className="capitalize"
             >
-              {key === 'contested' ? 'Needs clarification' : key}
+              {key}
               <span className="text-ink-subtle">{counts[key]}</span>
             </Button>
           ))}
@@ -364,6 +377,11 @@ export function Requirements() {
           <p className="text-[12.5px] leading-relaxed text-ink-muted">{summary}</p>
           <HowThisPageWorks />
         </div>
+
+        {/* Said once, here, instead of as a warning on every row. Two things
+            this page cannot show, stated as limits of the product rather than
+            as findings about the project (AUD-009). */}
+        <CapabilityNote reason="KAE does not yet derive module ownership or record acceptance tests, so no requirement here shows which module implements it or which test verifies it. That is a gap in the product, not in this project." />
 
         {CATEGORY_ORDER.map((category) => {
           const items = filtered.filter((r) => r.category === category)

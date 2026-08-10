@@ -679,4 +679,14 @@ export interface ProjectProjection {
    * project has none, which is a different statement.
    */
   modulesGap: CapabilityGap | null
+  /**
+   * Contradictions Memory has counted but will not enumerate.
+   *
+   * The count is real and the list is not available, which is a combination
+   * the UI has to be able to express: a project with two contradictions and no
+   * way to show them must not render as a project with none. The adapter used
+   * to fold this into `health.summary`, which nothing rendered, so Reviews
+   * showed a green `0` over a real number (AUD-003).
+   */
+  contradictions: { count: number; listable: boolean; reason: string }
 }

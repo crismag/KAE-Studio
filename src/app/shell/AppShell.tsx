@@ -56,6 +56,11 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   //
   // Critical only. Major and minor are real and stay on the page; what they are
   // not is a reason to interrupt someone who has just described their idea.
+  //
+  // **AUD-012 was here, and was fixed upstream.** This rule is right; what was
+  // wrong is that the live adapter graded every material unknown `major`, so
+  // `critical` was unreachable and the badge could never appear. Severity now
+  // means the same thing on both adapters, and the rule stands unchanged.
   const needsAttention = projection?.findings.filter((f) => f.severity === 'critical').length ?? 0
   const workItems = NAV.filter((n) => !n.system)
   const systemItems = NAV.filter((n) => n.system)
