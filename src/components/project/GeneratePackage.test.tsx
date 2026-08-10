@@ -118,9 +118,7 @@ describe('GeneratePackage', () => {
 
     // Not only the badge. "Approve" against a list of filenames is agreement to
     // something the user was never told.
-    expect(
-      await screen.findByText(/current content will be overwritten/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/current content will be overwritten/i)).toBeInTheDocument()
   })
 
   it('warns that a moved destination invalidates the approval', async () => {

@@ -50,9 +50,7 @@ describe('the recommended next action', () => {
   it('says when it is a stage-derived guess rather than a ranked recommendation', () => {
     // Different claims. A reader who cannot tell them apart over-trusts the
     // weaker one, and the weaker one is the panel's own arithmetic.
-    render(
-      <NextAction action={floorAction(projection())} derived />,
-    )
+    render(<NextAction action={floorAction(projection())} derived />)
 
     expect(screen.getByText(/has not weighed it against anything else/i)).toBeInTheDocument()
   })
@@ -77,9 +75,7 @@ describe('the floor', () => {
   })
 
   it('points at review when statements are waiting on a decision', () => {
-    const action = floorAction(
-      projection({ requirements: [{ id: 'r1' }, { id: 'r2' }] as never }),
-    )
+    const action = floorAction(projection({ requirements: [{ id: 'r1' }, { id: 'r2' }] as never }))
 
     expect(action.kind).toBe('review')
   })

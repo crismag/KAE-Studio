@@ -35,7 +35,9 @@ describe('the Definition block', () => {
           problem: '',
           value: '',
           objectives: [{ id: 'k1', text: 'Publish within a week.', status: 'confirmed' }],
-          stakeholders: [{ id: 'k2', name: 'Ministry leaders submit reports.', status: 'confirmed' }],
+          stakeholders: [
+            { id: 'k2', name: 'Ministry leaders submit reports.', status: 'confirmed' },
+          ],
           inScope: [],
           outOfScope: [],
           workflows: [],

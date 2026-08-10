@@ -170,7 +170,9 @@ export function Dependencies() {
                   <span>
                     Build order is provisional past the first blocking dependency.{' '}
                     {blockedNames.join(', ')}{' '}
-                    {blockedNames.length === 1 ? 'has a dependency that blocks' : 'have dependencies that block'}{' '}
+                    {blockedNames.length === 1
+                      ? 'has a dependency that blocks'
+                      : 'have dependencies that block'}{' '}
                     it. Scheduling delivery on this order would assume answers nobody has given.
                   </span>
                 </p>

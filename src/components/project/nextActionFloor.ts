@@ -24,7 +24,8 @@ export interface RecommendedAction {
 
 export function floorAction(projection: ProjectProjection): RecommendedAction {
   const proposed = projection.requirements?.length ?? 0
-  const confirmed = projection.definition.objectives.length +
+  const confirmed =
+    projection.definition.objectives.length +
     projection.definition.stakeholders.length +
     projection.definition.constraints.length +
     projection.definition.assumptions.length
@@ -40,7 +41,8 @@ export function floorAction(projection: ProjectProjection): RecommendedAction {
     return {
       kind: 'review',
       label: `Review what KAE has derived`,
-      reason: 'Statements are waiting for a decision, and readiness counts what you have confirmed.',
+      reason:
+        'Statements are waiting for a decision, and readiness counts what you have confirmed.',
     }
   }
   return {

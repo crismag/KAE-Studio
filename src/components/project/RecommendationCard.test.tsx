@@ -63,10 +63,7 @@ describe('a recommendation', () => {
 
     // Recording the original would be recording agreement with something they
     // explicitly did not agree with.
-    expect(onDecide).toHaveBeenCalledExactlyOnceWith(
-      'modify',
-      'Defer mobile until after the pilot',
-    )
+    expect(onDecide).toHaveBeenCalledExactlyOnceWith('modify', 'Defer mobile until after the pilot')
   })
 
   it('says an open option will come back', async () => {
@@ -75,7 +72,9 @@ describe('a recommendation', () => {
 
     await user.click(screen.getByRole('button', { name: /^keep open$/i }))
 
-    await waitFor(() => expect(screen.getByText(/raise it again before building/i)).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText(/raise it again before building/i)).toBeInTheDocument(),
+    )
   })
 
   it('never reports a decision that failed to save', async () => {

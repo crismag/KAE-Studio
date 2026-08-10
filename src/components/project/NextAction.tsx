@@ -44,9 +44,7 @@ export function NextAction({
       aria-label="Recommended next action"
       className="rounded-panel border border-accent-line bg-accent-soft/40 px-4 py-3"
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-ink">
-        Next
-      </p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-ink">Next</p>
       <p className="mt-1 text-[14px] font-medium leading-snug text-ink">{action.label}</p>
       {/* The reason, always. An instruction a person cannot evaluate is one
           they either obey or ignore, and both are worse than being persuaded. */}
@@ -56,8 +54,8 @@ export function NextAction({
         // a reasoned recommendation are different claims, and a reader who
         // cannot tell them apart will over-trust the weaker one.
         <p className="mt-1.5 text-[11.5px] italic text-ink-subtle">
-          Suggested from where this project has got to — KAE has not weighed it against
-          anything else yet.
+          Suggested from where this project has got to — KAE has not weighed it against anything
+          else yet.
         </p>
       )}
       {onAct && (

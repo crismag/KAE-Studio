@@ -79,9 +79,7 @@ describe('mock services', () => {
     const blocked = plan.entries.find((e) => e.readiness === 'blocked')
     expect(blocked?.blockedReason).toMatch(/repository/i)
 
-    const edited = await pipeline.editPlan(plan.planId, [
-      { type: blocked!.type, selected: true },
-    ])
+    const edited = await pipeline.editPlan(plan.planId, [{ type: blocked!.type, selected: true }])
 
     expect(edited.entries.find((e) => e.type === blocked!.type)?.generatable).toBe(false)
   })

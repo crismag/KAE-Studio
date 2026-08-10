@@ -56,8 +56,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   //
   // Critical only. Major and minor are real and stay on the page; what they are
   // not is a reason to interrupt someone who has just described their idea.
-  const needsAttention =
-    projection?.findings.filter((f) => f.severity === 'critical').length ?? 0
+  const needsAttention = projection?.findings.filter((f) => f.severity === 'critical').length ?? 0
   const workItems = NAV.filter((n) => !n.system)
   const systemItems = NAV.filter((n) => n.system)
 

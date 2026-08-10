@@ -52,9 +52,7 @@ export function StageReadiness({
       aria-label={`${stage} readiness`}
       className="rounded-panel border border-line bg-surface px-6 py-5 shadow-panel"
     >
-      <h2 className="text-[13px] font-semibold text-ink">
-        {stage} — not ready yet
-      </h2>
+      <h2 className="text-[13px] font-semibold text-ink">{stage} — not ready yet</h2>
       <p className="mt-1 text-[12.5px] text-ink-muted">
         {met} of {prerequisites.length} prerequisites met. This page fills in as they are.
       </p>

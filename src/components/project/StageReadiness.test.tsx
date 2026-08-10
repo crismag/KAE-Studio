@@ -53,7 +53,9 @@ describe('what a stage is waiting for', () => {
   it('distinguishes some evidence from none', () => {
     const partial = prerequisitesFor(projection({ stakeholders: entries(1) as never }))
 
-    expect(partial.find((p: Prerequisite) => p.label === 'Users understood')?.state).toBe('developing')
+    expect(partial.find((p: Prerequisite) => p.label === 'Users understood')?.state).toBe(
+      'developing',
+    )
     expect(partial.find((p: Prerequisite) => p.label === 'Scope developing')?.state).toBe('absent')
   })
 
@@ -86,9 +88,7 @@ describe('what a stage is waiting for', () => {
 
   it('never says which prerequisite matters most', () => {
     // That judgement is CIE's (ADR-0002). This lists; the navigator recommends.
-    render(
-      <StageReadiness stage="Architecture" prerequisites={prerequisitesFor(projection())} />,
-    )
+    render(<StageReadiness stage="Architecture" prerequisites={prerequisitesFor(projection())} />)
 
     expect(screen.queryByText(/most important|start with|first/i)).not.toBeInTheDocument()
   })

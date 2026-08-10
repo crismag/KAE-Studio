@@ -63,8 +63,7 @@ const STATE: Record<
   pinned: {
     label: 'Pinned to a commit',
     tone: 'accent',
-    means:
-      'We know exactly which files we would read. None of them have been read or interpreted.',
+    means: 'We know exactly which files we would read. None of them have been read or interpreted.',
   },
   analyzed: {
     label: 'Analyzed',

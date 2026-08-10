@@ -109,9 +109,7 @@ export function RecommendationCard({
         <p className="mt-1 text-[14px] leading-snug text-ink">{recommendation.advice}</p>
       )}
 
-      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">
-        {recommendation.reason}
-      </p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{recommendation.reason}</p>
       {/* What accepting commits to. Advice whose cost is not stated asks for
           agreement rather than a decision. */}
       <p className="mt-1 text-[12px] leading-relaxed text-ink-subtle">
@@ -130,16 +128,28 @@ export function RecommendationCard({
           </>
         ) : (
           <>
-            <Button size="sm" variant="secondary" disabled={state === 'saving'}
-              onClick={() => decide('accept')}>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={state === 'saving'}
+              onClick={() => decide('accept')}
+            >
               Accept
             </Button>
-            <Button size="sm" variant="ghost" disabled={state === 'saving'}
-              onClick={() => setState('editing')}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={state === 'saving'}
+              onClick={() => setState('editing')}
+            >
               Modify
             </Button>
-            <Button size="sm" variant="ghost" disabled={state === 'saving'}
-              onClick={() => decide('keep_open')}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={state === 'saving'}
+              onClick={() => decide('keep_open')}
+            >
               Keep open
             </Button>
           </>
@@ -187,10 +197,7 @@ export function ConcludedList({ concluded }: { concluded: Concluded[] }) {
               <span className="font-medium">Working assumption — say if you disagree: </span>
             )}
             {c.statement}
-            <span className="text-ink-subtle">
-              {' '}
-              ({REVISIT[c.revisitWhen] ?? c.revisitWhen})
-            </span>
+            <span className="text-ink-subtle"> ({REVISIT[c.revisitWhen] ?? c.revisitWhen})</span>
           </p>
         </li>
       ))}

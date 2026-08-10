@@ -197,8 +197,7 @@ function PlanRow({
              * as an error.
              */
             <p className="mt-1.5 text-[12px] leading-relaxed text-attention">
-              {entry.blockedReason} Nothing will be generated for this file until that is
-              decided.
+              {entry.blockedReason} Nothing will be generated for this file until that is decided.
             </p>
           )}
         </div>
@@ -262,8 +261,8 @@ export function GeneratePackage() {
           <PanelTitle className="text-[14px]">Generate a package</PanelTitle>
           <p className="mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-ink-muted">
             Documents are generated from what the project currently knows, pinned to that exact
-            revision. Nothing is written anywhere until you have seen what would change and
-            approved it.
+            revision. Nothing is written anywhere until you have seen what would change and approved
+            it.
           </p>
         </div>
       </PanelHeader>
@@ -313,8 +312,16 @@ export function GeneratePackage() {
             </Button>
             <span className="text-[11.5px] text-ink-subtle">Proposing generates nothing.</span>
           </div>
-          {profiles.isError && <div className="mt-2"><Refusal error={profiles.error} /></div>}
-          {createPlan.isError && <div className="mt-2"><Refusal error={createPlan.error} /></div>}
+          {profiles.isError && (
+            <div className="mt-2">
+              <Refusal error={profiles.error} />
+            </div>
+          )}
+          {createPlan.isError && (
+            <div className="mt-2">
+              <Refusal error={createPlan.error} />
+            </div>
+          )}
         </div>
 
         {/* 2 — argue with the plan */}
@@ -361,7 +368,11 @@ export function GeneratePackage() {
               ))}
             </ul>
 
-            {editPlan.isError && <div className="mt-2"><Refusal error={editPlan.error} /></div>}
+            {editPlan.isError && (
+              <div className="mt-2">
+                <Refusal error={editPlan.error} />
+              </div>
+            )}
 
             {blocked.length > 0 && (
               <div className="mt-3 flex items-start gap-2.5 rounded-panel border border-attention-line bg-attention-soft/40 px-4 py-3">
@@ -408,7 +419,11 @@ export function GeneratePackage() {
                 </span>
               )}
             </div>
-            {generate.isError && <div className="mt-2"><Refusal error={generate.error} /></div>}
+            {generate.isError && (
+              <div className="mt-2">
+                <Refusal error={generate.error} />
+              </div>
+            )}
           </div>
         )}
 
@@ -522,7 +537,11 @@ export function GeneratePackage() {
                 )}
               </Button>
             </div>
-            {preview.isError && <div className="mt-2"><Refusal error={preview.error} /></div>}
+            {preview.isError && (
+              <div className="mt-2">
+                <Refusal error={preview.error} />
+              </div>
+            )}
 
             {proposed && (
               <div className="mt-3">
@@ -589,9 +608,7 @@ export function GeneratePackage() {
                   size="sm"
                   variant="primary"
                   disabled={approve.isPending}
-                  onClick={() =>
-                    approve.mutate(proposed.previewId, { onSuccess: setApproval })
-                  }
+                  onClick={() => approve.mutate(proposed.previewId, { onSuccess: setApproval })}
                 >
                   {approve.isPending ? (
                     <>
@@ -641,8 +658,16 @@ export function GeneratePackage() {
                 </Button>
               </div>
             )}
-            {approve.isError && <div className="mt-2"><Refusal error={approve.error} /></div>}
-            {publish.isError && <div className="mt-2"><Refusal error={publish.error} /></div>}
+            {approve.isError && (
+              <div className="mt-2">
+                <Refusal error={approve.error} />
+              </div>
+            )}
+            {publish.isError && (
+              <div className="mt-2">
+                <Refusal error={publish.error} />
+              </div>
+            )}
           </div>
         )}
 

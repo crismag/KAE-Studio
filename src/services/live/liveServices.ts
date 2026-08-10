@@ -121,8 +121,7 @@ async function callArtifacts<T>(path: string, init?: RequestInit): Promise<T> {
       (body as { error?: unknown })?.error ??
       ((body as { detail?: { error?: unknown } })?.detail as { error?: unknown })?.error
     const error = envelope as
-      | { code?: string; message?: string; remedy?: string; retryable?: boolean }
-      | undefined
+      { code?: string; message?: string; remedy?: string; retryable?: boolean } | undefined
     throw new ArtifactError(
       error?.code ?? 'unknown',
       error?.message ?? `Request failed with ${response.status}.`,
@@ -480,7 +479,13 @@ interface BackendProjection {
     stakeholders: { id: string; name: string; status: string }[]
     inScope: { id: string; text: string; status: string }[]
     outOfScope: { id: string; text: string; status: string }[]
-    workflows: { id: string; name: string; status: string; steps: unknown[]; realizedBy: string[] }[]
+    workflows: {
+      id: string
+      name: string
+      status: string
+      steps: unknown[]
+      realizedBy: string[]
+    }[]
     assumptions: { id: string; text: string; status: string }[]
     constraints: { id: string; text: string; status: string }[]
     mappingVersion: number
@@ -886,9 +891,7 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     },
 
     listPublishers: async () => {
-      const body = await callArtifacts<{ publishers: WirePublisher[] }>(
-        '/api/artifact-publishers',
-      )
+      const body = await callArtifacts<{ publishers: WirePublisher[] }>('/api/artifact-publishers')
       return body.publishers.map((p) => ({
         type: p.type,
         available: p.available,
@@ -984,7 +987,10 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       preview(
         await callArtifacts<WirePreview>('/api/artifact-previews', {
           method: 'POST',
-          body: JSON.stringify({ package_id: packageId, destination: wireDestination(destination) }),
+          body: JSON.stringify({
+            package_id: packageId,
+            destination: wireDestination(destination),
+          }),
         }),
       ),
 

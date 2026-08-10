@@ -856,8 +856,7 @@ class MockAcquisition implements AcquisitionPort {
       canWrite: false,
       detail: '',
       checkedAt: nextTimestamp(),
-      proves:
-        'the credential can reach this location. Nothing has been read or analyzed.',
+      proves: 'the credential can reach this location. Nothing has been read or analyzed.',
     })
   }
 

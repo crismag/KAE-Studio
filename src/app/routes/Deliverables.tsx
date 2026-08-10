@@ -1,14 +1,6 @@
 import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import {
-  Check,
-  CircleDashed,
-  FileText,
-  Lock,
-  RefreshCw,
-  TriangleAlert,
-  X,
-} from 'lucide-react'
+import { Check, CircleDashed, FileText, Lock, RefreshCw, TriangleAlert, X } from 'lucide-react'
 import { plural } from '@/lib/plural'
 import { formatDateTime } from '@/lib/format'
 import { PageLayout } from '@/components/project/PageLayout'

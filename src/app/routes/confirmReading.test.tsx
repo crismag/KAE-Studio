@@ -82,7 +82,9 @@ describe('confirming a reading', () => {
 
     await user.click(screen.getByRole('button', { name: /confirm 1/i }))
 
-    await waitFor(() => expect(screen.getByText(/now part of what this project holds/i)).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText(/now part of what this project holds/i)).toBeInTheDocument(),
+    )
     expect(screen.queryByRole('button', { name: /confirm/i })).not.toBeInTheDocument()
   })
 

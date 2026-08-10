@@ -58,9 +58,7 @@ export function prerequisitesFor(projection: ProjectProjection): Prerequisite[] 
       label: 'Constraints known',
       state: count(definition.constraints.length),
       detail:
-        definition.constraints.length === 0
-          ? 'Nothing yet says what bounds this work.'
-          : undefined,
+        definition.constraints.length === 0 ? 'Nothing yet says what bounds this work.' : undefined,
     },
   ]
 }

@@ -34,10 +34,7 @@ import {
   type Recommendation,
 } from '@/components/project/RecommendationCard'
 import { NextAction } from '@/components/project/NextAction'
-import {
-  floorAction,
-  type RecommendedAction,
-} from '@/components/project/nextActionFloor'
+import { floorAction, type RecommendedAction } from '@/components/project/nextActionFloor'
 import {
   useConfirmReading,
   useDecideRecommendation,
@@ -108,8 +105,8 @@ function ConfirmReading({
   if (state === 'done') {
     return (
       <p className="text-[12.5px] text-confirmed-ink">
-        Confirmed — {plural(ids.length, 'statement', 'statements')} now part of what this
-        project holds.
+        Confirmed — {plural(ids.length, 'statement', 'statements')} now part of what this project
+        holds.
       </p>
     )
   }
@@ -274,7 +271,11 @@ function UnderstandingSection({ projection }: { projection: ProjectProjection })
   const primaryUsers = stakeholders.filter((s) => s.status === 'confirmed').map((s) => s.name)
   // Two sentences, and only if there are two. Trimmed first so a value that is
   // whitespace is treated as the absence it is.
-  const summary = problem.trim().split(/(?<=\.)\s+/).slice(0, 2).join(' ')
+  const summary = problem
+    .trim()
+    .split(/(?<=\.)\s+/)
+    .slice(0, 2)
+    .join(' ')
 
   return (
     <div className="space-y-3">
@@ -534,8 +535,8 @@ export function ContentLoss({ coverage }: { coverage?: ProjectProjection['extrac
     <p className="mt-3 flex gap-2 border-t border-attention-line pt-2.5 text-[11.5px] leading-relaxed text-ink-muted">
       <TriangleAlert className="mt-[3px] size-3 shrink-0 text-attention" aria-hidden="true" />
       <span>
-        {abandoned} of {abandoned + succeeded} submissions could not be fully read, so the
-        figures above describe less than this project actually said.
+        {abandoned} of {abandoned + succeeded} submissions could not be fully read, so the figures
+        above describe less than this project actually said.
       </span>
     </p>
   )
