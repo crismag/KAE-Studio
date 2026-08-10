@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/cn'
 import { formatDateTime } from '@/lib/format'
 import { plural } from '@/lib/plural'
+import { SKILL_SENTENCES } from '@/components/project/skillSentences'
 import {
   Badge,
   Button,
@@ -432,23 +433,6 @@ function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
  * If CIE later returns prose reasoning of its own, this is where it goes and
  * this map disappears.
  */
-const WHY: Record<string, string> = {
-  clarify: 'that answer could mean more than one thing',
-  deepen: 'the answer is right but too thin to build from',
-  separate_need_from_solution: 'a mechanism was described before the need behind it',
-  identify_people: 'who this affects is still undefined',
-  test_assumption: 'something is being treated as settled that has not been established',
-  surface_exceptions: 'the happy path is clear and the exceptions are not',
-  explore_constraints: 'the limits that bound this are not recorded',
-  reconcile_contradiction: 'this conflicts with something already recorded',
-  derive_acceptance: 'nothing yet says how you would know this was met',
-  reflect_for_confirmation: 'enough has accumulated to be worth confirming',
-  challenge_premature_design: 'the conversation moved to design before the problem was settled',
-  handle_non_answer: 'the last reply did not answer the question',
-  follow_thread: 'you raised something more important than the current subject',
-  acknowledge_sufficiency: 'this subject is established well enough',
-}
-
 function areaLabel(subject: string): string {
   const key = subject.replace(/^area:/, '')
   return key ? key.replace(/_/g, ' ') : ''
@@ -467,7 +451,7 @@ function WhyThisQuestion({ points }: { points: string[] }) {
   //
   // Naming the raw skill is worse prose and better information, and it makes
   // the gap visible to whoever has to add the missing line.
-  const reason = WHY[skill] ?? `it is working through ${skill.replace(/_/g, ' ')}`
+  const reason = SKILL_SENTENCES[skill] ?? `it is working through ${skill.replace(/_/g, ' ')}`
 
   const area = areaLabel(subject)
 
