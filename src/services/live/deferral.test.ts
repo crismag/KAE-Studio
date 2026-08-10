@@ -42,3 +42,77 @@ describe('deferring a decision', () => {
     expect(body.disposition).not.toBe('answered')
   })
 })
+
+describe('a turn survives a refresh', () => {
+  it('rebuilds conclusions and the recommendation from message metadata', async () => {
+    // AUD-013. `concluded` was persisted and never read back; `recommendation`
+    // was returned on the response and stored nowhere. A refresh erased both
+    // from the transcript while the provenance beside them survived — which
+    // made a silent loss look like a deliberate omission.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: 'm1',
+            content: 'So the constraint is a two-week deadline.',
+            actor_type: 'assistant',
+            created_at: '2026-08-10T00:00:00Z',
+            metadata: {
+              skill: 'reflect_understanding',
+              provenance: ['k1'],
+              concluded: [
+                {
+                  statement: 'Ships in two weeks.',
+                  consequence: 'ARCHITECTURAL',
+                  revisit_when: 'BEFORE_BUILD',
+                  material: true,
+                },
+              ],
+              recommendation: {
+                advice: 'Cut scope to the inbox.',
+                reason: 'Two weeks does not fit the whole thing.',
+                consequence: 'REWORK',
+              },
+            },
+          },
+        ]),
+        { status: 200 },
+      ),
+    )
+
+    const [message] = await createLiveServices('p1').memory.listMessages('p1')
+
+    expect(message.concluded).toHaveLength(1)
+    expect(message.concluded?.[0].statement).toBe('Ships in two weeks.')
+    // camelCase on the way in: the component reads `revisitWhen`, and the wire
+    // says `revisit_when`. Under the old path neither existed at all.
+    expect(message.concluded?.[0].revisitWhen).toBe('BEFORE_BUILD')
+    expect(message.recommendation?.advice).toBe('Cut scope to the inbox.')
+
+    vi.restoreAllMocks()
+  })
+
+  it('leaves a turn that concluded nothing empty rather than inventing one', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: 'm2',
+            content: 'What does the deadline depend on?',
+            actor_type: 'assistant',
+            created_at: '2026-08-10T00:00:00Z',
+            metadata: { skill: 'ask_one_question' },
+          },
+        ]),
+        { status: 200 },
+      ),
+    )
+
+    const [message] = await createLiveServices('p1').memory.listMessages('p1')
+
+    expect(message.concluded).toEqual([])
+    expect(message.recommendation).toBeNull()
+
+    vi.restoreAllMocks()
+  })
+})

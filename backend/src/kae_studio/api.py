@@ -553,6 +553,22 @@ def create_app(settings: Settings) -> FastAPI:
                     for c in move.concluded
                 ],
                 "next_action": next_action,
+                # Advice, persisted with the turn that gave it.
+                #
+                # It was returned on the response and stored nowhere, so a
+                # refresh erased every recommendation card from the transcript
+                # while the conclusions beside them survived (AUD-013). A
+                # recommendation is a claim KAE made; losing it on reload makes
+                # the transcript disagree with itself between sessions.
+                "recommendation": (
+                    {
+                        "advice": move.recommendation.advice,
+                        "reason": move.recommendation.reason,
+                        "consequence": move.recommendation.consequence,
+                    }
+                    if move.recommendation
+                    else None
+                ),
                 # So staleness is checkable: a ranking reasoned against a
                 # projection the project has since moved past is still guidance,
                 # but a reader deserves to know which.

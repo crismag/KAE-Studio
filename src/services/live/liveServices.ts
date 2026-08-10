@@ -771,6 +771,13 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
             subject?: string
             provenance?: string[]
             next_action?: { kind: string; label: string; reason: string }[]
+            concluded?: {
+              statement: string
+              consequence: string
+              revisit_when: string
+              material: boolean
+            }[]
+            recommendation?: { advice: string; reason: string; consequence: string } | null
           }
         }[]
       >(`/api/projects/${resolve(id)}/messages`)
@@ -788,6 +795,17 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         // call to decide them again.
         provenance: m.metadata?.provenance ?? [],
         nextAction: m.metadata?.next_action ?? [],
+        // Rebuilt too. Both were persisted or persistable and neither was read
+        // back, so a refresh silently erased every recorded conclusion and
+        // every advice card from the transcript (AUD-013) — while the
+        // provenance beside them survived, which made the loss look deliberate.
+        concluded: (m.metadata?.concluded ?? []).map((c) => ({
+          statement: c.statement,
+          consequence: c.consequence,
+          revisitWhen: c.revisit_when,
+          material: c.material,
+        })),
+        recommendation: m.metadata?.recommendation ?? null,
         // Rebuilt from metadata, so every turn can explain itself rather than
         // only the most recent one. Absent for messages recorded before this
         // existed, and for anything a person wrote.
