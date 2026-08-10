@@ -1,12 +1,19 @@
-"""Drive the real stack and report what it did.
+"""Drive the real stack, report what it did, and fail if the plumbing did not.
 
-Not a test runner. The CIE acceptance scenarios are behavioural, and a
+Not a test runner in the sense of asserting on wording. The CIE acceptance scenarios are behavioural, and a
 probabilistic interviewer cannot be judged by asserting its wording — so this
 exercises the actual journey through Studio's API and prints what changed, for
 a person to read.
 
 Where a check *is* mechanical — did a candidate appear, did confirmation move
-the lifecycle, did the next turn see it — it asserts and says so.
+the lifecycle, does a fresh client see it — it now records a pass or a failure
+and the process exits non-zero if any failed.
+
+**It previously said that and did not do it** (`AUD-032`): failures printed
+`FAIL:` and returned, the process exited 0, and in 214 lines there were two
+`isinstance` assertions. Nothing it observed was enforced, so it could not have
+gated anything — which is why nobody noticed that no test in the estate
+exercised the artifact chain through the wiring the deployment actually uses.
 
     STUDIO_PASSWORD=... python e2e/acceptance/journey.py <scenario>
 
@@ -23,6 +30,33 @@ import urllib.error
 import urllib.request
 
 API = os.environ.get("STUDIO_API", "http://127.0.0.1:8100")
+
+#: Mechanical checks that did not hold. Non-empty means a non-zero exit.
+#:
+#: This file printed `FAIL:` and returned, and the process exited 0 — so in 214
+#: lines nothing it observed was ever enforced, and it could not have failed a
+#: pipeline if it had been in one (`AUD-032`). Its own docstring says the
+#: mechanical checks assert; they did not.
+#:
+#: Collected rather than raised on the first one, because a run that stops at
+#: the first failure tells you less than a run that finishes and lists them —
+#: and the judgement output below a failure is still worth reading.
+_FAILURES: list[str] = []
+
+
+def must(condition: bool, what: str) -> bool:
+    """Record a mechanical check. Returns the condition, so callers can branch.
+
+    Judgement stays a person's — nothing here asserts on an interviewer's
+    wording. What it asserts is the plumbing the wording depends on: a
+    candidate appeared, a confirmation moved the lifecycle, a fresh client saw
+    the same state.
+    """
+
+    print(f"  {'ok  ' if condition else 'FAIL'} {what}")
+    if not condition:
+        _FAILURES.append(what)
+    return condition
 PASSWORD = os.environ.get("STUDIO_PASSWORD", "")
 
 _cookie = ""
@@ -124,8 +158,7 @@ def established() -> None:
     actor = next((s for s in proposed if s.get("kind") in {"actor", "goal"}), None)
     if actor is None and proposed:
         actor = proposed[0]
-    if actor is None:
-        print("  ! nothing to confirm — extraction produced no candidates")
+    if not must(actor is not None, "extraction produced something to confirm"):
         return
 
     call(f"/api/projects/{project}/knowledge/{actor['id']}/confirm", {})
@@ -148,8 +181,7 @@ def lifecycle() -> None:
     print("\n-- 2. extraction")
     proposed = wait_for_candidates(project, 1)
     show("Candidates", proposed)
-    if not proposed:
-        print("  FAIL: nothing entered the acquisition path")
+    if not must(bool(proposed), "a substantive turn entered the acquisition path"):
         return
 
     print("\n-- 3. reviewable, not trusted")
@@ -164,6 +196,14 @@ def lifecycle() -> None:
     print(f"  confirmed={len(after['confirmed'])} proposed={len(after['proposed'])}"
           f" readiness={after['health']['percentage']}%")
     print(f"  moved: {target['text'][:80]}")
+    must(
+        len(after["confirmed"]) > len(before["confirmed"]),
+        "confirming moved a statement into confirmed knowledge",
+    )
+    must(
+        after["health"]["percentage"] >= before["health"]["percentage"],
+        "readiness did not go backwards when knowledge was confirmed",
+    )
 
     print("\n-- 5. does a later turn use it")
     move = say(project, "Remind me what we have settled so far.")
@@ -178,8 +218,7 @@ def continuity() -> None:
     project = new_project("Acceptance D")
     say(project, "A booking system for a physiotherapy clinic. Four therapists, one receptionist.")
     proposed = wait_for_candidates(project, 1)
-    if not proposed:
-        print("  FAIL: nothing to carry forward")
+    if not must(bool(proposed), "there is knowledge to carry across a session"):
         return
     call(f"/api/projects/{project}/knowledge/{proposed[0]['id']}/confirm", {})
     print(f"  Confirmed: {proposed[0]['text'][:80]}")
@@ -191,6 +230,9 @@ def continuity() -> None:
 
     state = projection(project)
     show("Still confirmed after reconnecting", state["confirmed"])
+    # The one thing in this file that proves durability rather than describing
+    # it: a different client, a fresh session, the same confirmed statement.
+    must(bool(state["confirmed"]), "a fresh client sees the knowledge the last one confirmed")
     move = say(project, "Where were we?")
     print("\n  What to judge: does the reply reflect the clinic, the therapists,")
     print("  and what was confirmed — or does it start over?")
@@ -212,3 +254,13 @@ if __name__ == "__main__":
     sign_in()
     for name in chosen:
         SCENARIOS[name]()
+
+    print()
+    if _FAILURES:
+        print(f"{len(_FAILURES)} mechanical check(s) failed:")
+        for failure in _FAILURES:
+            print(f"  - {failure}")
+        # Non-zero, so this can gate something. Printing a failure and exiting
+        # 0 is how a harness becomes documentation.
+        raise SystemExit(1)
+    print("All mechanical checks held. The judgement above is still a person's.")
