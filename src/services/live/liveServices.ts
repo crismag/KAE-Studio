@@ -18,7 +18,11 @@ import type {
   DefinitionStatement,
   Deliverable,
   InterviewSession,
+  MemoryConnection,
   Project,
+  PublicationTarget,
+  SetupGap,
+  SetupState,
   ArtifactDestination,
   ArtifactPlan,
   ArtifactPreview,
@@ -43,6 +47,7 @@ import type {
   ModuleDecision,
   ProjectMemoryClient,
   ProjectProjectionService,
+  SetupPort,
   StudioServices,
 } from '@/services/interfaces'
 
@@ -1202,6 +1207,150 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       ),
   }
 
+  /* ------------------------------------------------------------------ setup */
+
+  /** Shapes as KAE-Memory sends them, mapped once here rather than at each reader. */
+  interface WireConfigured {
+    value: string
+    state: string
+    in_use: boolean
+    evidence: string
+    confirmed_by: string | null
+  }
+  interface WireTarget {
+    target_id: string
+    name: string
+    provider: string
+    purpose: string
+    is_default: boolean
+    enabled: boolean
+    available: boolean
+    unavailable_reason: string | null
+    authorization: string
+    configuration: Record<string, string>
+  }
+  interface WireConnectionRecord {
+    connection_id: string
+    provider: string
+    state: string
+    credential_reference: string | null
+    authorized_by: string | null
+    last_verified_at: string | null
+    detail: string
+  }
+  interface WireSetup {
+    project_id: string
+    setup_state: string
+    blocks_anything: boolean
+    gaps: SetupGap[]
+    configuration: Record<string, WireConfigured>
+    unknown_fields: string[]
+    targets: WireTarget[]
+  }
+
+  const target = (raw: WireTarget): PublicationTarget => ({
+    targetId: raw.target_id,
+    name: raw.name,
+    provider: raw.provider,
+    purpose: raw.purpose,
+    isDefault: raw.is_default,
+    enabled: raw.enabled,
+    available: raw.available,
+    // Carried, never derived from `available`. Three states with three
+    // remedies, and a boolean cannot say which.
+    unavailableReason: raw.unavailable_reason,
+    authorization: raw.authorization,
+    configuration: raw.configuration ?? {},
+  })
+
+  const memoryConnection = (raw: WireConnectionRecord): MemoryConnection => ({
+    connectionId: raw.connection_id,
+    provider: raw.provider,
+    state: raw.state,
+    credentialReference: raw.credential_reference,
+    authorizedBy: raw.authorized_by,
+    lastVerifiedAt: raw.last_verified_at,
+    detail: raw.detail,
+  })
+
+  const setupState = (raw: WireSetup): SetupState => ({
+    projectId: raw.project_id,
+    setupState: raw.setup_state,
+    blocksAnything: raw.blocks_anything,
+    gaps: raw.gaps ?? [],
+    configuration: raw.configuration ?? {},
+    unknownFields: raw.unknown_fields ?? [],
+    targets: (raw.targets ?? []).map(target),
+  })
+
+  const setup: SetupPort = {
+    getSetup: async (id) => setupState(await call<WireSetup>(`/api/projects/${resolve(id)}/setup`)),
+
+    configure: async (id, field, value, options) =>
+      setupState(
+        await call<WireSetup>(`/api/projects/${resolve(id)}/setup/configuration`, {
+          method: 'POST',
+          body: JSON.stringify({
+            field,
+            value,
+            state: options?.state ?? 'confirmed',
+            evidence: options?.evidence ?? '',
+          }),
+        }),
+      ),
+
+    registerTarget: async (id, input) =>
+      target(
+        await call<WireTarget>(`/api/projects/${resolve(id)}/publication-targets`, {
+          method: 'POST',
+          body: JSON.stringify({
+            provider: input.provider ?? 'github',
+            name: input.name,
+            configuration: input.configuration,
+            connection_id: input.connectionId ?? null,
+            make_default: input.makeDefault ?? false,
+          }),
+        }),
+      ),
+
+    setDefaultTarget: async (id, targetId) =>
+      target(
+        await call<WireTarget>(`/api/projects/${resolve(id)}/publication-targets/default`, {
+          method: 'POST',
+          body: JSON.stringify({ target_id: targetId }),
+        }),
+      ),
+
+    listConnections: async (id) => {
+      const body = await call<{ results: WireConnectionRecord[] }>(
+        `/api/projects/${resolve(id)}/memory-connections`,
+      )
+      return (body.results ?? []).map(memoryConnection)
+    },
+
+    recordConnection: async (id, input) =>
+      memoryConnection(
+        await call<WireConnectionRecord>(`/api/projects/${resolve(id)}/memory-connections`, {
+          method: 'POST',
+          body: JSON.stringify({
+            provider: input.provider ?? 'github',
+            // A reference, never a secret. Memory refuses anything that looks
+            // like one, so a pasted token is rejected rather than stored.
+            credential_reference: input.credentialReference,
+            detail: input.detail ?? '',
+          }),
+        }),
+      ),
+
+    authorizeConnection: async (id, connectionId) =>
+      memoryConnection(
+        await call<WireConnectionRecord>(
+          `/api/projects/${resolve(id)}/memory-connections/${connectionId}/authorization`,
+          { method: 'POST', body: '{}' },
+        ),
+      ),
+  }
+
   const acquisition: AcquisitionPort = {
     listConnections: async () => {
       const body = await callArtifacts<{ connections: WireConnection[] }>('/api/connections')
@@ -1291,5 +1440,6 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     artifacts,
     pipeline,
     acquisition,
+    setup,
   }
 }

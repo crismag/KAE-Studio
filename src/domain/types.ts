@@ -739,3 +739,83 @@ export interface ProjectProjection {
    */
   contradictions: { count: number; listable: boolean; reason: string }
 }
+
+/* ------------------------------------------------------------ project setup */
+
+/**
+ * Stage one of the seven Studio stages, which had no surface at all.
+ *
+ * KAE-Memory has modelled every field here since migration `0020` —
+ * `project_configuration`, `publication_targets`, `provider_connections` — and
+ * on the deployed database all three held **zero rows**. Not under-used: never
+ * written to. There were no POST routes, and the client methods pointing at the
+ * read endpoints had no callers.
+ *
+ * `ADR-0003` already ruled how this reports state: **no percentage.** Setup
+ * carries discrete, verifiable state — *none · configured · verified* — because
+ * a percentage over two booleans says less than the booleans and would put
+ * configuration into the same visual grammar as knowledge coverage.
+ */
+export interface ConfiguredValue {
+  value: string
+  /**
+   * How well established this is. `confirmed` means a person chose it;
+   * `inferred` and `suggested` must carry evidence, and `suggested` is
+   * deliberately **not** in use — it is a proposal to accept, not a setting.
+   */
+  state: string
+  in_use: boolean
+  evidence: string
+  confirmed_by: string | null
+}
+
+/** One thing setup is missing, and whether it stops anything. */
+export interface SetupGap {
+  field: string
+  capability: string
+  blocking: boolean
+  reason: string
+  next_action: string
+}
+
+/**
+ * A registered destination, described without the means to reach it.
+ *
+ * `unavailableReason` rather than a bare boolean: *"I never set this up"*,
+ * *"it stopped working"* and *"somebody turned it off"* have three different
+ * remedies, and a caller given only the boolean has to guess which.
+ */
+export interface PublicationTarget {
+  targetId: string
+  name: string
+  provider: string
+  purpose: string
+  isDefault: boolean
+  enabled: boolean
+  available: boolean
+  unavailableReason: string | null
+  authorization: string
+  configuration: Record<string, string>
+}
+
+/** Permission to reach a provider. **Never carries a credential.** */
+export interface MemoryConnection {
+  connectionId: string
+  provider: string
+  state: string
+  /** Where the credential lives — `env:NAME` — never the credential. */
+  credentialReference: string | null
+  authorizedBy: string | null
+  lastVerifiedAt: string | null
+  detail: string
+}
+
+export interface SetupState {
+  projectId: string
+  setupState: string
+  blocksAnything: boolean
+  gaps: SetupGap[]
+  configuration: Record<string, ConfiguredValue>
+  unknownFields: string[]
+  targets: PublicationTarget[]
+}

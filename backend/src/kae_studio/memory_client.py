@@ -210,7 +210,133 @@ class MemoryClient:
         return await self._request("GET", f"/v1/projects/{project_id}/preliminary-context")
 
     async def setup_state(self, project_id: str) -> Any:
+        """What this project is configured to do, apart from what it knows.
+
+        This method existed and had **zero callers**, pointing at a live
+        endpoint, for as long as it has existed. Studio's Project Setup stage
+        did not exist, so nothing asked.
+        """
+
         return await self._request("GET", f"/v1/projects/{project_id}/setup")
+
+    async def configure(
+        self,
+        project_id: str,
+        field: str,
+        value: str,
+        state: str = "confirmed",
+        evidence: str = "",
+        confirmed_by: str | None = None,
+    ) -> Any:
+        """Set one configuration field, returning the whole setup state.
+
+        Memory returns the recomputed state rather than the field, because a
+        person setting a value wants to know what it unblocked.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/setup/configuration",
+            json={
+                "field": field,
+                "value": value,
+                "state": state,
+                "evidence": evidence,
+                "confirmed_by": confirmed_by,
+            },
+        )
+
+    async def register_target(
+        self,
+        project_id: str,
+        provider: str,
+        name: str,
+        configuration: dict[str, str],
+        connection_id: str | None = None,
+        purpose: str = "deliverable",
+        make_default: bool = False,
+    ) -> Any:
+        """Register where this project may publish — the output repository.
+
+        The coordinate lives on the target and **never on a publication
+        request**: a request that could name a destination inline would make
+        every authorisation check advisory.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/publication-targets",
+            json={
+                "provider": provider,
+                "name": name,
+                "purpose": purpose,
+                "configuration": configuration,
+                "connection_id": connection_id,
+                "make_default": make_default,
+            },
+        )
+
+    async def set_default_target(
+        self, project_id: str, target_id: str, purpose: str = "deliverable"
+    ) -> Any:
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/publication-targets/default",
+            json={"target_id": target_id, "purpose": purpose},
+        )
+
+    async def memory_connections(self, project_id: str) -> Any:
+        """Connections recorded in Memory — durable, unlike Studio's own.
+
+        Named apart from `AcquisitionService`'s connections deliberately. Those
+        live in a process-memory dict and vanish on restart (`AUD-005`); these
+        are the record. Per `ADR-0004` the durable half belongs in Memory and
+        the acquiring stays in Studio.
+        """
+
+        return await self._request("GET", f"/v1/projects/{project_id}/connections")
+
+    async def record_connection(
+        self,
+        project_id: str,
+        provider: str,
+        credential_reference: str | None,
+        state: str = "never_granted",
+        authorized_by: str | None = None,
+        detail: str = "",
+    ) -> Any:
+        """Record permission to reach a provider, **never the credential**.
+
+        `credential_reference` names where a credential lives — `env:NAME`.
+        Memory refuses anything that looks like a secret, because the record is
+        returned to callers and a secret in it is a secret disclosed.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/connections",
+            json={
+                "provider": provider,
+                "credential_reference": credential_reference,
+                "state": state,
+                "authorized_by": authorized_by,
+                "detail": detail,
+            },
+        )
+
+    async def authorize_connection(
+        self,
+        project_id: str,
+        connection_id: str,
+        state: str,
+        authorized_by: str | None = None,
+        detail: str = "",
+    ) -> Any:
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/connections/{connection_id}/authorization",
+            json={"state": state, "authorized_by": authorized_by, "detail": detail},
+        )
 
     async def trace(self, knowledge_id: str) -> Any:
         """Where a statement came from.

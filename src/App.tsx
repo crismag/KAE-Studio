@@ -10,6 +10,7 @@ import { SignInGate } from '@/app/shell/SignInGate'
 import { RouteError } from '@/app/shell/RouteError'
 import { Workspace } from '@/app/routes/Workspace'
 import { ProjectDefinition } from '@/app/routes/ProjectDefinition'
+import { ProjectSetup } from '@/app/routes/ProjectSetup'
 import { Modules } from '@/app/routes/Modules'
 import { Requirements } from '@/app/routes/Requirements'
 import { Architecture } from '@/app/routes/Architecture'
@@ -28,6 +29,7 @@ const router = createHashRouter([
     children: [
       { index: true, element: <Navigate to="/workspace" replace />, errorElement: <RouteError /> },
       { path: 'workspace', element: <Workspace />, errorElement: <RouteError /> },
+      { path: 'setup', element: <ProjectSetup />, errorElement: <RouteError /> },
       { path: 'definition', element: <ProjectDefinition />, errorElement: <RouteError /> },
       { path: 'modules', element: <Modules />, errorElement: <RouteError /> },
       { path: 'requirements', element: <Requirements />, errorElement: <RouteError /> },

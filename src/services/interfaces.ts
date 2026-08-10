@@ -31,9 +31,12 @@ import type {
   Deliverable,
   GenerationRun,
   InterviewSession,
+  MemoryConnection,
   Project,
   ProjectProjection,
+  PublicationTarget,
   PublisherAvailability,
+  SetupState,
   ValidationResult,
 } from '@/domain/types'
 
@@ -157,6 +160,50 @@ export interface InterviewProvider {
       modifiedTo?: string
     },
   ): Promise<void>
+}
+
+/**
+ * Project Setup — how a project is wired, as distinct from what it knows.
+ *
+ * The seven Studio stages begin with Project Setup and it has never existed as
+ * a surface. Everything here reaches KAE-Memory, which has modelled all of it
+ * since migration `0020` and had no write path (`AUD-042`).
+ *
+ * Not on the acquisition port, deliberately. `AcquisitionPort` is *doing* —
+ * reaching a provider, listing files, reading them. This is *deciding*, and the
+ * decisions are durable while the acquiring is not (`ADR-0004`, `ADR-0005`).
+ */
+export interface SetupPort {
+  /** What this project is configured to do, and what is missing. */
+  getSetup(projectId: string): Promise<SetupState>
+  /** Set one configuration field. Returns the recomputed state. */
+  configure(
+    projectId: string,
+    field: string,
+    value: string,
+    options?: { state?: string; evidence?: string },
+  ): Promise<SetupState>
+  /** Register where this project's outputs go. */
+  registerTarget(
+    projectId: string,
+    target: {
+      name: string
+      provider?: string
+      configuration: Record<string, string>
+      connectionId?: string
+      makeDefault?: boolean
+    },
+  ): Promise<PublicationTarget>
+  /** Point the default at a different registered target. */
+  setDefaultTarget(projectId: string, targetId: string): Promise<PublicationTarget>
+  /** Connections recorded durably in Memory — unlike acquisition's own. */
+  listConnections(projectId: string): Promise<MemoryConnection[]>
+  recordConnection(
+    projectId: string,
+    connection: { provider?: string; credentialReference: string; detail?: string },
+  ): Promise<MemoryConnection>
+  /** Mark a connection granted. The authoriser is the signed-in operator. */
+  authorizeConnection(projectId: string, connectionId: string): Promise<MemoryConnection>
 }
 
 /** Assembles the projection the UI renders from current Memory knowledge. */
@@ -358,4 +405,5 @@ export interface StudioServices {
   artifacts: ArtifactService
   pipeline: ArtifactPipeline
   acquisition: AcquisitionPort
+  setup: SetupPort
 }

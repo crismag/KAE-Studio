@@ -30,6 +30,9 @@ import type {
   ProjectProjection,
   PublisherAvailability,
   ValidationResult,
+  MemoryConnection,
+  PublicationTarget,
+  SetupState,
 } from '@/domain/types'
 import type {
   AcquisitionPort,
@@ -46,6 +49,7 @@ import type {
   ModuleDecision,
   ProjectMemoryClient,
   ProjectProjectionService,
+  SetupPort,
   StudioServices,
 } from '@/services/interfaces'
 import * as fixture from './fixtures/ministryReporting'
@@ -423,6 +427,178 @@ class MockProjectProjectionService implements ProjectProjectionService {
     // no-op: queued, nothing to change. It exists because the interface
     // requires it, and a mock that threw would fail a surface that is correct.
     return delay(undefined)
+  }
+}
+
+/* --------------------------------------------------------------- setup mock */
+
+/**
+ * A project already configured, so the prototype shows the shape rather than
+ * the empty state.
+ *
+ * Deliberately *not* empty: a fixture that showed "nothing configured" on every
+ * screen would train the eye past the one signal that means a real project is
+ * unwired. The gap it does carry is the true one — write access has never been
+ * proved, because publishing is off (`D-8`).
+ */
+class MockSetup implements SetupPort {
+  private state: SetupState = {
+    projectId: 'demo',
+    setupState: 'ready_for_generation',
+    blocksAnything: false,
+    gaps: [],
+    configuration: {
+      primary_repository: {
+        value: 'ministry/reporting-platform',
+        state: 'confirmed',
+        in_use: true,
+        evidence: '',
+        confirmed_by: 'operator',
+      },
+      primary_branch: {
+        value: 'main',
+        state: 'confirmed',
+        in_use: true,
+        evidence: '',
+        confirmed_by: 'operator',
+      },
+      project_kind: {
+        value: 'internal web application',
+        state: 'inferred',
+        in_use: true,
+        evidence: 'the repository has a Dockerfile and a package.json',
+        confirmed_by: null,
+      },
+    },
+    unknownFields: ['deliverable_format', 'working_directory'],
+    targets: [
+      {
+        targetId: 'target-1',
+        name: 'planning documents',
+        provider: 'github',
+        purpose: 'deliverable',
+        isDefault: true,
+        enabled: true,
+        available: true,
+        unavailableReason: null,
+        authorization: 'granted',
+        configuration: { repository: 'ministry/reporting-platform', path: 'docs/planning' },
+      },
+    ],
+  }
+
+  private connections: MemoryConnection[] = [
+    {
+      connectionId: 'connection-1',
+      provider: 'github',
+      state: 'granted',
+      credentialReference: 'env:KAE_GITHUB_TOKEN',
+      authorizedBy: 'operator',
+      lastVerifiedAt: '2026-08-10T09:00:00Z',
+      detail: 'read access to ministry/reporting-platform',
+    },
+  ]
+
+  getSetup(): Promise<SetupState> {
+    return delay({ ...this.state })
+  }
+
+  configure(
+    _projectId: string,
+    field: string,
+    value: string,
+    options?: { state?: string; evidence?: string },
+  ): Promise<SetupState> {
+    this.state = {
+      ...this.state,
+      configuration: {
+        ...this.state.configuration,
+        [field]: {
+          value,
+          state: options?.state ?? 'confirmed',
+          in_use: (options?.state ?? 'confirmed') !== 'suggested',
+          evidence: options?.evidence ?? '',
+          confirmed_by: 'operator',
+        },
+      },
+      unknownFields: this.state.unknownFields.filter((f) => f !== field),
+    }
+    return delay({ ...this.state })
+  }
+
+  registerTarget(
+    _projectId: string,
+    input: {
+      name: string
+      provider?: string
+      configuration: Record<string, string>
+      connectionId?: string
+      makeDefault?: boolean
+    },
+  ): Promise<PublicationTarget> {
+    const created: PublicationTarget = {
+      targetId: `target-${this.state.targets.length + 1}`,
+      name: input.name,
+      provider: input.provider ?? 'github',
+      purpose: 'deliverable',
+      isDefault: Boolean(input.makeDefault) && this.state.targets.every((t) => !t.isDefault),
+      enabled: true,
+      available: true,
+      unavailableReason: null,
+      authorization: 'granted',
+      configuration: input.configuration,
+    }
+    this.state = { ...this.state, targets: [...this.state.targets, created] }
+    return delay({ ...created })
+  }
+
+  setDefaultTarget(_projectId: string, targetId: string): Promise<PublicationTarget> {
+    this.state = {
+      ...this.state,
+      targets: this.state.targets.map((t) => ({ ...t, isDefault: t.targetId === targetId })),
+    }
+    const chosen = this.state.targets.find((t) => t.targetId === targetId)
+    if (!chosen) return Promise.reject(new Error(`no such target: ${targetId}`))
+    return delay({ ...chosen })
+  }
+
+  listConnections(): Promise<MemoryConnection[]> {
+    return delay(this.connections.map((c) => ({ ...c })))
+  }
+
+  recordConnection(
+    _projectId: string,
+    input: { provider?: string; credentialReference: string; detail?: string },
+  ): Promise<MemoryConnection> {
+    const created: MemoryConnection = {
+      connectionId: `connection-${this.connections.length + 1}`,
+      provider: input.provider ?? 'github',
+      // Recorded, not granted. The prototype must not skip the step a real
+      // deployment cannot skip — a connection is unverified until checked.
+      state: 'never_granted',
+      credentialReference: input.credentialReference,
+      authorizedBy: null,
+      lastVerifiedAt: null,
+      detail: input.detail ?? '',
+    }
+    this.connections = [...this.connections, created]
+    return delay({ ...created })
+  }
+
+  authorizeConnection(_projectId: string, connectionId: string): Promise<MemoryConnection> {
+    this.connections = this.connections.map((c) =>
+      c.connectionId === connectionId
+        ? {
+            ...c,
+            state: 'granted',
+            authorizedBy: 'operator',
+            lastVerifiedAt: new Date().toISOString(),
+          }
+        : c,
+    )
+    const found = this.connections.find((c) => c.connectionId === connectionId)
+    if (!found) return Promise.reject(new Error(`no such connection: ${connectionId}`))
+    return delay({ ...found })
   }
 }
 
@@ -995,5 +1171,6 @@ export function createMockServices(): StudioServices {
     artifacts: new MockArtifactService(),
     pipeline: new MockArtifactPipeline(),
     acquisition: new MockAcquisition(),
+    setup: new MockSetup(),
   }
 }

@@ -76,6 +76,50 @@ class GenerateRequest(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=200)
 
 
+class ConfigureFieldIn(BaseModel):
+    """One configuration field, set by a person.
+
+    `state` defaults to `confirmed` and the route supplies the operator as
+    `confirmed_by`, because a value typed into a form by a signed-in person is
+    exactly what `confirmed` means. A caller-supplied attribution would let
+    anything claim anybody's agreement.
+    """
+
+    field: str = Field(min_length=1)
+    value: str
+    state: str = "confirmed"
+    evidence: str = ""
+
+
+class RegisterTargetIn(BaseModel):
+    """Where this project's outputs go.
+
+    `configuration` is the coordinate — repository and path. Memory refuses any
+    key that looks like a credential, so a token pasted here is rejected rather
+    than stored and returned.
+    """
+
+    provider: str = "github"
+    name: str = Field(min_length=1)
+    purpose: str = "deliverable"
+    configuration: dict[str, str] = Field(default_factory=dict)
+    connection_id: str | None = None
+    make_default: bool = False
+
+
+class SetDefaultTargetIn(BaseModel):
+    target_id: str = Field(min_length=1)
+    purpose: str = "deliverable"
+
+
+class RecordConnectionIn(BaseModel):
+    """Permission to reach a provider. **Never the credential itself.**"""
+
+    provider: str = "github"
+    credential_reference: str | None = None
+    detail: str = ""
+
+
 class PreviewRequest(BaseModel):
     package_id: str = Field(min_length=1)
     destination: DestinationIn
@@ -396,6 +440,123 @@ def create_app(settings: Settings) -> FastAPI:
         """
 
         return await memory(request).delete_project(project_id)
+
+    @app.get("/api/projects/{project_id}/setup")
+    async def setup_state(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """What this project is configured to do — stage one of seven.
+
+        Read from Memory, which has modelled all of it since migration `0020`
+        and had **no write path and no reader**. `memory_client.setup_state()`
+        existed with zero callers, pointing at a live endpoint, because Studio
+        had no Project Setup stage to call it from.
+
+        Deliberately separate from `/readiness`. Setup readiness and knowledge
+        readiness answer different questions, and a surface that read one as the
+        other would tell a person a well-understood project can publish.
+        """
+
+        return await memory(request).setup_state(project_id)
+
+    @app.post("/api/projects/{project_id}/setup/configuration")
+    async def configure_project(
+        project_id: str,
+        body: ConfigureFieldIn,
+        request: Request,
+        operator: Operator = Depends(require_operator),
+    ) -> Any:
+        """Set one configuration field, attributed to the signed-in operator.
+
+        The attribution is taken from the session rather than the body, the
+        same rule confirmation follows: it is the one thing Studio can assert
+        about a value that Memory cannot check for itself.
+        """
+
+        return await memory(request).configure(
+            project_id,
+            body.field,
+            body.value,
+            state=body.state,
+            evidence=body.evidence,
+            confirmed_by=operator.name if body.state == "confirmed" else None,
+        )
+
+    @app.post("/api/projects/{project_id}/publication-targets")
+    async def register_publication_target(
+        project_id: str,
+        body: RegisterTargetIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Register where outputs go. The coordinate lives here, not on a publish."""
+
+        return await memory(request).register_target(
+            project_id,
+            body.provider,
+            body.name,
+            body.configuration,
+            connection_id=body.connection_id,
+            purpose=body.purpose,
+            make_default=body.make_default,
+        )
+
+    @app.post("/api/projects/{project_id}/publication-targets/default")
+    async def set_default_publication_target(
+        project_id: str,
+        body: SetDefaultTargetIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        return await memory(request).set_default_target(
+            project_id, body.target_id, purpose=body.purpose
+        )
+
+    @app.get("/api/projects/{project_id}/memory-connections")
+    async def memory_connections(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Connections recorded durably in Memory.
+
+        Distinct from `/api/connections`, which lists `AcquisitionService`'s
+        process-memory dict — that one vanishes on restart (`AUD-005`). Per
+        `ADR-0004` the durable record belongs in Memory while the acquiring
+        stays here, so both exist and the surface says which is which.
+        """
+
+        return await memory(request).memory_connections(project_id)
+
+    @app.post("/api/projects/{project_id}/memory-connections")
+    async def record_memory_connection(
+        project_id: str,
+        body: RecordConnectionIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        return await memory(request).record_connection(
+            project_id,
+            body.provider,
+            body.credential_reference,
+            detail=body.detail,
+        )
+
+    @app.post("/api/projects/{project_id}/memory-connections/{connection_id}/authorization")
+    async def authorize_memory_connection(
+        project_id: str,
+        connection_id: str,
+        request: Request,
+        operator: Operator = Depends(require_operator),
+    ) -> Any:
+        """Mark a connection granted, naming the person who granted it.
+
+        No body: the state is `granted` and the authoriser is the signed-in
+        operator. Anything else would let a caller claim somebody else's
+        authorisation, which is the field's entire purpose.
+        """
+
+        return await memory(request).authorize_connection(
+            project_id, connection_id, "granted", authorized_by=operator.name
+        )
 
     @app.get("/api/projects/{project_id}/projection")
     async def projection(

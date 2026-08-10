@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
+  SlidersHorizontal,
   Boxes,
   ClipboardList,
   Database,
@@ -31,6 +32,11 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
+  // Stage one of the seven in `01_PRODUCT_OPERATING_MODEL.md`, and first here
+  // because it is where a project starts: sources, destination, and what KAE
+  // may reach. It did not exist until now, so the product's only way in was
+  // the interview.
+  { to: '/setup', label: 'Project Setup', icon: SlidersHorizontal },
   { to: '/workspace', label: 'Workspace', icon: MessagesSquare },
   { to: '/definition', label: 'Project Definition', icon: ClipboardList },
   { to: '/modules', label: 'Modules', icon: Boxes },

@@ -494,3 +494,87 @@ export function useIngestFiles() {
     },
   })
 }
+
+/* -------------------------------------------------------------- setup (SET-2) */
+
+/**
+ * What this project is configured to do — stage one of the seven stages.
+ *
+ * Its own query key rather than part of the projection, because setup and
+ * knowledge answer different questions and must be able to fail independently.
+ * A projection that could not be read must not also hide whether a repository
+ * is connected.
+ */
+export function useSetup() {
+  const { setup, projectId } = useServices()
+  return useQuery({
+    queryKey: ['setup', projectId],
+    queryFn: () => setup.getSetup(projectId),
+  })
+}
+
+export function useMemoryConnections() {
+  const { setup, projectId } = useServices()
+  return useQuery({
+    queryKey: ['memory-connections', projectId],
+    queryFn: () => setup.listConnections(projectId),
+  })
+}
+
+/** Everything that changes setup invalidates the same two reads. */
+function useSetupMutation<TArgs>(run: (projectId: string, args: TArgs) => Promise<unknown>) {
+  const { setup, projectId } = useServices()
+  const queryClient = useQueryClient()
+  void setup
+  return useMutation({
+    mutationFn: (args: TArgs) => run(projectId, args),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['setup', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['memory-connections', projectId] }),
+      ])
+    },
+  })
+}
+
+export function useConfigureField() {
+  const { setup } = useServices()
+  return useSetupMutation<{ field: string; value: string; state?: string; evidence?: string }>(
+    (projectId, args) =>
+      setup.configure(projectId, args.field, args.value, {
+        state: args.state,
+        evidence: args.evidence,
+      }),
+  )
+}
+
+export function useRegisterTarget() {
+  const { setup } = useServices()
+  return useSetupMutation<{
+    name: string
+    configuration: Record<string, string>
+    connectionId?: string
+    makeDefault?: boolean
+  }>((projectId, args) => setup.registerTarget(projectId, args))
+}
+
+export function useSetDefaultTarget() {
+  const { setup } = useServices()
+  return useSetupMutation<string>((projectId, targetId) =>
+    setup.setDefaultTarget(projectId, targetId),
+  )
+}
+
+export function useRecordMemoryConnection() {
+  const { setup } = useServices()
+  return useSetupMutation<{ credentialReference: string; provider?: string; detail?: string }>(
+    (projectId, args) => setup.recordConnection(projectId, args),
+  )
+}
+
+export function useAuthorizeMemoryConnection() {
+  const { setup } = useServices()
+  return useSetupMutation<string>((projectId, connectionId) =>
+    setup.authorizeConnection(projectId, connectionId),
+  )
+}
