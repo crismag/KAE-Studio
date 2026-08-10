@@ -397,6 +397,12 @@ class MockProjectProjectionService implements ProjectProjectionService {
       findings,
       health: fixture.health,
       recentChanges: fixture.recentChanges,
+      // The prototype fixture describes a project whose sections are all
+      // computable, so there is nothing unavailable to report. Kept explicit
+      // rather than omitted: a surface that renders gaps must be exercised
+      // against "no gaps" too.
+      unavailable: [],
+      modulesGap: null,
     })
   }
 }

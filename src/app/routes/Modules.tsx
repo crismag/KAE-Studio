@@ -7,6 +7,7 @@ import { PageLayout } from '@/components/project/PageLayout'
 import { ReadinessBadge, StatusBadge } from '@/components/project/statusVocabulary'
 import { DIMENSION_LABEL, readinessLabel } from '@/components/project/labels'
 import { Badge, Button, Mono, Panel, Skeleton } from '@/components/ui/primitives'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { useModuleDecision, useProjection } from '@/hooks/useProject'
 import type { ModuleDecision } from '@/services/interfaces'
 import type { OpenDecision, ProjectModule, Requirement } from '@/domain/types'
@@ -721,19 +722,32 @@ export function Modules() {
   const accepted = projection.modules.filter((m) => m.proposalState === 'accepted').length
   const proposed = projection.modules.filter((m) => m.proposalState === 'proposed').length
 
+  // `modulesGap` is present exactly when Memory cannot derive a decomposition.
+  // Until this was carried through, the page rendered two zero badges and an
+  // empty div — a promise of module curation over a question nobody had asked
+  // (AUD-010). `/dependencies` has always done this correctly; this is the same
+  // treatment applied where it was missing.
+  const gap = projection.modulesGap
+
   return (
     <PageLayout
       title="Modules"
       wide
       lead="Studio proposes a decomposition; you decide it. Accepting, renaming, splitting, merging, or rejecting a module is recorded as a versioned decision with provenance — never applied silently."
       actions={
-        <div className="flex items-center gap-2 text-[12.5px] text-ink-muted">
-          <Badge tone="confirmed">{accepted} accepted</Badge>
-          <Badge tone="pending">{proposed} proposed</Badge>
-        </div>
+        // Counts only when there is something to count. "0 accepted" beside a
+        // capability that cannot produce a module reads as a project with no
+        // modules rather than a product that cannot derive them.
+        gap ? undefined : (
+          <div className="flex items-center gap-2 text-[12.5px] text-ink-muted">
+            <Badge tone="confirmed">{accepted} accepted</Badge>
+            <Badge tone="pending">{proposed} proposed</Badge>
+          </div>
+        )
       }
     >
       <div className="space-y-4">
+        {gap && <CapabilityNote reason={gap.reason} proved={gap.provedInstead} />}
         {projection.modules.map((module) => (
           <ModuleCard
             key={module.id}

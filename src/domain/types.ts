@@ -635,6 +635,27 @@ export interface MemoryRecord {
 }
 
 /** Whole projection the UI renders. Assembled by ProjectProjectionService. */
+/**
+ * A section the backend could not compute, and why.
+ *
+ * **The difference this exists to preserve.** An empty `workflows` array can
+ * mean two opposite things: the project has no business workflows, or KAE
+ * cannot derive them. The first is a prompt to do work; the second is a limit
+ * of the product. Studio's backend has always distinguished them and sent both
+ * — `projection.py` returns `unavailable: [{section, reason}]` — and the
+ * adapter used to fold every reason into a prose string in `health.recommendedNext`,
+ * which nothing rendered. So every deliberate gap reached the user as a blank
+ * panel (AUD-002).
+ *
+ * Kept structured rather than prose precisely so a surface can find *its own*
+ * section rather than parsing a list of sentences.
+ */
+export interface SectionUnavailable {
+  /** The projection key, e.g. `workflows`, `value`, `inScope`. */
+  section: string
+  reason: string
+}
+
 export interface ProjectProjection {
   project: Project
   definition: ProjectDefinition
@@ -647,4 +668,15 @@ export interface ProjectProjection {
   /** Absent on a backend older than the disclosure. */
   extractionCoverage?: ExtractionCoverage
   recentChanges: { id: string; text: string; at: string }[]
+  /**
+   * Sections the backend declined to compute, with its reason for each.
+   * Empty when everything asked for was computable.
+   */
+  unavailable: SectionUnavailable[]
+  /**
+   * Present when module derivation is unavailable. `null` when modules are
+   * genuinely derivable — at which point an empty `modules` array means the
+   * project has none, which is a different statement.
+   */
+  modulesGap: CapabilityGap | null
 }

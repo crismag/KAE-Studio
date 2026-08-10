@@ -608,13 +608,25 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
               : `${a.confirmed} of ${a.required} confirmed`,
       })),
       blockingDecisionIds: [],
-      recommendedNext: [
-        ...raw.preliminary.warnings,
-        ...raw.unavailable.map((u) => `Unavailable: ${u.section} — ${u.reason}`),
-        ...(raw.modules.available ? [] : [`Modules: ${raw.modules.gap.reason}`]),
-      ],
+      // Warnings only. The capability gaps that used to be flattened into this
+      // list now travel as `unavailable` and `modulesGap` on the projection,
+      // because a surface has to find *its own* section and cannot do that in a
+      // list of sentences nothing renders (AUD-002).
+      recommendedNext: [...raw.preliminary.warnings],
     },
     recentChanges: [],
+    // Carried through structurally, not flattened. This is the whole of AUD-002:
+    // the backend computes these reasons carefully and the adapter used to
+    // discard them into a field with no reader.
+    unavailable: raw.unavailable.map((u) => ({ section: u.section, reason: u.reason })),
+    modulesGap: raw.modules.available
+      ? null
+      : {
+          capability: raw.modules.gap.capability,
+          reason: raw.modules.gap.reason,
+          state: 'planned',
+          provedInstead: [],
+        },
   }
 }
 

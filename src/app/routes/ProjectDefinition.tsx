@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Ban, Check } from 'lucide-react'
 import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
+import { unavailableReason } from '@/components/project/unavailableReason'
 import {
   Mono,
   Panel,
@@ -50,6 +52,14 @@ export function ProjectDefinition() {
 
   const { definition } = projection
 
+  // Read per section rather than as a list, so each panel states its own limit
+  // where the answer would have gone. `undefined` means the backend computed
+  // that section fine — an empty result there is a fact about the project.
+  const valueGap = unavailableReason(projection.unavailable, 'value')
+  const inScopeGap = unavailableReason(projection.unavailable, 'inScope')
+  const outOfScopeGap = unavailableReason(projection.unavailable, 'outOfScope')
+  const workflowsGap = unavailableReason(projection.unavailable, 'workflows')
+
   return (
     <PageLayout
       title="Project Definition"
@@ -73,9 +83,13 @@ export function ProjectDefinition() {
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
                 The value
               </h3>
-              <p className="mt-1.5 max-w-3xl text-[13.5px] leading-relaxed text-ink">
-                {definition.value}
-              </p>
+              {valueGap ? (
+                <CapabilityNote className="mt-1.5 max-w-3xl" reason={valueGap} />
+              ) : (
+                <p className="mt-1.5 max-w-3xl text-[13.5px] leading-relaxed text-ink">
+                  {definition.value}
+                </p>
+              )}
             </div>
             <div>
               <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
@@ -143,7 +157,11 @@ export function ProjectDefinition() {
               <Check className="size-4 text-confirmed" aria-hidden="true" />
             </PanelHeader>
             <PanelBody>
-              <StatementList items={definition.inScope} />
+              {inScopeGap ? (
+                <CapabilityNote reason={inScopeGap} />
+              ) : (
+                <StatementList items={definition.inScope} />
+              )}
             </PanelBody>
           </Panel>
           <Panel>
@@ -152,7 +170,11 @@ export function ProjectDefinition() {
               <Ban className="size-4 text-ink-subtle" aria-hidden="true" />
             </PanelHeader>
             <PanelBody>
-              <StatementList items={definition.outOfScope} />
+              {outOfScopeGap ? (
+                <CapabilityNote reason={outOfScopeGap} />
+              ) : (
+                <StatementList items={definition.outOfScope} />
+              )}
             </PanelBody>
           </Panel>
         </div>
@@ -162,6 +184,7 @@ export function ProjectDefinition() {
             <PanelTitle>Business workflows</PanelTitle>
           </PanelHeader>
           <PanelBody className="space-y-6">
+            {workflowsGap && <CapabilityNote reason={workflowsGap} />}
             {definition.workflows.map((wf) => (
               <div key={wf.id}>
                 <div className="flex flex-wrap items-center gap-2">
