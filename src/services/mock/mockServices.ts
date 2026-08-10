@@ -431,7 +431,13 @@ class MockArtifactPipeline implements ArtifactPipeline {
   private claimed = new Map<string, string>()
   private counter = 0
 
-  private id(prefix: string): string {
+  /**
+   * `#` rather than `private`, because TypeScript's `private` is erased and the
+   * method survives at runtime — where `portParity.test.ts` reads it as a call
+   * the live adapter fails to implement. A helper that is not part of the port
+   * should not be visible on the object at all.
+   */
+  #id(prefix: string): string {
     this.counter += 1
     return `${prefix}_${String(this.counter).padStart(4, '0')}`
   }
@@ -455,7 +461,7 @@ class MockArtifactPipeline implements ArtifactPipeline {
   createPlan(_projectId: string, profile: string): Promise<ArtifactPlan> {
     const shape = MOCK_PROFILES.find((p) => p.id === profile) ?? MOCK_PROFILES[0]
     const plan: ArtifactPlan = {
-      planId: this.id('pln'),
+      planId: this.#id('pln'),
       subjectId: 'proj-ministry-reporting',
       inputRevision: `memory:${state.memoryRevision}`,
       inputDigest: `sha256:mock${state.memoryRevision}`,
@@ -522,11 +528,11 @@ class MockArtifactPipeline implements ArtifactPipeline {
     const plan = this.plans.get(planId)
     if (!plan) throw new Error(`Unknown plan: ${planId}`)
 
-    const runId = this.id('run')
-    const packageId = this.id('pkg')
+    const runId = this.#id('run')
+    const packageId = this.#id('pkg')
     const entries = plan.entries.filter((e) => e.generatable)
     const artifacts = entries.map((entry) => ({
-      artifactId: this.id('art'),
+      artifactId: this.#id('art'),
       type: entry.type,
       logicalPath: entry.logicalPath,
       checksum: `sha256:${entry.type.slice(0, 6)}${state.memoryRevision}`,
@@ -607,7 +613,7 @@ class MockArtifactPipeline implements ArtifactPipeline {
     if (!pkg) throw new Error(`Unknown package: ${packageId}`)
     const prefix = destination.targetPath ? `${destination.targetPath}/` : ''
     const preview: ArtifactPreview = {
-      previewId: this.id('prv'),
+      previewId: this.#id('prv'),
       packageId,
       packageChecksum: pkg.packageChecksum,
       checksum: `sha256:prv${this.counter}`,
@@ -636,7 +642,7 @@ class MockArtifactPipeline implements ArtifactPipeline {
     if (!preview) throw new Error(`Unknown preview: ${previewId}`)
     const now = new Date(nextTimestamp())
     const approval: ArtifactApproval = {
-      approvalId: this.id('apr'),
+      approvalId: this.#id('apr'),
       packageId: preview.packageId,
       packageChecksum: preview.packageChecksum,
       previewId,
@@ -660,7 +666,7 @@ class MockArtifactPipeline implements ArtifactPipeline {
     if (!approval) throw new Error(`Unknown approval: ${input.approvalId}`)
 
     const pkg = this.packages.get(input.packageId)
-    const publicationId = this.id('pub')
+    const publicationId = this.#id('pub')
     // An approval names one package. Approving one and publishing another is
     // the failure the whole approval model exists to prevent, so the mock
     // refuses it rather than letting the UI ship untested against a refusal.
