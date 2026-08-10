@@ -354,6 +354,15 @@ export interface AcquisitionPort {
    * "412 files" and not one of their names.
    */
   listFiles(sourceId: string, limit?: number): Promise<SourceFileListing>
+  /**
+   * Read one file at the pinned revision.
+   *
+   * **Built, routed, and on no port** — `POST /api/sources/{id}/sample` has
+   * existed since acquisition did, and nothing in the frontend could call it.
+   * It proves something a connectivity check cannot: a token with metadata-only
+   * scope passes the check and fails this.
+   */
+  sample(sourceId: string, path: string): Promise<FileExcerpt>
 
   /**
    * Read chosen files at the pinned revision and record them as evidence.
@@ -368,6 +377,14 @@ export interface AcquisitionPort {
    * KAE what matters.
    */
   ingestFiles(sourceId: string, projectId: string, paths: string[]): Promise<IngestOutcome>
+}
+
+/** A file's first two thousand characters, and what reading it proved. */
+export interface FileExcerpt {
+  path: string
+  bytes: number
+  excerpt: string
+  proves: string
 }
 
 export interface SourceFileListing {

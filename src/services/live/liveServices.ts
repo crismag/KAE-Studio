@@ -47,6 +47,7 @@ import type {
   MemoryWriteResult,
   ModuleDecision,
   ProjectMemoryClient,
+  FileExcerpt,
   IngestionPort,
   ProjectProjectionService,
   SetupPort,
@@ -1459,6 +1460,12 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       }>(`/api/sources/${sourceId}/files?limit=${limit}`)
       return { files: raw.files ?? [], truncated: Boolean(raw.truncated) }
     },
+
+    sample: async (sourceId, path) =>
+      callArtifacts<FileExcerpt>(`/api/sources/${sourceId}/sample`, {
+        method: 'POST',
+        body: JSON.stringify({ path }),
+      }),
 
     ingestFiles: async (sourceId, projectId, paths) => {
       const raw = await call<{

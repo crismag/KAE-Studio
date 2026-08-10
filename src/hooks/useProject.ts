@@ -467,12 +467,28 @@ export function usePinSource() {
 }
 
 /** The files a pinned source would read. Enabled only once one is chosen. */
-export function useSourceFiles(sourceId: string | undefined) {
+export function useSourceFiles(sourceId: string | undefined, limit?: number) {
   const { acquisition } = useServices()
   return useQuery({
-    queryKey: ['source-files', sourceId],
-    queryFn: () => acquisition.listFiles(sourceId!),
+    queryKey: ['source-files', sourceId, limit],
+    queryFn: () => acquisition.listFiles(sourceId!, limit),
     enabled: Boolean(sourceId),
+  })
+}
+
+/**
+ * The first part of one file, at the pinned revision.
+ *
+ * `POST /api/sources/{id}/sample` was routed and on no port, so nothing could
+ * call it. Fetched only when a file is actually opened — reading every file to
+ * populate a list would be an expensive way to show nothing.
+ */
+export function useSampleFile(sourceId: string, path: string | null) {
+  const { acquisition } = useServices()
+  return useQuery({
+    queryKey: ['source-sample', sourceId, path],
+    queryFn: () => acquisition.sample(sourceId, path!),
+    enabled: Boolean(path),
   })
 }
 

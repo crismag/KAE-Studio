@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   FileInput,
+  FolderGit2,
   SlidersHorizontal,
   Boxes,
   ClipboardList,
@@ -41,6 +42,7 @@ const NAV: NavItem[] = [
   { to: '/workspace', label: 'Workspace', icon: MessagesSquare },
   // The second intake path. Beside the conversation because they are two ways
   // of doing the same thing — telling KAE what the project is.
+  { to: '/sources', label: 'Sources', icon: FolderGit2 },
   { to: '/ingestion', label: 'Ingestion', icon: FileInput },
   { to: '/definition', label: 'Project Definition', icon: ClipboardList },
   { to: '/modules', label: 'Modules', icon: Boxes },

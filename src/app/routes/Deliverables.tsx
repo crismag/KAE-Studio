@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/primitives'
 import { useDeliverables, useProjection } from '@/hooks/useProject'
 import { GeneratePackage } from '@/components/project/GeneratePackage'
-import { ProjectSources } from '@/components/project/ProjectSources'
 import type { Deliverable, DeliverableState } from '@/domain/types'
 
 const STATE_META: Record<
@@ -200,11 +199,14 @@ export function Deliverables() {
   return (
     <PageLayout
       title="Deliverables"
-      lead="Where this project's material comes from, and where generated packages go. Sources can be connected and pinned; analysing them is not built yet. Generation and publication are separate — the same package goes to GitHub or managed storage without changing."
+      lead="Where generated packages go. Generation and publication are separate — the same package reaches GitHub or managed storage without changing."
     >
       <div className="space-y-6">
-        <ProjectSources />
-
+        {/* `ProjectSources` used to render here, on a page about output, under a
+            banner announcing that the whole thing was not built. It is
+            `/sources` now: repositories are an input, and burying the input
+            surface inside the output page is most of why repository ingestion
+            read as absent. */}
         <GeneratePackage />
 
         {openDecisions > 0 && (

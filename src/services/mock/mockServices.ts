@@ -39,6 +39,7 @@ import type {
 } from '@/domain/types'
 import type {
   AcquisitionPort,
+  FileExcerpt,
   IngestOutcome,
   SourceFileListing,
   ArtifactContent,
@@ -1201,6 +1202,23 @@ class MockAcquisition implements AcquisitionPort {
       { path: 'CONTRIBUTING.md', size: 2_204 },
     ]
     return delay({ files: files.slice(0, limit), truncated: files.length > limit }, 400)
+  }
+
+  sample(sourceId: string, path: string): Promise<FileExcerpt> {
+    const source = this.sources.find((s) => s.sourceId === sourceId)
+    if (!source) throw new Error(`Unknown source: ${sourceId}`)
+    if (!source.snapshot) throw new Error('this source has not been pinned to a revision')
+
+    const excerpt = `# ${path}\n\nFixture content for the prototype. In a live build this is the\nfirst two thousand characters of the file at the pinned revision.`
+    return delay(
+      {
+        path,
+        bytes: excerpt.length,
+        excerpt,
+        proves: 'this credential can read file content at this revision.',
+      },
+      350,
+    )
   }
 
   ingestFiles(sourceId: string, _projectId: string, paths: string[]): Promise<IngestOutcome> {
