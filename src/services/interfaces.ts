@@ -37,10 +37,20 @@ import type {
   ValidationResult,
 } from '@/domain/types'
 
-/** Result of a mutating call, carrying the revision it produced. */
+/**
+ * Result of a mutating call, carrying the revision it produced.
+ *
+ * `memoryRevision` is `null` when the write succeeded and the response did not
+ * report one. It was `number`, and the live adapter returned a literal `0` for
+ * every write — discarding the actual response body and asserting a revision
+ * nobody had reported (AUD-014). Nothing rendered it, so no screen was wrong;
+ * what was wrong was that a caller could not tell an unreported revision from
+ * revision zero, and the first consumer to trust it would have been.
+ */
 export interface MemoryWriteResult {
   accepted: boolean
-  memoryRevision: number
+  /** `null` when the write was acknowledged without a revision. */
+  memoryRevision: number | null
   /** Present when the write could not be acknowledged by Memory. */
   pendingReason?: string
 }

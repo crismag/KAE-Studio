@@ -672,8 +672,22 @@ const KIND_LABEL: Record<string, string> = {
   unknown: 'a material unknown',
 }
 
-function accepted(memoryRevision = 0): MemoryWriteResult {
-  return { accepted: true, memoryRevision }
+/**
+ * Acknowledge a write with whatever revision the response actually carried.
+ *
+ * This returned a hard-coded `{accepted: true, memoryRevision: 0}` and threw
+ * the response body away, so every write claimed revision zero (AUD-014). The
+ * writes themselves were real — this was a fabricated *envelope*, not fabricated
+ * persistence — but a caller reading the number had no way to know it was
+ * invented.
+ */
+function accepted(response?: unknown): MemoryWriteResult {
+  const body = (response ?? {}) as Record<string, unknown>
+  const revision = body.knowledge_revision ?? body.memory_revision ?? body.revision
+  return {
+    accepted: true,
+    memoryRevision: typeof revision === 'number' ? revision : null,
+  }
 }
 
 export function createLiveServices(projectIdOverride?: string): StudioServices {
@@ -765,37 +779,42 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     },
 
     deferDecision: async (id, decisionId, deferred) => {
-      await call(`/api/projects/${resolve(id)}/clarifications/${decisionId}/answer`, {
-        method: 'POST',
-        body: JSON.stringify({
-          answer: deferred ? 'Deferred from Studio.' : 'Reopened from Studio.',
-          // A deferral records that someone was asked and did not decide. It
-          // must not close the question (N36).
-          //
-          // `open`, not `answered`, on the way back. `answered` is in SETTLES,
-          // so "Bring back" closed the question it was bringing back — the
-          // exact opposite of the button's own label, and silent because a
-          // settled question simply stops appearing.
-          disposition: deferred ? 'deferred' : 'open',
-        }),
-      })
-      return accepted()
+      const answered = await call(
+        `/api/projects/${resolve(id)}/clarifications/${decisionId}/answer`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            answer: deferred ? 'Deferred from Studio.' : 'Reopened from Studio.',
+            // A deferral records that someone was asked and did not decide. It
+            // must not close the question (N36).
+            //
+            // `open`, not `answered`, on the way back. `answered` is in SETTLES,
+            // so "Bring back" closed the question it was bringing back — the
+            // exact opposite of the button's own label, and silent because a
+            // settled question simply stops appearing.
+            disposition: deferred ? 'deferred' : 'open',
+          }),
+        },
+      )
+      return accepted(answered)
     },
 
     knowledgeTrace: (id, knowledgeId) =>
       call(`/api/projects/${resolve(id)}/knowledge/${knowledgeId}/trace`),
 
     confirmFinding: async (id, findingId) => {
-      await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/confirm`, { method: 'POST' })
-      return accepted()
+      const body = await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/confirm`, {
+        method: 'POST',
+      })
+      return accepted(body)
     },
 
     rejectFinding: async (id, findingId, reason, expectedVersion) => {
-      await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/reject`, {
+      const rejected = await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/reject`, {
         method: 'POST',
         body: JSON.stringify({ reason, expected_version: expectedVersion }),
       })
-      return accepted()
+      return accepted(rejected)
     },
   }
 

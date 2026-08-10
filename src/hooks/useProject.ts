@@ -67,7 +67,9 @@ export function useSendMessage() {
       // and Memory is append-only: two pieces of evidence for one thing said
       // once, and every count downstream wrong.
       const turn = await interview.respondTo(projectId, body)
-      return { result: { accepted: true, memoryRevision: 0 }, turn }
+      // `null` rather than `0`: a turn does not report a revision, and
+      // claiming one was the same fabrication as `accepted()` (AUD-014).
+      return { result: { accepted: true, memoryRevision: null }, turn }
     },
     onSuccess: async () => {
       await Promise.all([
