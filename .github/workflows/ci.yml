@@ -58,10 +58,20 @@ jobs:
       # `--no-deps`, because `cris-cie-slim` is a private sibling repository
       # and a plain install would try to resolve it from PyPI and fail.
       #
-      # That works because of what these tests reach: `config` and `security`,
-      # neither of which imports CIE. `api` does, at module level and through
-      # `interviewer` — so if a test ever imports the app, this step starts
-      # failing and the honest fix is to check CIE out here, not to loosen the
-      # dependency.
-      - run: pip install -e . --no-deps && pip install fastapi itsdangerous pytest
+      # The note that used to live here predicted this exactly: *"if a test ever
+      # imports the app, this step starts failing and the honest fix is to check
+      # CIE out here, not to loosen the dependency."* Tests that import the app
+      # were added, and it did.
+      #
+      # Checking CIE out needs a secret, because this repository is public and
+      # `cris-cie-slim` is private — a deploy key or PAT, which is the owner's
+      # to grant. Until then the six affected modules `importorskip("cie_slim")`
+      # and say why, so collection reports a skip with a reason instead of an
+      # error that reads like a broken product. **That is a loosening**, it is
+      # recorded as AUD-033, and it means the Studio↔CIE skill-sentence contract
+      # is not verified by CI.
+      #
+      # `httpx` is not optional: starlette's TestClient requires it, and every
+      # test that builds the app was erroring on its absence.
+      - run: pip install -e . --no-deps && pip install fastapi itsdangerous pytest httpx
       - run: python -m pytest tests -q

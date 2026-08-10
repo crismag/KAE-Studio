@@ -22,6 +22,18 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
+# Studio's backend imports CIE at module level, and `cris-cie-slim` is a private
+# repository while this one is public — so CI cannot check it out without a
+# secret. Skipping keeps collection honest about *why* these do not run, rather
+# than erroring as though the product were broken. Recorded as AUD-033; the fix
+# is a deploy key, which is the repository owner's to grant.
+#
+# Before the imports below, because those are what pull CIE in.
+pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+
+
 from cie_slim.kae.skills import SKILL_NAMES
 
 #: The table, read from source rather than duplicated here.

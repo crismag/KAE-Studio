@@ -32,6 +32,16 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+# Studio's backend imports CIE at module level, and `cris-cie-slim` is a private
+# repository while this one is public — so CI cannot check it out without a
+# secret. Skipping keeps collection honest about *why* these do not run, rather
+# than erroring as though the product were broken. Recorded as AUD-033; the fix
+# is a deploy key, which is the repository owner's to grant.
+#
+# Before the `kae_studio` imports below, because those are what pull CIE in.
+pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+
+
 from kae_studio.api import create_app
 from kae_studio.artifacts_client import ArtifactsClient
 from kae_studio.config import Settings
