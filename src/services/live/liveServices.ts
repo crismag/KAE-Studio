@@ -841,13 +841,21 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
 
     getInterviewSession: async (id) => {
       const raw = await call<BackendProjection>(`/api/projects/${resolve(id)}/projection`)
-      const answered = raw.openQuestions.filter((q) => q.disposition !== 'open').length
+      // Answered and deferred are different dispositions and were being
+      // conflated: everything not `open` counted as answered, and the deferred
+      // counter was a hardcoded `0` beside a "Decide later" button that writes
+      // a durable `deferred` disposition. So the count never moved no matter
+      // how many times somebody used the control next to it.
+      const deferred = raw.openQuestions.filter((q) => q.disposition === 'deferred').length
+      const answered = raw.openQuestions.filter(
+        (q) => q.disposition !== 'open' && q.disposition !== 'deferred',
+      ).length
       return {
         interviewType: 'Clarification queue',
         objective: 'Resolve the gaps this project actually has.',
         questionsAsked: raw.openQuestions.length,
         questionsAnswered: answered,
-        questionsDeferred: 0,
+        questionsDeferred: deferred,
       } as InterviewSession
     },
 

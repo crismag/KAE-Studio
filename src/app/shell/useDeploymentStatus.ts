@@ -27,6 +27,15 @@ export type DeploymentStatus = {
   authentication?: string
   interviewProvider?: string
   memoryUrl?: string
+  /**
+   * Whether this deployment can generate and publish packages at all.
+   *
+   * `/api/status` has reported it since the artifact routes existed and
+   * nothing read it — so the workspace told every user "the project context
+   * package can be generated" while every artifact route answered
+   * `501 artifacts_not_configured`.
+   */
+  artifactsConfigured?: boolean
 }
 
 type State =
@@ -63,6 +72,7 @@ export function useDeploymentStatus(): State {
             authentication: typeof raw.authentication === 'string' ? raw.authentication : undefined,
             interviewProvider: typeof provider.name === 'string' ? provider.name : undefined,
             memoryUrl: typeof raw.memory_url === 'string' ? raw.memory_url : undefined,
+            artifactsConfigured: raw.artifacts === 'configured',
           },
         })
       } catch {

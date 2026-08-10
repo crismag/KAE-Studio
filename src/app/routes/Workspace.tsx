@@ -45,6 +45,7 @@ import {
   useSendMessage,
 } from '@/hooks/useProject'
 import type { ConversationMessage, OpenDecision, ProjectProjection } from '@/domain/types'
+import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
 
 /* ------------------------------------------------------------- transcript */
 
@@ -301,8 +302,23 @@ function UnderstandingSection({ projection }: { projection: ProjectProjection })
  * data wrapped around invented names reads as though KAE had worked it out.
  */
 function GenerableNow({ projection }: { projection: ProjectProjection }) {
+  const deployment = useDeploymentStatus()
   const blocked = (moduleKey: string) =>
     projection.openDecisions.filter((d) => !d.deferred && d.blocks.includes(moduleKey)).length
+
+  // "Can be generated" is a claim about the deployment, not about the project.
+  // `/api/status` has reported whether KAE-Artifacts is configured since the
+  // artifact routes existed, and nothing read it — so this panel promised a
+  // package on deployments where every artifact route answers
+  // `501 artifacts_not_configured`.
+  if (deployment.state === 'ready' && deployment.status.artifactsConfigured === false) {
+    return (
+      <p className="text-[12.5px] leading-relaxed text-ink-muted">
+        Package generation is not configured on this deployment, so nothing can be generated here
+        yet. The project knowledge above is unaffected.
+      </p>
+    )
+  }
 
   if (projection.modules.length === 0) {
     return (
@@ -608,23 +624,31 @@ function ContextPanelContent({
         </PanelBody>
       </Panel>
 
-      <Panel>
-        <PanelHeader>
-          <PanelTitle>Recent changes</PanelTitle>
-        </PanelHeader>
-        <PanelBody>
-          <ul className="space-y-2.5">
-            {projection.recentChanges.map((change) => (
-              <li key={change.id} className="flex flex-col gap-0.5">
-                <span className="text-[12.5px] leading-snug text-ink-muted">{change.text}</span>
-                <time className="text-[11px] text-ink-subtle" dateTime={change.at}>
-                  {formatDateTime(change.at)}
-                </time>
-              </li>
-            ))}
-          </ul>
-        </PanelBody>
-      </Panel>
+      {/* Rendered only when there is something to render.
+          `recentChanges` is hardcoded `[]` in the live adapter — nothing in
+          Memory produces a change feed — so this panel was a permanent empty
+          heading with no explanation, which reads as "this project has changed
+          nothing". It is a capability Studio does not have, not a fact about
+          the project, and an absent panel claims less than an empty one. */}
+      {projection.recentChanges.length > 0 && (
+        <Panel>
+          <PanelHeader>
+            <PanelTitle>Recent changes</PanelTitle>
+          </PanelHeader>
+          <PanelBody>
+            <ul className="space-y-2.5">
+              {projection.recentChanges.map((change) => (
+                <li key={change.id} className="flex flex-col gap-0.5">
+                  <span className="text-[12.5px] leading-snug text-ink-muted">{change.text}</span>
+                  <time className="text-[11px] text-ink-subtle" dateTime={change.at}>
+                    {formatDateTime(change.at)}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          </PanelBody>
+        </Panel>
+      )}
 
       <Panel>
         <PanelHeader>
