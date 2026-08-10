@@ -439,3 +439,32 @@ export function usePinSource() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
   })
 }
+
+/** The files a pinned source would read. Enabled only once one is chosen. */
+export function useSourceFiles(sourceId: string | undefined) {
+  const { acquisition } = useServices()
+  return useQuery({
+    queryKey: ['source-files', sourceId],
+    queryFn: () => acquisition.listFiles(sourceId!),
+    enabled: Boolean(sourceId),
+  })
+}
+
+export function useIngestFiles() {
+  const { acquisition, projectId } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { sourceId: string; paths: string[] }) =>
+      acquisition.ingestFiles(input.sourceId, projectId, input.paths),
+    onSuccess: async () => {
+      // Extraction is asynchronous, so the projection will not have moved yet.
+      // Invalidating anyway is right: the transcript has grown, and a user who
+      // just handed KAE four files should see the page acknowledge it rather
+      // than look unchanged until they reload.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+      ])
+    },
+  })
+}

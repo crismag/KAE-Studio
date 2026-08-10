@@ -34,7 +34,9 @@ import {
   useAddSource,
   useCheckConnectivity,
   useConnections,
+  useIngestFiles,
   usePinSource,
+  useSourceFiles,
   useSources,
 } from '@/hooks/useProject'
 import type { ProjectSource, SourceState } from '@/domain/types'
@@ -153,7 +155,123 @@ function SourceRow({ source }: { source: ProjectSource }) {
           {(pin.error as { message?: string })?.message ?? 'Could not resolve this source.'}
         </p>
       )}
+
+      {source.snapshot && <IngestFiles source={source} />}
     </li>
+  )
+}
+
+/**
+ * Choose files from a pinned source and hand them to KAE-Memory.
+ *
+ * **This is where "connect it here" stops being a promise.** A user could pin a
+ * repository, see that it held 412 files, and have no way to give KAE a single
+ * one — so KAE asked them to paste the contents instead, which is GitHub issue
+ * #3.
+ *
+ * ## Why the user picks
+ *
+ * There is no "ingest everything". Ingesting a repository unasked is the bulk
+ * import the acquisition contract warns against, and choosing is how somebody
+ * tells KAE which four files actually describe their project.
+ *
+ * ## Why it does not say "analyzed" afterwards
+ *
+ * Because it is not. The files become evidence, extraction proposes candidates
+ * from their text, and a person confirms. Nothing derives structure, the
+ * standing capability notice above stays true, and the wording here is the
+ * backend's own: read and recorded, not understood.
+ */
+function IngestFiles({ source }: { source: ProjectSource }) {
+  const files = useSourceFiles(source.sourceId)
+  const ingest = useIngestFiles()
+  const [chosen, setChosen] = useState<string[]>([])
+
+  const toggle = (path: string) =>
+    setChosen((current) =>
+      current.includes(path) ? current.filter((p) => p !== path) : [...current, path],
+    )
+
+  if (files.isLoading) {
+    return <p className="mt-3 text-[12px] text-ink-subtle">Reading the file list…</p>
+  }
+  if (files.isError || !files.data) {
+    return (
+      <p className="mt-3 text-[12px] text-ink-subtle">
+        The file list could not be read. Nothing is being guessed in its place.
+      </p>
+    )
+  }
+
+  return (
+    <div className="mt-3 rounded-md border border-line bg-surface-sunken px-3 py-2.5">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
+        Give KAE these files
+      </p>
+      <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+        Chosen files are read at the pinned commit and recorded as evidence. KAE proposes what it
+        finds; nothing is confirmed until you say so.
+      </p>
+
+      <ul className="mt-2 space-y-1">
+        {files.data.files.map((file) => (
+          <li key={file.path}>
+            <label className="flex items-center gap-2 text-[12.5px] text-ink">
+              <input
+                type="checkbox"
+                checked={chosen.includes(file.path)}
+                onChange={() => toggle(file.path)}
+              />
+              <Mono className="text-[12px]">{file.path}</Mono>
+              <span className="text-[11.5px] text-ink-subtle">{bytes(file.size)}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+
+      {files.data.truncated && (
+        // Said rather than swallowed: a partial list presented as a total is
+        // what the snapshot digest exists to make impossible.
+        <p className="mt-1.5 text-[11.5px] text-ink-subtle">
+          This repository holds more files than are listed here.
+        </p>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={chosen.length === 0 || ingest.isPending}
+          onClick={() =>
+            ingest.mutate(
+              { sourceId: source.sourceId, paths: chosen },
+              { onSuccess: () => setChosen([]) },
+            )
+          }
+        >
+          {ingest.isPending ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              Reading
+            </>
+          ) : (
+            `Read ${plural(chosen.length, 'file')} into the project`
+          )}
+        </Button>
+        {ingest.isSuccess && (
+          <span className="text-[12px] text-confirmed">
+            Recorded as evidence. KAE is reading them now.
+          </span>
+        )}
+      </div>
+
+      {ingest.isError && (
+        <p role="alert" className="mt-2 text-[12px] text-blocking">
+          {(ingest.error as { message?: string })?.message ??
+            'Those files were not read. Nothing was recorded.'}
+        </p>
+      )}
+    </div>
   )
 }
 
