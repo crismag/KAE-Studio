@@ -17,6 +17,7 @@ import type {
   ConversationMessage,
   DefinitionStatement,
   Deliverable,
+  ExtractionCoverage,
   InterviewSession,
   MemoryConnection,
   Project,
@@ -46,6 +47,7 @@ import type {
   MemoryWriteResult,
   ModuleDecision,
   ProjectMemoryClient,
+  IngestionPort,
   ProjectProjectionService,
   SetupPort,
   StudioServices,
@@ -1351,6 +1353,70 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       ),
   }
 
+  /* -------------------------------------------------------------- ingestion */
+
+  interface WireIngest {
+    document: string
+    chunks?: unknown[]
+    chunks_created?: number
+    truncated_chunks?: number
+    warnings?: string[]
+  }
+  /** Named apart from the module-level `WireRun`, which is a generation run.
+   *  Declaring a second `WireRun` in this function shadowed it for the whole
+   *  scope, silently retyping the generation-run call above. */
+  interface WireAgentRun {
+    id: string
+    role: string
+    status: string
+    attempt_number: number
+    error_code: string | null
+    error_message: string | null
+    started_at: string | null
+    completed_at: string | null
+    output_summary: Record<string, unknown>
+  }
+
+  const ingestion: IngestionPort = {
+    ingestText: async (id, document) => {
+      const raw = await call<WireIngest>(`/api/projects/${resolve(id)}/documents`, {
+        method: 'POST',
+        body: JSON.stringify({ title: document.title, text: document.text }),
+      })
+      return {
+        document: raw.document ?? document.title,
+        // Memory reports the chunks it made either as a list or a count
+        // depending on the route's age. Both are read; neither is invented.
+        chunks: Array.isArray(raw.chunks) ? raw.chunks.length : (raw.chunks_created ?? 0),
+        // `?? 0` is a real zero here, not a fallback: Memory always sends this
+        // field, and a document that dropped nothing dropped nothing.
+        truncatedChunks: raw.truncated_chunks ?? 0,
+        // Verbatim. These are the sentences that say what was not read.
+        warnings: raw.warnings ?? [],
+      }
+    },
+
+    coverage: async (id) =>
+      call<ExtractionCoverage>(`/api/projects/${resolve(id)}/extraction-coverage`),
+
+    runs: async (id) => {
+      const raw = await call<WireAgentRun[]>(`/api/projects/${resolve(id)}/runs`)
+      return raw.map((run) => ({
+        id: run.id,
+        role: run.role,
+        status: run.status,
+        attemptNumber: run.attempt_number,
+        errorCode: run.error_code,
+        // Carried, never summarised. A summarised error is one a person cannot
+        // search for, and the summary is written by whoever knows least.
+        errorMessage: run.error_message,
+        startedAt: run.started_at,
+        completedAt: run.completed_at,
+        outputSummary: run.output_summary ?? {},
+      }))
+    },
+  }
+
   const acquisition: AcquisitionPort = {
     listConnections: async () => {
       const body = await callArtifacts<{ connections: WireConnection[] }>('/api/connections')
@@ -1441,5 +1507,6 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     pipeline,
     acquisition,
     setup,
+    ingestion,
   }
 }

@@ -76,6 +76,19 @@ class GenerateRequest(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=200)
 
 
+class IngestTextIn(BaseModel):
+    """A document a person pasted, with a name they will recognise later.
+
+    `title` is what provenance shows beside every statement extracted from this
+    text, so "pasted text" is a worse default than it looks — a project with
+    four of them cannot tell them apart.
+    """
+
+    title: str = Field(min_length=1, max_length=200)
+    text: str = Field(min_length=1)
+    max_chunks: int | None = None
+
+
 class ConfigureFieldIn(BaseModel):
     """One configuration field, set by a person.
 
@@ -440,6 +453,56 @@ def create_app(settings: Settings) -> FastAPI:
         """
 
         return await memory(request).delete_project(project_id)
+
+    @app.post("/api/projects/{project_id}/documents")
+    async def ingest_text(
+        project_id: str,
+        body: IngestTextIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Hand Memory a document typed or pasted by a person.
+
+        **The shortest real path into a project that is not the interview.**
+        `POST /v1/projects/{id}/documents` has been live the whole time: it
+        chunks, stores the text verbatim as evidence, and queues one extraction
+        run per chunk. Studio had no surface for it, so a person with material
+        already written down had to retype it into a conversation.
+
+        Memory's 202 body is returned **unaltered**. It carries
+        `truncated_chunks` and `warnings`, and both must reach a person — a
+        document silently cut at a chunk limit is `AUD-024`.
+        """
+
+        return await memory(request).ingest_document(
+            project_id, body.title, body.text, max_chunks=body.max_chunks
+        )
+
+    @app.get("/api/projects/{project_id}/extraction-coverage")
+    async def extraction_coverage(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """How much of what was submitted became knowledge.
+
+        Read beside readiness and never mixed into it. A project is not *less
+        ready* for having lost content — it is less **read**, and one number
+        cannot say both.
+        """
+
+        return await memory(request).extraction_coverage(project_id)
+
+    @app.get("/api/projects/{project_id}/runs")
+    async def runs(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """What KAE has actually done to this project, and how each attempt ended.
+
+        Memory's runs API is complete and was rendered by nothing (`VC-02`), so
+        ingestion showed a person a spinner and then a number, with no way to
+        tell a failed extraction from one that never ran.
+        """
+
+        return await memory(request).runs(project_id)
 
     @app.get("/api/projects/{project_id}/setup")
     async def setup_state(

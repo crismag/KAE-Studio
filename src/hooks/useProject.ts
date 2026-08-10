@@ -578,3 +578,57 @@ export function useAuthorizeMemoryConnection() {
     setup.authorizeConnection(projectId, connectionId),
   )
 }
+
+/* ---------------------------------------------------------- ingestion (ING-1) */
+
+/**
+ * Hand KAE a document.
+ *
+ * Invalidates coverage and runs but **not** the projection: the statements do
+ * not exist yet. Extraction is queued, a worker does it, and a projection
+ * refetched here would show the same numbers and read as "nothing happened".
+ */
+export function useIngestText() {
+  const { ingestion, projectId } = useServices()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (document: { title: string; text: string }) =>
+      ingestion.ingestText(projectId, document),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['runs', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['coverage', projectId] }),
+      ])
+    },
+  })
+}
+
+export function useExtractionCoverage() {
+  const { ingestion, projectId } = useServices()
+  return useQuery({
+    queryKey: ['coverage', projectId],
+    queryFn: () => ingestion.coverage(projectId),
+  })
+}
+
+/**
+ * What KAE has done, refreshed while anything is still going.
+ *
+ * Polling only while a run is unfinished. A page that polled forever would keep
+ * a browser busy describing a project nothing is happening to; one that never
+ * polled would show a person a pending run and never change it.
+ */
+export function useRuns() {
+  const { ingestion, projectId } = useServices()
+  return useQuery({
+    queryKey: ['runs', projectId],
+    queryFn: () => ingestion.runs(projectId),
+    refetchInterval: (query) => {
+      const rows = query.state.data
+      if (!rows) return false
+      const working = rows.some((run) => run.status === 'pending' || run.status === 'running')
+      return working ? 4000 : false
+    },
+  })
+}

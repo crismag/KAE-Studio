@@ -819,3 +819,43 @@ export interface SetupState {
   unknownFields: string[]
   targets: PublicationTarget[]
 }
+
+/* ---------------------------------------------------------------- ingestion */
+
+/**
+ * What handing KAE a document actually did.
+ *
+ * Memory answers `202` with the counts, and **every field here must reach a
+ * person**. A document silently cut at a chunk limit reported success and lost
+ * most of itself, which is `AUD-024`.
+ */
+export interface DocumentIngestOutcome {
+  document: string
+  /** Sections stored as evidence and queued for reading. */
+  chunks: number
+  /** Sections dropped at the limit. Zero is a fact; a missing count is not. */
+  truncatedChunks: number
+  /** Memory's own words about what it did or could not do. Never summarised. */
+  warnings: string[]
+}
+
+/**
+ * One thing KAE did, and how the attempt ended.
+ *
+ * Memory has recorded all of this since the worker existed and Studio rendered
+ * none of it, so a person starting a parse watched nothing and a failed run was
+ * indistinguishable from one that never started (`VC-02`).
+ */
+export interface AgentRunRecord {
+  id: string
+  role: string
+  status: string
+  attemptNumber: number
+  errorCode: string | null
+  /** Memory's technical detail, verbatim. Read beside the plain-words reading. */
+  errorMessage: string | null
+  startedAt: string | null
+  completedAt: string | null
+  /** What the run produced — items written, what classified it, how much was lost. */
+  outputSummary: Record<string, unknown>
+}

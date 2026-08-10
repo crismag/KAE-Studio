@@ -1,0 +1,417 @@
+/**
+ * Ingestion — the second way into a project, and the one that never had a page.
+ *
+ * The owner's sentence: **"Not all information intake are coming from an
+ * interview. There are other input sources and controls that should take part
+ * to build KAE."**
+ *
+ * `POST /v1/projects/{id}/documents` has been live in KAE-Memory the whole time.
+ * It chunks text, stores it verbatim as evidence, and queues one extraction run
+ * per chunk. Studio had no surface for it, so a person holding material already
+ * written down was asked to retype it into a conversation — which is GitHub
+ * issue #3 stated as a missing page rather than a bad answer.
+ *
+ * ## What is real here, and what is not
+ *
+ * **Paste is completely real** and rides a path that has been in production for
+ * weeks. **Repository files are real** and reached from `/sources`. **Upload is
+ * not**, and it renders as a stated gap rather than a drop zone that fails:
+ * there is no bytes path, no MIME handling and no file decode anywhere in the
+ * estate, and a control that accepted a PDF and then lost it would be exactly
+ * the illusion this product spent a week removing.
+ *
+ * ## Why the runs are on this page
+ *
+ * Because otherwise a person presses *Read this* and watches nothing. Memory
+ * records every run's status, attempt, error code and result, and no surface
+ * read any of it (`VC-02`) — so a failed extraction looked identical to one
+ * that never started. The failures are rendered in words (`VC-10`), because
+ * `unverifiable_output` tells somebody that something is wrong and nothing
+ * about whether it is theirs to fix.
+ */
+
+import { useState } from 'react'
+import { AlertTriangle, FileText, FolderGit2, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
+
+import { CapabilityNote } from '@/components/project/CapabilityNote'
+import { PageLayout } from '@/components/project/PageLayout'
+import { readFailure, readRole } from '@/components/project/runVocabulary'
+import { Field, Input, Textarea } from '@/components/ui/form'
+import {
+  Badge,
+  Button,
+  Mono,
+  Panel,
+  PanelBody,
+  PanelHeader,
+  PanelTitle,
+  Skeleton,
+} from '@/components/ui/primitives'
+import { QueryState } from '@/components/ui/QueryState'
+import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
+import { useExtractionCoverage, useIngestText, useRuns, useSources } from '@/hooks/useProject'
+import type { AgentRunRecord, DocumentIngestOutcome } from '@/domain/types'
+
+export function Ingestion() {
+  return (
+    <PageLayout
+      title="Give KAE something to read"
+      lead="Material you already have — notes, a brief, a specification, files from a connected repository — becomes proposed knowledge with provenance back to its source. Nothing here is confirmed on your behalf."
+    >
+      <div className="space-y-5">
+        <Tabs defaultValue="paste">
+          <TabList>
+            <Tab value="paste">
+              <FileText className="mr-1.5 inline size-3.5" aria-hidden="true" />
+              Paste text
+            </Tab>
+            <Tab value="sources">
+              <FolderGit2 className="mr-1.5 inline size-3.5" aria-hidden="true" />
+              From a repository
+            </Tab>
+            <Tab value="upload">
+              <Upload className="mr-1.5 inline size-3.5" aria-hidden="true" />
+              Upload a file
+            </Tab>
+          </TabList>
+
+          <TabPanel value="paste">
+            <PasteDocument />
+          </TabPanel>
+          <TabPanel value="sources">
+            <FromRepository />
+          </TabPanel>
+          <TabPanel value="upload">
+            <UploadIsNotBuilt />
+          </TabPanel>
+        </Tabs>
+
+        <Coverage />
+        <Activity />
+      </div>
+    </PageLayout>
+  )
+}
+
+function PasteDocument() {
+  const ingest = useIngestText()
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+  const error = ingest.error instanceof Error ? ingest.error.message : null
+
+  return (
+    <Panel>
+      <PanelBody className="space-y-4">
+        <div className="max-w-2xl space-y-4">
+          <Field
+            label="What is this?"
+            hint="Shown beside every statement KAE takes from it, so you can tell four pasted documents apart later."
+            required
+          >
+            {(props) => (
+              <Input
+                {...props}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Product brief, March"
+              />
+            )}
+          </Field>
+
+          <Field
+            label="The text"
+            hint="Stored exactly as written. KAE never rewrites your words — extraction proposes statements, and each one keeps a quote back to this text."
+            error={error}
+            required
+          >
+            {(props) => (
+              <Textarea
+                {...props}
+                rows={12}
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                placeholder="Paste a brief, a set of notes, a specification…"
+              />
+            )}
+          </Field>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="primary"
+              onClick={() => ingest.mutate({ title, text })}
+              disabled={!title.trim() || !text.trim() || ingest.isPending}
+            >
+              {ingest.isPending ? 'Reading…' : 'Read this'}
+            </Button>
+            <span className="text-[11.5px] text-ink-subtle">
+              {text.trim().length.toLocaleString()} characters
+            </span>
+          </div>
+        </div>
+
+        {ingest.data && <IngestResult outcome={ingest.data} />}
+      </PanelBody>
+    </Panel>
+  )
+}
+
+/**
+ * What handing over the document actually did.
+ *
+ * **Queued is not read**, and saying otherwise here would be the same
+ * substitution as a percentage that has not been recalculated. The runs below
+ * are where the reading becomes visible.
+ */
+function IngestResult({ outcome }: { outcome: DocumentIngestOutcome }) {
+  const lost = outcome.truncatedChunks > 0
+  return (
+    <div
+      className={`rounded-panel border px-3.5 py-3 ${
+        lost ? 'border-attention-line bg-attention-soft' : 'border-line bg-surface-sunken'
+      }`}
+      role={lost ? 'alert' : undefined}
+    >
+      <p className="text-[12.5px] font-medium text-ink">
+        {outcome.document} — {outcome.chunks} section{outcome.chunks === 1 ? '' : 's'} stored and
+        queued
+      </p>
+      <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+        The text is saved. Reading it happens in the background — watch the activity below, and new
+        statements appear on{' '}
+        <Link to="/reviews" className="text-accent-ink underline-offset-2 hover:underline">
+          Reviews
+        </Link>{' '}
+        for you to accept or refuse.
+      </p>
+      {lost && (
+        // `AUD-024`. A document cut at a chunk limit used to report success
+        // with most of itself unread.
+        <p className="mt-2 text-[12px] font-medium text-ink">
+          {outcome.truncatedChunks} section{outcome.truncatedChunks === 1 ? ' was' : 's were'} not
+          stored, so part of this document has not been read.
+        </p>
+      )}
+      {outcome.warnings.map((warning) => (
+        // Memory's own words. It says what it could not do more precisely than
+        // a paraphrase here would.
+        <p key={warning} className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+          {warning}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function FromRepository() {
+  const sources = useSources()
+
+  return (
+    <Panel>
+      <PanelBody>
+        <QueryState
+          query={sources}
+          of="Your connected repositories"
+          skeleton={<Skeleton className="h-24" />}
+          empty={
+            <div className="space-y-3">
+              <p className="text-[12.5px] text-ink-muted">
+                No repository is connected to this project yet.
+              </p>
+              <Button asChild>
+                <Link to="/setup">Connect one in Project setup</Link>
+              </Button>
+            </div>
+          }
+        >
+          {(rows) => (
+            <div className="space-y-3">
+              <p className="text-[12.5px] leading-relaxed text-ink-muted">
+                Choose which files KAE reads. It reads at a pinned commit, so every statement stays
+                traceable to an exact revision.
+              </p>
+              <ul className="space-y-2">
+                {rows.map((source) => (
+                  <li
+                    key={source.sourceId}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-surface-sunken px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[12.5px] font-medium text-ink">{source.location}</p>
+                      <p className="mt-0.5 text-[11.5px] text-ink-subtle">
+                        <Mono>{source.reference}</Mono>
+                      </p>
+                    </div>
+                    <Button size="sm" asChild>
+                      <Link to="/sources">Choose files</Link>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </QueryState>
+      </PanelBody>
+    </Panel>
+  )
+}
+
+/**
+ * A gap, not a drop zone.
+ *
+ * There is no bytes path, no MIME handling and no file decode anywhere in the
+ * estate. A zone that accepted a PDF and lost it would be worse than this.
+ */
+function UploadIsNotBuilt() {
+  return (
+    <Panel>
+      <PanelBody className="space-y-3">
+        <CapabilityNote
+          reason="KAE cannot read files yet. Nothing in the system decodes PDF, Word or other formats — there is no upload path at all, so a drop zone here would accept a file and lose it."
+          proved={[
+            'Pasting the text from a file works completely, and is the same path a file would take once decoding exists.',
+            'Files already in a connected repository can be read now, because they arrive as text.',
+          ]}
+        />
+        <p className="text-[12px] leading-relaxed text-ink-muted">
+          Reading files needs decoding, size and type limits, and a decision about where large
+          documents are stored — that last one is settled, and the rest is not built.
+        </p>
+      </PanelBody>
+    </Panel>
+  )
+}
+
+function Coverage() {
+  const coverage = useExtractionCoverage()
+
+  return (
+    <QueryState
+      query={coverage}
+      of="How much has been read"
+      skeleton={<Skeleton className="h-20" />}
+    >
+      {(read) => (
+        <Panel>
+          <PanelHeader>
+            <PanelTitle>How much has been read</PanelTitle>
+            {read.complete ? (
+              <Badge tone="confirmed">Nothing lost</Badge>
+            ) : (
+              <Badge tone="attention">Some content unread</Badge>
+            )}
+          </PanelHeader>
+          <PanelBody>
+            <p className="text-[12.5px] text-ink-muted">
+              {read.succeeded} section{read.succeeded === 1 ? '' : 's'} read
+              {read.abandoned > 0 && `, ${read.abandoned} abandoned after repeated failures`}.
+            </p>
+            {!read.complete && (
+              // Beside readiness, never inside it. A project that lost content
+              // is not less *ready* — it is less **read**, and one number
+              // cannot say both.
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+                Readiness is calculated over what was read. It is not lower because your project is
+                thin — it is lower because part of what you gave KAE never became statements.
+              </p>
+            )}
+          </PanelBody>
+        </Panel>
+      )}
+    </QueryState>
+  )
+}
+
+/** What KAE has actually done, and how each attempt ended. */
+function Activity() {
+  const runs = useRuns()
+
+  return (
+    <Panel>
+      <PanelHeader>
+        <PanelTitle>Activity</PanelTitle>
+        <span className="text-[11.5px] text-ink-subtle">Newest first</span>
+      </PanelHeader>
+      <PanelBody>
+        <QueryState
+          query={runs}
+          of="This project’s activity"
+          skeleton={<Skeleton className="h-32" />}
+          empty={
+            <p className="text-[12.5px] italic text-ink-subtle">
+              Nothing has run yet. KAE has not read anything for this project.
+            </p>
+          }
+        >
+          {(rows) => (
+            <ul className="space-y-2">
+              {rows.slice(0, 25).map((run) => (
+                <RunRow key={run.id} run={run} />
+              ))}
+            </ul>
+          )}
+        </QueryState>
+      </PanelBody>
+    </Panel>
+  )
+}
+
+const STATUS_TONE: Record<string, 'confirmed' | 'attention' | 'blocking' | 'pending' | 'neutral'> =
+  {
+    succeeded: 'confirmed',
+    failed: 'blocking',
+    abandoned: 'blocking',
+    running: 'pending',
+    pending: 'neutral',
+  }
+
+function RunRow({ run }: { run: AgentRunRecord }) {
+  const failure = readFailure(run.errorCode)
+  const written = run.outputSummary.items_written
+
+  return (
+    <li className="rounded-md border border-line bg-surface-sunken px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={STATUS_TONE[run.status] ?? 'neutral'}>{run.status}</Badge>
+        <p className="text-[12.5px] font-medium text-ink">{readRole(run.role)}</p>
+        {run.attemptNumber > 1 && (
+          <span className="text-[11.5px] text-ink-subtle">attempt {run.attemptNumber}</span>
+        )}
+        {typeof written === 'number' && written > 0 && (
+          <span className="text-[11.5px] text-ink-subtle">
+            · {written} statement{written === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+
+      {failure && (
+        <div className="mt-2 flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-attention" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-[12px] leading-relaxed text-ink">{failure.meaning}</p>
+            {failure.next && (
+              <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-muted">{failure.next}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* An unknown code renders as itself rather than as an invented sentence.
+          A newer Memory's new failure must read as less useful and still true. */}
+      {!failure && run.errorCode && (
+        <p className="mt-2 text-[12px] text-ink-muted">
+          Failed with <Mono>{run.errorCode}</Mono>. This deployment has no plain-words reading for
+          that yet.
+        </p>
+      )}
+
+      {run.errorMessage && (
+        // Verbatim, always, beside the reading. A summarised error is one a
+        // person cannot search for.
+        <p className="mt-1 break-words font-mono text-[11px] leading-relaxed text-ink-subtle">
+          {run.errorMessage}
+        </p>
+      )}
+    </li>
+  )
+}

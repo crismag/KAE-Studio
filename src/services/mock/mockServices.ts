@@ -33,6 +33,9 @@ import type {
   MemoryConnection,
   PublicationTarget,
   SetupState,
+  AgentRunRecord,
+  ExtractionCoverage,
+  DocumentIngestOutcome,
 } from '@/domain/types'
 import type {
   AcquisitionPort,
@@ -48,6 +51,7 @@ import type {
   MemoryWriteResult,
   ModuleDecision,
   ProjectMemoryClient,
+  IngestionPort,
   ProjectProjectionService,
   SetupPort,
   StudioServices,
@@ -599,6 +603,81 @@ class MockSetup implements SetupPort {
     const found = this.connections.find((c) => c.connectionId === connectionId)
     if (!found) return Promise.reject(new Error(`no such connection: ${connectionId}`))
     return delay({ ...found })
+  }
+}
+
+/* ----------------------------------------------------------- ingestion mock */
+
+/**
+ * A project that has read some things and lost some of one of them.
+ *
+ * The loss is deliberate. A fixture where everything succeeded would leave the
+ * surfaces that report truncation and failure unexercised — and those are the
+ * ones that matter, because the success path is the one nobody gets wrong.
+ */
+class MockIngestion implements IngestionPort {
+  private history: AgentRunRecord[] = [
+    {
+      id: 'run-1',
+      role: 'discovery',
+      status: 'succeeded',
+      attemptNumber: 1,
+      errorCode: null,
+      errorMessage: null,
+      startedAt: '2026-08-10T09:00:00Z',
+      completedAt: '2026-08-10T09:00:12Z',
+      outputSummary: { items_written: 6, model: 'global.anthropic.claude-sonnet-4-6' },
+    },
+    {
+      id: 'run-2',
+      role: 'discovery',
+      status: 'abandoned',
+      attemptNumber: 3,
+      errorCode: 'unverifiable_output',
+      errorMessage: 'quote not found in source after 3 attempts',
+      startedAt: '2026-08-10T09:00:12Z',
+      completedAt: null,
+      outputSummary: {},
+    },
+  ]
+
+  private read = { succeeded: 6, abandoned: 1, complete: false }
+
+  ingestText(
+    _projectId: string,
+    document: { title: string; text: string },
+  ): Promise<DocumentIngestOutcome> {
+    // One chunk per ~1200 characters, which is the shape rather than the rule.
+    const chunks = Math.max(1, Math.ceil(document.text.length / 1200))
+    this.history = [
+      ...Array.from({ length: chunks }, (_, index) => ({
+        id: `run-new-${index}`,
+        role: 'discovery',
+        status: 'pending',
+        attemptNumber: 1,
+        errorCode: null,
+        errorMessage: null,
+        startedAt: null,
+        completedAt: null,
+        outputSummary: {},
+      })),
+      ...this.history,
+    ]
+    this.read = { ...this.read, succeeded: this.read.succeeded + chunks }
+    return delay({
+      document: document.title,
+      chunks,
+      truncatedChunks: 0,
+      warnings: [],
+    })
+  }
+
+  coverage(): Promise<ExtractionCoverage> {
+    return delay({ ...this.read })
+  }
+
+  runs(): Promise<AgentRunRecord[]> {
+    return delay(this.history.map((run) => ({ ...run })))
   }
 }
 
@@ -1172,5 +1251,6 @@ export function createMockServices(): StudioServices {
     pipeline: new MockArtifactPipeline(),
     acquisition: new MockAcquisition(),
     setup: new MockSetup(),
+    ingestion: new MockIngestion(),
   }
 }

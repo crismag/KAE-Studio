@@ -169,6 +169,18 @@ class MemoryClient:
 
         return await self._request("GET", f"/v1/projects/{project_id}/extraction-coverage")
 
+    async def runs(self, project_id: str) -> Any:
+        """Every agent run this project has produced.
+
+        **Fully populated and rendered nowhere.** Memory records status, attempt
+        number, error code and message, the continuation checkpoint, timings and
+        what each run produced — and no Studio surface reads any of it, so a
+        person who starts a parse watches nothing and a run that failed is
+        indistinguishable from one that never started (`VC-02`).
+        """
+
+        return await self._request("GET", f"/v1/projects/{project_id}/runs")
+
     async def blockers(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}/blockers")
 

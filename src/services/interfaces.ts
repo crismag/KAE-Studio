@@ -30,6 +30,9 @@ import type {
   ConversationMessage,
   Deliverable,
   GenerationRun,
+  AgentRunRecord,
+  ExtractionCoverage,
+  DocumentIngestOutcome,
   InterviewSession,
   MemoryConnection,
   Project,
@@ -204,6 +207,28 @@ export interface SetupPort {
   ): Promise<MemoryConnection>
   /** Mark a connection granted. The authoriser is the signed-in operator. */
   authorizeConnection(projectId: string, connectionId: string): Promise<MemoryConnection>
+}
+
+/**
+ * Getting material into a project without anybody retyping it.
+ *
+ * The second intake path, and the one the product never had a surface for. The
+ * owner's sentence: *"Not all information intake are coming from an interview."*
+ *
+ * Text, not bytes. Memory parses no file formats — there is no MIME handling or
+ * decode path anywhere in the estate — so a file upload port here would be a
+ * capability nothing behind it can honour.
+ */
+export interface IngestionPort {
+  /** Hand KAE a document. Returns what it did, including what it dropped. */
+  ingestText(
+    projectId: string,
+    document: { title: string; text: string },
+  ): Promise<DocumentIngestOutcome>
+  /** How much of what was submitted became knowledge. */
+  coverage(projectId: string): Promise<ExtractionCoverage>
+  /** Every run this project has produced, newest first. */
+  runs(projectId: string): Promise<AgentRunRecord[]>
 }
 
 /** Assembles the projection the UI renders from current Memory knowledge. */
@@ -406,4 +431,5 @@ export interface StudioServices {
   pipeline: ArtifactPipeline
   acquisition: AcquisitionPort
   setup: SetupPort
+  ingestion: IngestionPort
 }

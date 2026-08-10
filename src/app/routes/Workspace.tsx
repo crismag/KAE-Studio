@@ -706,7 +706,7 @@ function ContextPanelContent({
 
 /* ---------------------------------------------------------------- composer */
 
-function Composer({
+export function Composer({
   onSend,
   pending,
   draft,
@@ -749,9 +749,20 @@ function Composer({
             className="block w-full resize-none bg-transparent px-4 pt-3 text-[14px] leading-relaxed text-ink outline-none placeholder:text-ink-subtle"
           />
           <div className="flex items-center justify-between gap-3 px-3 pb-2.5 pt-1">
-            <Button variant="ghost" size="icon" type="button" title="Attach a document">
-              <Paperclip className="size-4" aria-hidden="true" />
-              <span className="sr-only">Attach a document</span>
+            {/* Wired, at last. This button had no `onClick` for the whole life
+                of the product — the most prominent dead control in Studio, in
+                its main surface, and `AUD-022`'s remaining half.
+
+                It goes to `/ingestion` rather than opening a file picker,
+                because KAE still cannot read files: there is no bytes path or
+                decode anywhere in the estate. Sending somebody to the page that
+                *can* take their document is the honest version of this
+                affordance, and it is why the page had to exist first. */}
+            <Button variant="ghost" size="icon" asChild title="Give KAE a document to read">
+              <Link to="/ingestion">
+                <Paperclip className="size-4" aria-hidden="true" />
+                <span className="sr-only">Give KAE a document to read</span>
+              </Link>
             </Button>
             <div className="flex items-center gap-3">
               <span className="hidden items-center gap-1 text-[11px] text-ink-subtle sm:flex">
