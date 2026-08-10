@@ -36,7 +36,7 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `planning/IMPLEMENTATION_DIRECTIVE.md` | Work order and instructions for Claude |
 | `ui/UI_GENERATION_CONTEXT.md` | Governing brief for KAE-Studio's own interface |
 | `ui/WORKSPACE_VISUAL_DESIGN_PROPOSAL.md` | Workspace review and proposal for visual navigation, graphical state, themes, responsive views, and truthful content |
-| `ui/PROJECT_DEFINITION_PRODUCTION_DESIGN_PROPOSAL.md` | Production-grade Project Definition page: charter, coverage, refinement, provenance, graphical intelligence, and downstream gates |
+| `ui/PROJECT_DEFINITION_PRODUCTION_DESIGN_PROPOSAL.md` | Production-grade Project Definition page: charter, coverage, refinement, provenance, graphical intelligence, and downstream gates |\n| `ui/MODULES_PAGE_PRODUCTION_DESIGN_PROPOSAL.md` | Repository-grounded Modules page: activation, N12 contract boundary, decomposition curation, readiness portfolio, system maps, and production criteria |
 
 Note the distinction between the two UI documents: `product/UI_DEFINITION.md` covers the interface Studio **defines for the project being specified**; `ui/UI_GENERATION_CONTEXT.md` covers **Studio's own** interface.
 
