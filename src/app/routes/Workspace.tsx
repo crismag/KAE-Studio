@@ -417,6 +417,14 @@ function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
           {decision.deferred ? 'Bring back' : 'Decide later'}
         </button>
       </div>
+      {/* Deferral is a durable disposition, and this control read no error —
+          so a failed write left the row exactly as it was, which is also what
+          a successful no-op looks like (AUD-015). */}
+      {defer.isError && (
+        <p role="alert" className="mt-1.5 text-[11.5px] leading-relaxed text-blocking">
+          That was not recorded. The decision is still as it was.
+        </p>
+      )}
     </li>
   )
 }

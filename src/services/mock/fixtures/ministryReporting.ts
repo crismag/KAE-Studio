@@ -1084,6 +1084,7 @@ export const findings: ReviewFinding[] = [
     summary: 'Approval authority is undecided and blocks the Approval Workflow module.',
     detail:
       'OD-011 has been open since the first conversation. Security readiness for MOD-APR is blocked, and the authority-check interface cannot be specified until it resolves.',
+    version: 1,
     subjectIds: ['OD-011', 'MOD-APR'],
   },
   {
@@ -1093,6 +1094,7 @@ export const findings: ReviewFinding[] = [
     summary: 'A published report cannot be both immutable and correctable.',
     detail:
       'BR-APR-002 makes an approved report immutable. FR-PUB-002 requires that a published report found to be wrong can be corrected. Both are recorded as project knowledge and they cannot both hold as stated.',
+    version: 1,
     subjectIds: ['BR-APR-002', 'FR-PUB-002'],
     competingStatements: [
       {
@@ -1112,6 +1114,7 @@ export const findings: ReviewFinding[] = [
     summary: 'No module owns retention of the approval audit record.',
     detail:
       'OR-001 requires seven-year retention. MOD-AUD is proposed but not accepted, so the requirement has no owning module and no acceptance test.',
+    version: 1,
     subjectIds: ['OR-001', 'MOD-AUD'],
   },
   {
@@ -1121,6 +1124,7 @@ export const findings: ReviewFinding[] = [
     summary: 'The notification integration has no contract.',
     detail:
       'IR-APR-001 states that submitters are notified, but initiator, protocol, retry ownership, timeout, and failure behaviour are all undefined. The integration interview has not been run for this interface.',
+    version: 1,
     subjectIds: ['IR-APR-001', 'IF-NTF-01'],
   },
   {
@@ -1130,6 +1134,7 @@ export const findings: ReviewFinding[] = [
     summary: 'Four requirements have no verifying acceptance test.',
     detail:
       'SR-APR-001, IR-APR-001, QR-001, and OR-001 are recorded but nothing verifies them. A requirement with no test cannot be shown to be met.',
+    version: 1,
     subjectIds: ['SR-APR-001', 'IR-APR-001', 'QR-001', 'OR-001'],
   },
   {
@@ -1139,6 +1144,7 @@ export const findings: ReviewFinding[] = [
     summary: 'Coding agent reports the existing API accepts only one approver.',
     detail:
       'While inspecting the repository, an agent found that the current approval endpoint accepts a single approver identifier, which would not satisfy a multi-level approval if OD-012 resolves that way. Submitted as proposed knowledge; not confirmed.',
+    version: 1,
     subjectIds: ['OD-012', 'MOD-APR'],
     agentOrigin: {
       agent: 'Claude Code via KAE MCP',
@@ -1154,6 +1160,7 @@ export const findings: ReviewFinding[] = [
     summary: 'Coding agent proposes an idempotency key on the approval decision endpoint.',
     detail:
       'Agent observed that a retried approval submission would currently create a duplicate decision record. Proposed as a new requirement; awaiting confirmation.',
+    version: 1,
     subjectIds: ['MOD-APR'],
     agentOrigin: {
       agent: 'Codex via KAE MCP',

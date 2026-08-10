@@ -308,7 +308,19 @@ export interface ReviewFinding {
   severity: FindingSeverity
   summary: string
   detail: string
+  /** Display chips. Presentation only — never parse these back into data. */
   subjectIds: string[]
+  /**
+   * The knowledge version this finding was rendered from, for optimistic
+   * concurrency on reject.
+   *
+   * Carried as data because it was previously recovered by string-parsing
+   * `subjectIds` for an entry beginning with `v` — which picks the wrong
+   * number whenever a knowledge `kind` happens to start with one, and falls
+   * back to `0`, a value the route rejects outright (AUD-016). Optimistic
+   * concurrency driven by parsing a display string is not concurrency control.
+   */
+  version: number
   /** Present for agent_proposal: which agent submitted it, and from where. */
   agentOrigin?: {
     agent: string

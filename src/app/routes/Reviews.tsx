@@ -169,9 +169,7 @@ function FindingCard({ finding }: { finding: ReviewFinding }) {
                   reason: 'Rejected in review.',
                   // The version the card displayed, carried through so Memory
                   // can refuse a rejection of wording that has since changed.
-                  expectedVersion: Number(
-                    finding.subjectIds.find((s) => s.startsWith('v'))?.slice(1) ?? 0,
-                  ),
+                  expectedVersion: finding.version,
                 })
               }
               disabled={reject.isPending || confirm.isPending}
@@ -180,6 +178,22 @@ function FindingCard({ finding }: { finding: ReviewFinding }) {
               Reject
             </Button>
           </div>
+        )}
+
+        {/* A write that failed must never look like a write that did nothing.
+            Both buttons fired their mutation and read no error, so a rejected
+            confirmation left the row unchanged and silent — indistinguishable
+            from not having clicked (AUD-015). `ConfirmReading` on the
+            workspace has always done this correctly; this is the same
+            treatment. */}
+        {(confirm.isError || reject.isError) && (
+          <p role="alert" className="mt-2 text-[12px] leading-relaxed text-blocking">
+            {confirm.isError
+              ? 'That confirmation was not recorded. Nothing changed in the project.'
+              : 'That rejection was not recorded. The statement is unchanged.'}{' '}
+            The reason may be that someone else edited this statement first — reload to see where it
+            now stands.
+          </p>
         )}
       </div>
     </li>

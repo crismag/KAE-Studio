@@ -584,6 +584,7 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
           ? 'Recorded as a material unknown: the model could not determine this and did not guess.'
           : `Derived from conversation as ${KIND_LABEL[s.kind] ?? s.kind}. Proposed, not confirmed.`,
       subjectIds: [s.kind, `v${s.version}`],
+      version: s.version,
     })),
     health: {
       phase: raw.project.phase,

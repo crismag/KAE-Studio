@@ -290,6 +290,19 @@ export function ProjectSources() {
             A reference to where the credential lives — never the credential. The browser never
             holds one.
           </p>
+          {/* Only `pin` reported failure. A connection or a repository that
+              failed to save simply did not appear, which reads as a form that
+              was not submitted (AUD-015). */}
+          {addConnection.isError && (
+            <p role="alert" className="mt-1.5 text-[11.5px] text-blocking">
+              That connection was not saved. Nothing was recorded.
+            </p>
+          )}
+          {check.isError && (
+            <p role="alert" className="mt-1.5 text-[11.5px] text-blocking">
+              The access check did not complete, so nothing is known about this credential yet.
+            </p>
+          )}
         </div>
 
         {/* sources */}
@@ -365,6 +378,12 @@ export function ProjectSources() {
               Add repository
             </Button>
           </div>
+
+          {addSource.isError && (
+            <p role="alert" className="mt-1.5 text-[11.5px] text-blocking">
+              That repository was not added. Nothing was recorded against this project.
+            </p>
+          )}
 
           {verified.length === 0 && (
             <p className="mt-1.5 text-[11.5px] text-attention">
