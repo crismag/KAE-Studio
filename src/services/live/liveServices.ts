@@ -491,7 +491,14 @@ interface BackendProjection {
     mappingVersion: number
   }
   extractionCoverage?: { succeeded: number; abandoned: number; complete: boolean }
-  openQuestions: { id: string; question: string; severity: string; disposition: string }[]
+  openQuestions: {
+    id: string
+    question: string
+    severity: string
+    disposition: string
+    /** Absent on a backend that only materialises. */
+    asked?: boolean
+  }[]
   blockers: unknown[]
   contradictions: { count: number; listable: boolean; reason: string }
   preliminary: { warnings: string[]; materialUnknowns: unknown[] }
@@ -561,6 +568,10 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       blocks: [],
       suggestedOwner: 'you',
       deferred: q.disposition !== 'open',
+      // Absent on a backend older than the candidates listing, where every
+      // question in a projection had been materialised to get there — so the
+      // safe reading of a missing field is that it *was* asked.
+      asked: q.asked ?? true,
     })),
     // Every proposed statement is something a person has not yet agreed to, so
     // it belongs on the review surface. Without this the page rendered nothing

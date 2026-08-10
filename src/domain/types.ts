@@ -259,6 +259,18 @@ export interface OpenDecision {
   blocks: string[]
   suggestedOwner: string
   deferred: boolean
+  /**
+   * Whether this question has actually been put to somebody.
+   *
+   * `false` means it is a *candidate* — derived from the project's findings and
+   * shown so a person can see what is unresolved, but never asked. Answering
+   * needs a message id, which only asking produces.
+   *
+   * The distinction exists because reading a project used to ask its questions:
+   * the projection called the materialising endpoint, so every page load wrote
+   * up to twenty of them into the transcript (issue #3).
+   */
+  asked: boolean
 }
 
 export interface FailureBehaviour {

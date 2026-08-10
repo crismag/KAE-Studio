@@ -425,13 +425,22 @@ function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
       <p className="mt-1 text-[11.5px] leading-snug text-ink-subtle">{decision.whyItMatters}</p>
       <div className="mt-2 flex items-center gap-3">
         <span className="font-mono text-[10.5px] text-ink-subtle">{decision.id}</span>
-        <button
-          type="button"
-          onClick={() => defer.mutate({ decisionId: decision.id, deferred: !decision.deferred })}
-          className="text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
-        >
-          {decision.deferred ? 'Bring back' : 'Decide later'}
-        </button>
+        {/* Only for a question somebody has actually been asked.
+            Deferring needs a message id, and a candidate has none — offering
+            the control for one would either fail or ask the question in order
+            to defer it, which is the defect that put ten machine-generated
+            questions in a transcript wearing a different hat. */}
+        {decision.asked ? (
+          <button
+            type="button"
+            onClick={() => defer.mutate({ decisionId: decision.id, deferred: !decision.deferred })}
+            className="text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
+          >
+            {decision.deferred ? 'Bring back' : 'Decide later'}
+          </button>
+        ) : (
+          <span className="text-[11.5px] text-ink-subtle">Not asked yet</span>
+        )}
       </div>
       {/* Deferral is a durable disposition, and this control read no error —
           so a failed write left the row exactly as it was, which is also what

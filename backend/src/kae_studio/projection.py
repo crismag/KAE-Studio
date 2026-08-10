@@ -50,7 +50,11 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         _safe(memory.get_project(project_id)),
         _safe(memory.readiness(project_id)),
         _safe(memory.knowledge(project_id)),
-        _safe(memory.clarifications(project_id)),
+        # Candidates, not clarifications: displaying what could be asked must
+        # not ask it. This called the materialising endpoint, so every
+        # projection read — every page load — wrote up to twenty questions
+        # into the transcript (issue #3, PPA-02/03).
+        _safe(memory.clarification_candidates(project_id)),
         _safe(memory.blockers(project_id)),
         _safe(memory.preliminary_context(project_id)),
         _safe(memory.extraction_coverage(project_id)),
@@ -172,7 +176,9 @@ def _items(payload: Any) -> list[Any]:
     if isinstance(payload, list):
         return payload
     if isinstance(payload, dict):
-        for key in ("results", "items", "questions"):
+        # `candidates` for the observational clarification listing, which
+        # returns its own envelope.
+        for key in ("results", "items", "questions", "candidates"):
             value = payload.get(key)
             if isinstance(value, list):
                 return value
@@ -307,13 +313,24 @@ def _health(readiness: Any) -> dict[str, Any]:
 
 
 def _questions(payload: Any) -> list[dict[str, Any]]:
+    """Map candidates, and say which of them anybody has actually been asked.
+
+    `id` is the message id when a question was put to somebody, and the
+    deterministic candidate key when it was not. Both identify the same
+    unknown; only one of them can be answered, and a consumer that cannot tell
+    them apart would offer an answer control for a question nobody has seen.
+    """
+
     return [
         {
-            "id": q.get("clarification_id", ""),
+            "id": q.get("asked_id") or q.get("candidate_key") or q.get("clarification_id", ""),
             "question": q.get("question", ""),
             "severity": q.get("severity", ""),
             "area": q.get("area_key"),
             "disposition": q.get("disposition", "open"),
+            # False means nobody has been shown this. It is a fact about the
+            # project, not a missing field.
+            "asked": bool(q.get("asked_id")),
         }
         for q in _items(payload)
         if isinstance(q, dict)

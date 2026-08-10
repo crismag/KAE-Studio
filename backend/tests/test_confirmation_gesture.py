@@ -333,6 +333,11 @@ def test_the_disclosure_a_user_sees_matches_the_runs_behind_it() -> None:
         async def knowledge(self, project_id: str, lifecycle: Any = None) -> Any:
             return []
 
+        async def clarification_candidates(self, project_id: str, limit: int = 20) -> Any:
+            # The projection reads candidates now, not clarifications: showing
+            # what could be asked must not ask it (issue #3).
+            return {"candidates": []}
+
         async def clarifications(self, project_id: str, limit: int = 20) -> Any:
             return []
 
@@ -385,6 +390,11 @@ def test_a_memory_that_cannot_report_loss_does_not_produce_a_warning() -> None:
 
         async def knowledge(self, project_id: str, lifecycle: Any = None) -> Any:
             return []
+
+        async def clarification_candidates(self, project_id: str, limit: int = 20) -> Any:
+            # The projection reads candidates now, not clarifications: showing
+            # what could be asked must not ask it (issue #3).
+            return {"candidates": []}
 
         async def clarifications(self, project_id: str, limit: int = 20) -> Any:
             return []

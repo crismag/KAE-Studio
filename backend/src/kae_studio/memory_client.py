@@ -103,10 +103,36 @@ class MemoryClient:
         return await self._request("GET", f"/v1/projects/{project_id}/knowledge", params=params)
 
     async def clarifications(self, project_id: str, limit: int = 20) -> Any:
-        # POST, not GET: listing materialises the questions it returns, and a
-        # GET that mutates is one a prefetch performs again (ADR-0023).
+        """Ask, and materialise. **Only when a question is being put to somebody.**
+
+        POST, not GET: this creates the questions it returns, and a GET that
+        mutates is one a prefetch performs again (ADR-0023).
+
+        For *displaying* what could be asked, use `clarification_candidates`.
+        Reaching for this one to fill a panel is what put ten machine-generated
+        questions into a transcript before its second human message.
+        """
+
         return await self._request(
             "POST", f"/v1/projects/{project_id}/clarifications", params={"limit": limit}
+        )
+
+    async def clarification_candidates(self, project_id: str, limit: int = 20) -> Any:
+        """What the findings justify asking. **Writes nothing.**
+
+        The observational half of the same question, and the one a projection
+        wants. The projection was calling `clarifications`, so **every page
+        load materialised up to twenty questions into the project's
+        transcript** — which is the mechanism behind GitHub issue #3's ten
+        machine-generated messages arriving before the user's second sentence.
+
+        A candidate carries `candidate_key` always and `asked_id` only once
+        somebody has actually been shown it, so a consumer can tell "this could
+        be asked" from "this was asked" without causing the second.
+        """
+
+        return await self._request(
+            "GET", f"/v1/projects/{project_id}/clarifications/candidates", params={"limit": limit}
         )
 
     async def extraction_coverage(self, project_id: str) -> Any:

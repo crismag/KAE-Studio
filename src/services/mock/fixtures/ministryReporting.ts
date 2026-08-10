@@ -618,6 +618,7 @@ export const openDecisions: OpenDecision[] = [
     blocks: ['MOD-APR', 'SR-APR-001'],
     suggestedOwner: 'Church leadership',
     deferred: false,
+    asked: true,
   },
   {
     id: 'OD-012',
@@ -627,6 +628,7 @@ export const openDecisions: OpenDecision[] = [
     blocks: ['MOD-APR'],
     suggestedOwner: 'Church leadership',
     deferred: false,
+    asked: true,
   },
   {
     id: 'OD-013',
@@ -636,6 +638,7 @@ export const openDecisions: OpenDecision[] = [
     blocks: ['MOD-PUB', 'FR-PUB-002'],
     suggestedOwner: 'Administrator',
     deferred: false,
+    asked: true,
   },
   {
     id: 'OD-014',
@@ -644,6 +647,7 @@ export const openDecisions: OpenDecision[] = [
     blocks: ['MOD-APR'],
     suggestedOwner: 'Church leadership',
     deferred: true,
+    asked: true,
   },
 ]
 
