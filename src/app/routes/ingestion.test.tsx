@@ -277,3 +277,33 @@ describe('the composer’s attach button', () => {
     expect(attach).toHaveAttribute('href', '/ingestion')
   })
 })
+
+describe('the failure a person actually meets', () => {
+  it('reads retry_budget_exhausted, because it is the terminal one', async () => {
+    // Found by deploying: the live project had one of these against a single
+    // unverifiable_output, and the first version of the vocabulary had no
+    // reading for it. `abandon()` sets it when the budget is spent, so it is
+    // the code on the run a person sees stopped.
+    renderIngestion((services) =>
+      withIngestion(services, {
+        runs: async () => [
+          {
+            id: 'r1',
+            role: 'discovery',
+            status: 'abandoned',
+            attemptNumber: 3,
+            errorCode: 'retry_budget_exhausted',
+            errorMessage: 'quote not found in source',
+            startedAt: null,
+            completedAt: null,
+            outputSummary: {},
+          },
+        ],
+      }),
+    )
+
+    expect(await screen.findByText(/tried three times and stopped/i)).toBeInTheDocument()
+    // And the reassurance that matters: a failure did not corrupt the project.
+    expect(screen.getByText(/nothing incorrect was recorded either/i)).toBeInTheDocument()
+  })
+})

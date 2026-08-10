@@ -33,6 +33,23 @@ export interface RunFailure {
 }
 
 export const RUN_FAILURES: Record<string, RunFailure> = {
+  /**
+   * The terminal one, and **the one this map was missing**.
+   *
+   * `AgentRun.abandon` sets it when the retry budget is spent, so it is the
+   * code a person actually meets — the underlying reason is on the *earlier*
+   * attempts and this is where the work stopped. It was absent from the first
+   * version of this file, and the deployed project had one of these against a
+   * single `unverifiable_output`: the most common failure had no reading.
+   *
+   * `reason` carries what actually went wrong, which is why the technical
+   * message beside this matters more here than anywhere else.
+   */
+  retry_budget_exhausted: {
+    meaning: 'KAE tried three times and stopped. This section was not read.',
+    retry: 'needs-a-change',
+    next: 'The attempts above say why each one failed. Nothing was recorded from this section, and nothing incorrect was recorded either.',
+  },
   provider_unavailable: {
     meaning: 'The language model could not be reached.',
     retry: 'worth-retrying',
