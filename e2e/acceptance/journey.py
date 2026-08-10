@@ -118,6 +118,27 @@ def wait_for_candidates(project: str, at_least: int, seconds: int = 90) -> list[
     return projection(project)["proposed"]
 
 
+def wait_for_readiness(project: str, above: int, seconds: int = 300) -> dict:
+    """Poll until the number moves, or say plainly that it did not.
+
+    Review is a model call over every statement the project holds, so this
+    waits in minutes rather than seconds. Returning the last projection rather
+    than raising keeps the failure legible: the caller asserts, and the printed
+    state above it says what was actually observed.
+    """
+
+    started = time.time()
+    latest = projection(project)
+    while time.time() - started < seconds:
+        latest = projection(project)
+        if latest["health"]["percentage"] > above:
+            print(f"  → readiness moved after {int(time.time() - started)}s")
+            return latest
+        time.sleep(10)
+    print(f"  → readiness still {latest['health']['percentage']}% after {seconds}s")
+    return latest
+
+
 def show(label: str, statements: list[dict]) -> None:
     print(f"  {label} ({len(statements)}):")
     for s in statements[:8]:
@@ -204,8 +225,48 @@ def lifecycle() -> None:
         after["health"]["percentage"] >= before["health"]["percentage"],
         "readiness did not go backwards when knowledge was confirmed",
     )
+    # Deliberately `>=` and not `>`. Confirming alone cannot move the number —
+    # only classification puts a statement in an area — and asserting movement
+    # here would have been asserting something the product does not do. Step 5
+    # is where movement is claimed, and it is claimed after the thing that
+    # causes it.
 
-    print("\n-- 5. does a later turn use it")
+    print("\n-- 5. the classification the number depends on")
+    # `AUD-041`. Readiness counts statements per discovery area, and a
+    # statement reaches an area only when a review run classifies it. Nothing
+    # in the product asked for one, so the assertion below — the journey's own
+    # third step, "readiness recalculates" — could not have held on any project
+    # ever driven through Studio. Cris Test 2 held five extraction runs, no
+    # review runs, and 0%.
+    queued = call(f"/api/projects/{project}/classify", {})
+    assert isinstance(queued, dict)
+    if queued.get("status") == "already_current":
+        print("  → already classified at this revision")
+        classified = after
+    else:
+        print(f"  → review queued: {queued.get('run_id')}")
+        classified = wait_for_readiness(project, above=after["health"]["percentage"])
+        print(f"  readiness={classified['health']['percentage']}%")
+
+    must(
+        classified["health"]["percentage"] > 0,
+        "classification moved readiness off zero",
+    )
+    engine = (classified.get("classification") or {}).get("engine")
+    print(f"  classified by: {engine}")
+    must(
+        engine is not None,
+        "the projection says which engine classified, rather than only a number",
+    )
+    # The word has to be earned. A fixture reviewer reported `reviewed_by_model`
+    # until `AUD-039`, so a run against recorded payloads published a claim
+    # about a model beside a number capped by the offline ceiling.
+    must(
+        engine != "unknown",
+        "a deployment that cannot say how it classified is not a deployment to trust a number from",
+    )
+
+    print("\n-- 6. does a later turn use it")
     move = say(project, "Remind me what we have settled so far.")
     settled = target["text"].lower()[:40]
     print(f"\n  Mentions the confirmed statement: {settled[:30]!r} in reply → "
