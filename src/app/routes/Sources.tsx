@@ -23,10 +23,19 @@
  *
  * ## Four states, not three
  *
- * Loading · empty · **inaccessible** · error. `ConnectionState` already
- * distinguishes `refused` from `unreachable`, and collapsing them loses the
- * only thing a person can act on: a refused credential is theirs to fix, and an
- * unreachable host is not.
+ * Loading · empty · **inaccessible** · error. The fourth is the one usually
+ * missed: a source that exists and cannot be reached right now is neither an
+ * empty list nor a failed page load, and rendering it as either loses what a
+ * person can do about it. Here it is `lastError` on the source, shown on the
+ * source rather than over the page.
+ *
+ * ## The two vocabularies, kept apart
+ *
+ * `SourceState` is `configured · readable · pinned · analyzed`, and `analyzed`
+ * **is not reachable** — it is declared so `pinned` cannot quietly stand in for
+ * it. `refused` and `unreachable` belong to `ConnectionState` and describe a
+ * *credential*, not a source. Rendering them here would be a state map with two
+ * branches nothing can ever produce.
  */
 
 import { useState } from 'react'
@@ -49,7 +58,7 @@ import {
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
 import { useIngestFiles, useSampleFile, useSourceFiles, useSources } from '@/hooks/useProject'
-import type { ProjectSource } from '@/domain/types'
+import type { ProjectSource, SourceState } from '@/domain/types'
 
 export function Sources() {
   const sources = useSources()
@@ -104,10 +113,10 @@ export function Sources() {
  * constraint the original component was built around and is kept here.
  */
 const STATE: Record<
-  string,
+  SourceState,
   {
     label: string
-    tone: 'neutral' | 'accent' | 'confirmed' | 'attention' | 'blocking'
+    tone: 'neutral' | 'accent' | 'confirmed' | 'attention'
     means: string
   }
 > = {
@@ -118,15 +127,13 @@ const STATE: Record<
     means: 'The credential reached it. No content has been read.',
   },
   pinned: { label: 'Pinned', tone: 'confirmed', means: 'Fixed to one commit. Reads happen there.' },
-  unreachable: {
-    label: 'Unreachable',
-    tone: 'attention',
-    means: 'The host did not answer. Not something you can fix here.',
-  },
-  refused: {
-    label: 'Refused',
-    tone: 'blocking',
-    means: 'The credential was rejected. This one is yours to fix.',
+  // Unreachable by design, and rendered anyway. `analyzed` exists so that
+  // `pinned` cannot silently become the finish line, and a map that omitted it
+  // would fall through to a bare state name the first time anything set it.
+  analyzed: {
+    label: 'Analyzed',
+    tone: 'confirmed',
+    means: 'Read into findings. Nothing can set this yet.',
   },
 }
 
@@ -147,11 +154,11 @@ function SourceList({
       </PanelHeader>
       <PanelBody className="space-y-1.5">
         {sources.map((source) => {
-          const state = STATE[source.state] ?? {
-            label: source.state,
-            tone: 'neutral' as const,
-            means: '',
-          }
+          const state = STATE[source.state]
+          // The fourth state. A source that exists and could not be reached is
+          // neither absent nor a failed page — and the reason is the only part
+          // a person can act on.
+          const inaccessible = Boolean(source.lastError)
           const active = source.sourceId === selectedId
           return (
             <button
@@ -167,14 +174,17 @@ function SourceList({
             >
               <p className="truncate text-[12.5px] font-medium text-ink">{source.location}</p>
               <p className="mt-1 flex items-center gap-1.5">
-                <Badge tone={state.tone}>{state.label}</Badge>
+                <Badge tone={inaccessible ? 'attention' : state.tone}>
+                  {inaccessible ? 'Unreachable' : state.label}
+                </Badge>
                 <Mono>{source.reference}</Mono>
               </p>
-              {/* The sentence, not just the word. "Refused" and "Unreachable"
-                  call for opposite responses and look alike at a glance. */}
-              {state.means && (
-                <p className="mt-1 text-[11px] leading-snug text-ink-subtle">{state.means}</p>
-              )}
+              {/* The sentence, not just the word. A badge reading "Pinned" and
+                  one reading "Unreachable" call for opposite responses and are
+                  the same shape at a glance. */}
+              <p className="mt-1 text-[11px] leading-snug text-ink-subtle">
+                {inaccessible ? source.lastError : state.means}
+              </p>
             </button>
           )
         })}

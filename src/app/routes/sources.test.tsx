@@ -229,17 +229,26 @@ describe('the page never calls connecting analysis', () => {
     expect(screen.queryByText(/connected/i)).not.toBeInTheDocument()
   })
 
-  it('tells a refused credential apart from an unreachable host', async () => {
-    // Four states, not three. One of these is the person's to fix and the
-    // other is not, and they look alike at a glance.
+  it('renders a source that cannot be reached as its own state', async () => {
+    // The fourth state, and the one usually missed. A source that exists and
+    // could not be reached is neither an empty list nor a failed page load.
+    //
+    // `refused` and `unreachable` are `ConnectionState` values and describe a
+    // *credential*; putting them in a source's state map would have been two
+    // branches nothing can ever produce.
     renderSources((services) =>
-      withAcquisition(services, {
-        listSources: async () => [{ ...PINNED, state: 'refused' as const, snapshot: null }],
+      withPinnedSource(services, {
+        listSources: async () => [
+          { ...PINNED, lastError: '404: the repository was not found at this revision' },
+        ],
       }),
     )
 
-    expect(await screen.findByText('Refused')).toBeInTheDocument()
-    expect(screen.getByText(/This one is yours to fix/i)).toBeInTheDocument()
+    expect(await screen.findByText('Unreachable')).toBeInTheDocument()
+    // The reason, on the source. It is the only part a person can act on.
+    expect(
+      screen.getAllByText(/the repository was not found at this revision/i).length,
+    ).toBeGreaterThan(0)
   })
 })
 
