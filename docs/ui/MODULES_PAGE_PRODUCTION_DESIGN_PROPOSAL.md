@@ -42,7 +42,72 @@ It does not explain whether zero means:
 
 There is no readiness criterion, trigger, acquisition action, decomposition action, empty-state explanation, revision, provenance, or useful graphic. The counters therefore describe absence without helping the user advance.
 
-## 3. When the page is available
+## 3. Repository-grounded role and current capability boundary
+
+The repository makes the intended role much more precise than the live empty page.
+
+### 3.1 What is already designed in the frontend
+
+`src/app/routes/Modules.tsx` is not an empty placeholder. It already prototypes:
+
+- proposed, accepted, and rejected module lifecycle presentation;
+- module identity, purpose, and “Why this boundary” rationale;
+- accept, rename, split, merge, reject, restore, and undo controls;
+- per-dimension readiness;
+- counts for requirements, dependencies, interfaces, open decisions, and blocking dependencies;
+- an expandable canonical module specification containing responsibilities, non-responsibilities, inputs, outputs, requirements, interfaces, data, dependencies, failure behavior, acceptance criteria, open decisions, and an implementation-readiness conclusion.
+
+The mock service records these curation actions as decisions and conservatively keeps linked content during a split. This demonstrates the intended UX, but it is not evidence that live persistence semantics exist.
+
+### 3.2 What the live backend deliberately does
+
+The live backend currently returns:
+
+```json
+{
+  "available": false,
+  "gap": {
+    "capability": "modules",
+    "reachable_by": "MCP",
+    "reason": "Studio curation is a separate contract, still to be reconciled (N12)."
+  },
+  "results": []
+}
+```
+
+This is intentional. Repository comments state that KAE-Memory exposes modules over MCP for a coding agent implementing one module, while Studio's human curation workflow is a different act. Returning an ordinary empty array would falsely claim that the project was inspected and has no modules.
+
+The live client also refuses every module decision with `CapabilityUnavailable`. Therefore, the current zero counters on the deployed page are a rendering defect: they flatten “capability unavailable” into “0 accepted / 0 proposed.”
+
+### 3.3 What the page is for
+
+The repository establishes two related consumers:
+
+| Consumer | Purpose | Required access |
+| --- | --- | --- |
+| Coding agent through MCP | Retrieve a bounded module graph/context for implementation | Module-scoped read, traversal, readiness, context assembly |
+| Human through Studio | Propose, understand, curate, approve, and revalidate decomposition | Revision-pinned projection plus versioned decision commands |
+
+The Modules page is specifically the **human decomposition and implementation-readiness control surface**. It must not become merely a visual copy of the MCP response, and the MCP-only agent contract is insufficient for its write semantics.
+
+### 3.4 Production prerequisite: resolve N12
+
+Before the production page may display live module cards or enable curation, N12 must define and verify:
+
+- revision-pinned module projection over Studio's trusted server path;
+- stable module identity and lifecycle;
+- module relationships and traversal;
+- Memory-owned per-dimension readiness;
+- provenance and decomposition rationale;
+- optimistic-concurrency/version guards;
+- accept, reject, rename, add, defer, split, and merge commands;
+- complete split/merge mapping semantics;
+- invariant findings and affected-entity/change-impact results;
+- authorization, tenancy, idempotency, and audit behavior.
+
+Until then, the correct production behavior is a capability-gap state that names N12 and explains that module information may exist for agents without yet being safely curatable in Studio.
+
+## 4. When the page is available
 
 The route should always be navigable. Its **mode** changes with project state.
 
