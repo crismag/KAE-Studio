@@ -48,6 +48,16 @@ function RecordProvenance({ knowledgeId, status }: { knowledgeId: string; status
       <dd className="text-ink-muted">
         {status === 'confirmed' ? 'confirmed by a person' : status}
       </dd>
+      {data.produced_by && (
+        <>
+          <dt className="text-ink-subtle">Produced by</dt>
+          <dd className="text-ink-muted">
+            {data.produced_by === 'deterministic-fixture'
+              ? 'the offline fixture — sentences split on punctuation, not a model reading'
+              : data.produced_by}
+          </dd>
+        </>
+      )}
       <dt className="text-ink-subtle">Derived from</dt>
       <dd className="text-ink-muted">
         {data.source_message_ids?.length

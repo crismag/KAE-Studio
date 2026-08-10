@@ -101,6 +101,14 @@ export interface KnowledgeTrace {
   lifecycle: string
   source_message_ids?: string[]
   produced_by_run_id?: string | null
+  /**
+   * The engine the producing run recorded — a model identifier, or
+   * `deterministic-fixture` when the offline adapter produced it.
+   *
+   * Absent on a Memory older than the disclosure, which is different from
+   * `null`: absent means nobody can say, `null` means the run recorded none.
+   */
+  produced_by?: string | null
 }
 
 export type ModuleDecision =
