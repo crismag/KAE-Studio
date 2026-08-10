@@ -114,6 +114,10 @@ describe('GeneratePackage', () => {
     await screen.findByText(/validated and publishable/i)
 
     await user.selectOptions(await screen.findByLabelText(/destination/i), 'github')
+    // Naming the repository is now part of choosing GitHub. It used to be a
+    // hardcoded empty string behind a button reading "create pull request"
+    // (AUD-019), so these tests could reach a preview without saying where.
+    await user.type(await screen.findByLabelText(/repository/i), 'crismag/kae-artifacts-proof')
     await user.click(screen.getByRole('button', { name: /see what would change/i }))
 
     // Not only the badge. "Approve" against a list of filenames is agreement to
@@ -129,6 +133,10 @@ describe('GeneratePackage', () => {
     await screen.findByText(/validated and publishable/i)
 
     await user.selectOptions(await screen.findByLabelText(/destination/i), 'github')
+    // Naming the repository is now part of choosing GitHub. It used to be a
+    // hardcoded empty string behind a button reading "create pull request"
+    // (AUD-019), so these tests could reach a preview without saying where.
+    await user.type(await screen.findByLabelText(/repository/i), 'crismag/kae-artifacts-proof')
     await user.click(screen.getByRole('button', { name: /see what would change/i }))
 
     expect(await screen.findByText(/stops being valid and nothing is written/i)).toBeInTheDocument()
@@ -159,6 +167,10 @@ describe('GeneratePackage', () => {
     await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
     await screen.findByText(/validated and publishable/i)
     await user.selectOptions(await screen.findByLabelText(/destination/i), 'github')
+    // Naming the repository is now part of choosing GitHub. It used to be a
+    // hardcoded empty string behind a button reading "create pull request"
+    // (AUD-019), so these tests could reach a preview without saying where.
+    await user.type(await screen.findByLabelText(/repository/i), 'crismag/kae-artifacts-proof')
     await user.click(screen.getByRole('button', { name: /see what would change/i }))
     await user.click(await screen.findByRole('button', { name: /approve these/i }))
 
@@ -197,5 +209,36 @@ describe('GeneratePackage', () => {
     // indistinguishable from a destination that does not exist.
     const s3 = within(select).getByRole('option', { name: /s3 — no S3 connection configured/i })
     expect(s3).toBeDisabled()
+  })
+})
+
+describe('a destination has to be named', () => {
+  it('will not preview a repository nobody has named', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await proposePlan(user, 'minimal-agent-context')
+    await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+    await screen.findByText(/validated and publishable/i)
+    await user.selectOptions(await screen.findByLabelText(/destination/i), 'github')
+
+    // AUD-019. `target` and `targetPath` were hardcoded empty strings, and the
+    // approval button still read "Approve & create pull request" — a pull
+    // request against nothing, offered as though it were configured.
+    expect(screen.getByRole('button', { name: /see what would change/i })).toBeDisabled()
+    expect(await screen.findByText(/name the repository/i)).toBeInTheDocument()
+  })
+
+  it('needs no target for a download, which writes nowhere', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await proposePlan(user, 'minimal-agent-context')
+    await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+    await screen.findByText(/validated and publishable/i)
+
+    // The distinction that keeps the requirement honest: it is about writing to
+    // somewhere somebody owns, not about ceremony before every action.
+    expect(screen.getByRole('button', { name: /see what would change/i })).toBeEnabled()
   })
 })

@@ -19,6 +19,7 @@
  */
 
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
   Check,
@@ -30,6 +31,8 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react'
+import { useServices } from '@/hooks/useServices'
+import { readHandle, writeHandle } from './pipelineHandle'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/plural'
 import {
@@ -49,6 +52,7 @@ import {
   useEditArtifactPlan,
   useGenerateArtifacts,
   usePreviewPublication,
+  usePublicationStatus,
   usePublishPackage,
   useValidatePackage,
 } from '@/hooks/useProject'
@@ -208,7 +212,32 @@ function PlanRow({
 
 /* --------------------------------------------------------------- the flow */
 
+/**
+ * Read back a publication this tab started and then lost.
+ *
+ * Only the publication: a plan or a preview that never reached approval is
+ * cheap to redo and confusing to resurrect, while a publication may already
+ * have opened a pull request — which is the one thing a user must not be left
+ * unaware of after a refresh (AUD-017).
+ */
+function useResumedPublication(
+  projectId: string,
+  current: ArtifactPublication | null,
+): ArtifactPublication | undefined {
+  const { pipeline } = useServices()
+  const stored = readHandle(projectId).publicationId
+
+  const { data } = useQuery({
+    queryKey: ['artifact-publication', stored],
+    queryFn: () => pipeline.getPublication(stored!),
+    enabled: Boolean(stored) && !current,
+  })
+
+  return data
+}
+
 export function GeneratePackage() {
+  const { projectId } = useServices()
   const profiles = useArtifactProfiles()
   const publishers = useArtifactPublishers()
   const createPlan = useCreateArtifactPlan()
@@ -222,21 +251,44 @@ export function GeneratePackage() {
   const [plan, setPlan] = useState<ArtifactPlan | null>(null)
   const [run, setRun] = useState<GenerationRun | null>(null)
   const [destinationType, setDestinationType] = useState<ArtifactDestination['type']>('download')
+  // `target` and `targetPath` were hardcoded empty strings behind a button that
+  // read "Approve & create pull request", with no input for either anywhere in
+  // the UI (AUD-019). A destination nobody can name is not a destination.
+  const [target, setTarget] = useState('')
+  const [targetPath, setTargetPath] = useState('')
   const [proposed, setProposed] = useState<ArtifactPreview | null>(null)
   const [approval, setApproval] = useState<ArtifactApproval | null>(null)
   const [published, setPublished] = useState<ArtifactPublication | null>(null)
 
   const validation = useValidatePackage(run?.packageId)
+  // The 202 is a receipt, not an outcome. `published` holds what the POST
+  // returned; this holds what the publication has since become (AUD-018).
+  // Recover work in flight after a refresh. The identifiers are the only thing
+  // the tab held that nothing else did; the state behind them is read back from
+  // KAE-Artifacts, which owns it (AUD-017).
+  const resumed = useResumedPublication(projectId, published)
+  const settling = usePublicationStatus(published ?? resumed ?? null)
+  const outcome = settling.data ?? published ?? resumed
   const available = publishers.data ?? []
   const chosenProfile = profile || profiles.data?.[0]?.id || ''
 
   const destination: ArtifactDestination = {
     type: destinationType,
     mode: destinationType === 'github' ? 'pull_request' : 'object_write',
-    target: '',
-    targetPath: '',
+    target: target.trim(),
+    targetPath: targetPath.trim(),
     baseBranch: destinationType === 'github' ? 'main' : '',
   }
+
+  /**
+   * Download writes nothing anybody has to name; the other two do.
+   *
+   * Checked here rather than left to a refusal from KAE-Artifacts, because a
+   * user who has clicked Approve has already committed to something by then —
+   * and the refusal would name a field the form never offered.
+   */
+  const destinationNeedsATarget = destinationType !== 'download'
+  const destinationIsNamed = !destinationNeedsATarget || destination.target.length > 0
 
   /**
    * Anything that changes the package invalidates what came after it.
@@ -510,10 +562,38 @@ export function GeneratePackage() {
                   </option>
                 ))}
               </select>
+              {/* Named, not assumed. Both fields were hardcoded empty and the
+                  button still said "create pull request" (AUD-019). */}
+              {destinationNeedsATarget && (
+                <>
+                  <input
+                    value={target}
+                    onChange={(event) => {
+                      setTarget(event.target.value)
+                      resetDownstream()
+                    }}
+                    placeholder={destinationType === 'github' ? 'owner/repo' : 'bucket'}
+                    aria-label={destinationType === 'github' ? 'Repository' : 'Bucket'}
+                    className="w-52 rounded border border-line bg-surface px-2 py-1.5 text-[12.5px] text-ink"
+                  />
+                  <input
+                    value={targetPath}
+                    onChange={(event) => {
+                      setTargetPath(event.target.value)
+                      resetDownstream()
+                    }}
+                    placeholder={
+                      destinationType === 'github' ? 'docs/ (optional)' : 'prefix/ (optional)'
+                    }
+                    aria-label="Path"
+                    className="w-52 rounded border border-line bg-surface px-2 py-1.5 text-[12.5px] text-ink"
+                  />
+                </>
+              )}
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={preview.isPending}
+                disabled={preview.isPending || !destinationIsNamed}
                 onClick={() =>
                   preview.mutate(
                     { packageId: run.packageId, destination },
@@ -522,6 +602,10 @@ export function GeneratePackage() {
                         setProposed(result)
                         setApproval(null)
                         setPublished(null)
+                        writeHandle(projectId, {
+                          packageId: result.packageId,
+                          previewId: result.previewId,
+                        })
                       },
                     },
                   )
@@ -536,6 +620,12 @@ export function GeneratePackage() {
                   'See what would change'
                 )}
               </Button>
+              {destinationNeedsATarget && !destinationIsNamed && (
+                <p className="w-full text-[11.5px] text-ink-subtle">
+                  Name the {destinationType === 'github' ? 'repository' : 'bucket'} to preview what
+                  would be written there.
+                </p>
+              )}
             </div>
             {preview.isError && (
               <div className="mt-2">
@@ -608,7 +698,14 @@ export function GeneratePackage() {
                   size="sm"
                   variant="primary"
                   disabled={approve.isPending}
-                  onClick={() => approve.mutate(proposed.previewId, { onSuccess: setApproval })}
+                  onClick={() =>
+                    approve.mutate(proposed.previewId, {
+                      onSuccess: (result) => {
+                        setApproval(result)
+                        writeHandle(projectId, { approvalId: result.approvalId })
+                      },
+                    })
+                  }
                 >
                   {approve.isPending ? (
                     <>
@@ -641,7 +738,12 @@ export function GeneratePackage() {
                         approvalId: approval.approvalId,
                         idempotencyKey: idempotencyKey('pub'),
                       },
-                      { onSuccess: setPublished },
+                      {
+                        onSuccess: (result) => {
+                          setPublished(result)
+                          writeHandle(projectId, { publicationId: result.publicationId })
+                        },
+                      },
                     )
                   }
                 >
@@ -672,33 +774,44 @@ export function GeneratePackage() {
         )}
 
         {/* the result */}
-        {published && (
+        {outcome && (
           <div
             className={cn(
               'rounded-panel border px-4 py-3',
-              published.status === 'succeeded'
+              outcome.status === 'succeeded'
                 ? 'border-confirmed-line bg-confirmed-soft/30'
-                : 'border-attention-line bg-attention-soft/40',
+                : outcome.status === 'failed'
+                  ? 'border-blocking-line bg-blocking-soft/30'
+                  : 'border-line bg-surface-sunken',
             )}
           >
+            {/* Three outcomes, not two. `accepted` and `running` mean the
+                publication is in flight, and rendering either as "Not
+                published" invites a retry of something still happening. */}
             <p className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
-              {published.status === 'succeeded' ? (
+              {outcome.status === 'succeeded' ? (
                 <Check className="size-3.5 text-confirmed" aria-hidden="true" />
+              ) : outcome.status === 'failed' ? (
+                <CircleDashed className="size-3.5 text-blocking" aria-hidden="true" />
               ) : (
-                <CircleDashed className="size-3.5 text-attention" aria-hidden="true" />
+                <Loader2 className="size-3.5 animate-spin text-ink-muted" aria-hidden="true" />
               )}
-              {published.status === 'succeeded' ? 'Published' : 'Not published'}
+              {outcome.status === 'succeeded'
+                ? 'Published'
+                : outcome.status === 'failed'
+                  ? 'Not published'
+                  : 'Publishing — waiting for this to finish'}
             </p>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{published.detail}</p>
-            {published.externalReference && (
+            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{outcome.detail}</p>
+            {outcome.externalReference && (
               <p className="mt-1.5 text-[12px]">
                 <span className="text-ink-subtle">Reference </span>
-                <Mono>{published.externalReference}</Mono>
+                <Mono>{outcome.externalReference}</Mono>
               </p>
             )}
-            {published.reviewUrl && (
+            {outcome.reviewUrl && (
               <a
-                href={published.reviewUrl}
+                href={outcome.reviewUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-1.5 inline-block text-[12.5px] text-accent underline"

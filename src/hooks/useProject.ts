@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServices } from '@/hooks/useServices'
 import type { ArtifactPlanEdit, ModuleDecision, PublishInput } from '@/services/interfaces'
-import type { ArtifactDestination } from '@/domain/types'
+import type { ArtifactPublication, ArtifactDestination } from '@/domain/types'
 
 /**
  * The mock fixture's project id.
@@ -336,6 +336,38 @@ export function usePublishPackage() {
   return useMutation({
     mutationFn: (input: PublishInput) => pipeline.publish(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliverables', projectId] }),
+  })
+}
+
+/**
+ * A publication's authoritative status, polled until it stops moving.
+ *
+ * `POST /api/artifact-publications` returns **202 Accepted**. The UI treated
+ * that first response as terminal and rendered anything other than `succeeded`
+ * as "Not published" — so an in-flight publication appeared under a warning
+ * icon as a failure, and a user would reasonably retry a publication that was
+ * still running (AUD-018).
+ *
+ * Wrong in the safe direction, and still wrong. `accepted` and `running` are
+ * the two states that mean *ask again*.
+ */
+const TERMINAL = new Set(['succeeded', 'failed'])
+
+export function usePublicationStatus(publication: ArtifactPublication | null) {
+  const { pipeline } = useServices()
+  const id = publication?.publicationId
+  const settled = publication ? TERMINAL.has(publication.status) : true
+
+  return useQuery({
+    queryKey: ['artifact-publication', id],
+    queryFn: () => pipeline.getPublication(id!),
+    // Only while there is something to wait for. A settled publication is
+    // re-read by nothing, and an absent one starts nothing.
+    enabled: Boolean(id) && !settled,
+    refetchInterval: (query) => {
+      const status = (query.state.data as ArtifactPublication | undefined)?.status
+      return status && TERMINAL.has(status) ? false : 1500
+    },
   })
 }
 
