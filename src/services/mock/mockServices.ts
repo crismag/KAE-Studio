@@ -40,6 +40,7 @@ import type {
 import type {
   AcquisitionPort,
   FileExcerpt,
+  RepositoryListing,
   IngestOutcome,
   SourceFileListing,
   ArtifactContent,
@@ -1088,6 +1089,42 @@ class MockAcquisition implements AcquisitionPort {
   private connections: ProviderConnection[] = []
   private sources: ProjectSource[] = []
   private counter = 0
+
+  availableRepositories(query = ''): Promise<RepositoryListing> {
+    // A plausible set for the prototype, filtered the way the live one is.
+    // Fixture content, and it stays in the mock layer where it belongs.
+    const all = [
+      {
+        fullName: 'ministry/reporting-platform',
+        defaultBranch: 'main',
+        private: true,
+        description: 'Monthly reporting and approval workflow',
+        updatedAt: '2026-08-10T09:00:00Z',
+      },
+      {
+        fullName: 'ministry/reporting-docs',
+        defaultBranch: 'main',
+        private: false,
+        description: '',
+        updatedAt: '2026-08-04T11:20:00Z',
+      },
+      {
+        fullName: 'ministry/identity-service',
+        defaultBranch: 'develop',
+        private: true,
+        description: 'Shared sign-in',
+        updatedAt: '2026-07-29T16:02:00Z',
+      },
+    ]
+    const needle = query.trim().toLowerCase()
+    return delay({
+      repositories: needle
+        ? all.filter((repo) => repo.fullName.toLowerCase().includes(needle))
+        : all,
+      truncated: false,
+      unavailableReason: '',
+    })
+  }
 
   listConnections(): Promise<ProviderConnection[]> {
     return delay(this.connections.map((c) => ({ ...c })))

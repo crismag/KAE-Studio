@@ -29,6 +29,7 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
   return {
     ...base,
     acquisition: {
+      availableRepositories: (q) => port.availableRepositories(q),
       listConnections: () => port.listConnections(),
       addConnection: (input) => port.addConnection(input),
       checkConnectivity: (id, location) => port.checkConnectivity(id, location),

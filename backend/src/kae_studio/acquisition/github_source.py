@@ -121,6 +121,55 @@ class GitHubSourceClient:
             "private": bool(body.get("private", False)),
         }
 
+    def repositories(self, query: str = "", limit: int = 100) -> tuple[list[dict[str, Any]], bool]:
+        """Repositories this credential can reach, newest activity first.
+
+        **The listing that makes selection possible.** Without it a person has to
+        type `owner/name` from memory into a free-text field and find out whether
+        they were right by watching a connectivity check fail — which is
+        configuration wearing the costume of a form.
+
+        A fine-grained token scoped to selected repositories returns exactly
+        those; a classic `repo` token returns everything the account can reach.
+        Either way the answer is *what this credential can actually see*, which
+        is the only honest basis for a picker.
+
+        Filtered here rather than through GitHub's search API: search needs a
+        different scope, ranks by relevance rather than by what the credential
+        can reach, and would make an empty result ambiguous between "no match"
+        and "not visible to this token".
+
+        `truncated` says the credential reaches more than one page. Reported
+        rather than swallowed — a partial list presented as complete is how
+        somebody concludes their repository is inaccessible when it is on page
+        two.
+        """
+
+        body = self._get(
+            "/user/repos",
+            params={"per_page": min(limit, 100), "sort": "updated", "affiliation": "owner,collaborator,organization_member"},
+        )
+        if not isinstance(body, list):  # pragma: no cover - GitHub returns a list
+            return [], False
+
+        needle = query.strip().lower()
+        found = [
+            {
+                "full_name": str(entry.get("full_name", "")),
+                "default_branch": str(entry.get("default_branch", "main")),
+                "private": bool(entry.get("private", False)),
+                # What a person recognises a repository by, when four are named
+                # similarly. Never invented: absent stays empty.
+                "description": str(entry.get("description") or ""),
+                "updated_at": str(entry.get("updated_at", "")),
+            }
+            for entry in body
+            if isinstance(entry, dict) and entry.get("full_name")
+        ]
+        if needle:
+            found = [r for r in found if needle in r["full_name"].lower()]
+        return found[:limit], len(body) >= min(limit, 100)
+
     # -- pinning -----------------------------------------------------------
 
     def resolve(self, repo: str, reference: str) -> str:

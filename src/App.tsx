@@ -13,6 +13,7 @@ import { ProjectDefinition } from '@/app/routes/ProjectDefinition'
 import { ProjectSetup } from '@/app/routes/ProjectSetup'
 import { Ingestion } from '@/app/routes/Ingestion'
 import { Sources } from '@/app/routes/Sources'
+import { ProjectSettings } from '@/app/routes/ProjectSettings'
 import { Modules } from '@/app/routes/Modules'
 import { Requirements } from '@/app/routes/Requirements'
 import { Architecture } from '@/app/routes/Architecture'
@@ -32,6 +33,7 @@ const router = createHashRouter([
       { index: true, element: <Navigate to="/workspace" replace />, errorElement: <RouteError /> },
       { path: 'workspace', element: <Workspace />, errorElement: <RouteError /> },
       { path: 'setup', element: <ProjectSetup />, errorElement: <RouteError /> },
+      { path: 'settings/project', element: <ProjectSettings />, errorElement: <RouteError /> },
       { path: 'sources', element: <Sources />, errorElement: <RouteError /> },
       { path: 'ingestion', element: <Ingestion />, errorElement: <RouteError /> },
       { path: 'definition', element: <ProjectDefinition />, errorElement: <RouteError /> },

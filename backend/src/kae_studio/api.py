@@ -1366,6 +1366,33 @@ def create_app(settings: Settings) -> FastAPI:
             "proves": "this credential can read file content at this revision.",
         }
 
+    @app.get("/api/github/repositories")
+    async def github_repositories(
+        request: Request, q: str = "", _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Repositories this deployment's credential can reach.
+
+        **The listing that makes selection possible.** Without it, choosing a
+        repository means typing `owner/name` from memory into a free-text field
+        and discovering whether you were right by watching a check fail — which
+        is configuration wearing the costume of a form. `§6` of the UX package:
+        *workflow pages select configured resources.*
+
+        Never raises for a missing credential. `unavailable_reason` carries the
+        sentence instead, because a picker with no options and no explanation is
+        the one state a person cannot act on.
+        """
+
+        found, truncated, reason = await run_in_threadpool(
+            acquisition(request).repositories, q
+        )
+        return {
+            "repositories": found,
+            "truncated": truncated,
+            "unavailable_reason": reason,
+            "proves": "this credential can see these repositories. Nothing has been read.",
+        }
+
     @app.get("/api/sources/{source_id}/files")
     async def source_files(
         source_id: str,

@@ -328,6 +328,19 @@ export interface ArtifactPipeline {
  * capability that does not exist.
  */
 export interface AcquisitionPort {
+  /**
+   * Repositories this deployment's credential can reach.
+   *
+   * **What makes selection possible.** `§6`: workflow pages select configured
+   * resources. Without a listing, "select a repository" is a free-text field
+   * and a failed check.
+   *
+   * Never rejects for a missing credential — `unavailableReason` carries the
+   * sentence, because a picker with no options and no explanation is the state
+   * a person cannot act on.
+   */
+  availableRepositories(query?: string): Promise<RepositoryListing>
+
   listConnections(): Promise<ProviderConnection[]>
   addConnection(input: {
     provider: string
@@ -377,6 +390,21 @@ export interface AcquisitionPort {
    * KAE what matters.
    */
   ingestFiles(sourceId: string, projectId: string, paths: string[]): Promise<IngestOutcome>
+}
+
+/** What a credential can see, and why it can see nothing when it cannot. */
+export interface RepositoryListing {
+  repositories: {
+    fullName: string
+    defaultBranch: string
+    private: boolean
+    description: string
+    updatedAt: string
+  }[]
+  /** The credential reaches more than one page. Said, never swallowed. */
+  truncated: boolean
+  /** Empty when the listing worked. A sentence when it did not. */
+  unavailableReason: string
 }
 
 /** A file's first two thousand characters, and what reading it proved. */

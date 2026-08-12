@@ -45,6 +45,33 @@ class AcquisitionService:
         self._connections: dict[str, Connection] = {}
         self._sources: dict[str, Source] = {}
 
+    # -- selection ---------------------------------------------------------
+
+    def repositories(self, query: str = "") -> tuple[list[dict[str, object]], bool, str]:
+        """What this deployment's credential can actually reach.
+
+        Returns `(repositories, truncated, unavailable_reason)`. The third is
+        empty when the listing worked, and **a sentence rather than an
+        exception** when it did not: a picker with no options and no explanation
+        is the state a person cannot act on, and the two reasons — no credential
+        configured, or a credential that GitHub refused — have opposite
+        remedies.
+        """
+
+        if self._github is None:
+            return (
+                [],
+                False,
+                "No GitHub credential is configured for this deployment, so no "
+                "repository can be listed. Set STUDIO_GITHUB_SOURCE_TOKEN on the "
+                "host and restart Studio.",
+            )
+        try:
+            found, truncated = self._github.repositories(query)
+        except SourceReadError as error:
+            return [], False, str(error)
+        return list(found), truncated, ""
+
     # -- connections -------------------------------------------------------
 
     def add_connection(self, provider: str, label: str, connection_ref: str) -> Connection:

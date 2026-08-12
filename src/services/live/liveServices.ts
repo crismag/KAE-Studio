@@ -1419,6 +1419,33 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
   }
 
   const acquisition: AcquisitionPort = {
+    availableRepositories: async (query) => {
+      const body = await callArtifacts<{
+        repositories: {
+          full_name: string
+          default_branch: string
+          private: boolean
+          description: string
+          updated_at: string
+        }[]
+        truncated: boolean
+        unavailable_reason: string
+      }>(`/api/github/repositories${query ? `?q=${encodeURIComponent(query)}` : ''}`)
+      return {
+        repositories: (body.repositories ?? []).map((repo) => ({
+          fullName: repo.full_name,
+          defaultBranch: repo.default_branch,
+          private: repo.private,
+          description: repo.description,
+          updatedAt: repo.updated_at,
+        })),
+        truncated: body.truncated,
+        // Carried, never turned into an empty list. The two reasons a listing
+        // is empty have opposite remedies.
+        unavailableReason: body.unavailable_reason ?? '',
+      }
+    },
+
     listConnections: async () => {
       const body = await callArtifacts<{ connections: WireConnection[] }>('/api/connections')
       return body.connections.map(connection)

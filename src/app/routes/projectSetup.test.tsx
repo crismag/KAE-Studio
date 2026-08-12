@@ -68,7 +68,11 @@ describe('the project can be configured through the product', () => {
 
     // The six of `KNOWN_FIELDS`. A seventh would be a control whose save always
     // fails, which is the shape of half this audit's findings.
-    expect(await screen.findByLabelText(/source repository/i)).toBeInTheDocument()
+    //
+    // `primary_repository` is not among them any more: it is a picker, because
+    // `§6` says a workflow page selects a configured resource rather than
+    // asking somebody to type its name from memory.
+    expect(await screen.findByLabelText(/filter repositories/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/branch/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/what kind of project/i)).toBeInTheDocument()
@@ -78,7 +82,10 @@ describe('the project can be configured through the product', () => {
   it('shows what is already configured rather than an empty form', async () => {
     renderSetup()
 
-    expect(await screen.findByDisplayValue('ministry/reporting-platform')).toBeInTheDocument()
+    // The configured repository is marked in the list rather than typed into a
+    // box, so "what is set" and "what is available" are one reading.
+    const chosen = await screen.findByRole('option', { name: /ministry\/reporting-platform/ })
+    expect(chosen).toHaveAttribute('aria-selected', 'true')
   })
 
   it('saves a changed field', async () => {
@@ -151,49 +158,6 @@ describe('setup reports state, not a score', () => {
     expect(screen.getByText(/a repository is named\. nothing has been read/i)).toBeInTheDocument()
     // Nothing on the page claims verification, because nothing has proved it.
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
-  })
-})
-
-describe('credentials never enter the product', () => {
-  it('asks for a reference and says so', async () => {
-    renderSetup()
-
-    expect(await screen.findByLabelText(/add a connection/i)).toBeInTheDocument()
-    expect(
-      screen.getByText(/the name of the environment variable holding the token, not the token/i),
-    ).toBeInTheDocument()
-  })
-
-  it('sends the reference the person typed, unchanged', async () => {
-    const user = userEvent.setup()
-    const sent: string[] = []
-    renderSetup((services) =>
-      withSetup(services, {
-        recordConnection: async (projectId, input) => {
-          sent.push(input.credentialReference)
-          return services.setup.recordConnection(projectId, input)
-        },
-      }),
-    )
-
-    await user.click(await screen.findByRole('button', { name: /^add$/i }))
-
-    expect(sent).toEqual(['env:KAE_GITHUB_TOKEN'])
-  })
-
-  it('surfaces a refused credential rather than swallowing it', async () => {
-    const user = userEvent.setup()
-    renderSetup((services) =>
-      withSetup(services, {
-        recordConnection: async () => {
-          throw new Error('a credential reference must not look like a credential')
-        },
-      }),
-    )
-
-    await user.click(await screen.findByRole('button', { name: /^add$/i }))
-
-    expect(await screen.findByText(/must not look like a credential/i)).toBeInTheDocument()
   })
 })
 

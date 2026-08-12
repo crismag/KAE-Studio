@@ -648,3 +648,20 @@ export function useRuns() {
     },
   })
 }
+
+/**
+ * Repositories this deployment's credential can reach.
+ *
+ * Not per project — the credential is deployment-wide today, so the answer is
+ * the same for every project here. Keyed accordingly, which also means the list
+ * is fetched once and shared by every surface that offers a picker.
+ */
+export function useAvailableRepositories(query?: string) {
+  const { acquisition } = useServices()
+  return useQuery({
+    queryKey: ['github-repositories', query ?? ''],
+    queryFn: () => acquisition.availableRepositories(query),
+    // The set changes when somebody creates a repository, not between renders.
+    staleTime: 60_000,
+  })
+}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
+  Settings2,
   FileInput,
   FolderGit2,
   SlidersHorizontal,
@@ -52,6 +53,7 @@ const NAV: NavItem[] = [
   { to: '/plan', label: 'Plan', icon: LayoutGrid },
   { to: '/deliverables', label: 'Deliverables', icon: FileOutput },
   { to: '/reviews', label: 'Reviews', icon: ScanSearch },
+  { to: '/settings/project', label: 'Project Settings', icon: Settings2, system: true },
   { to: '/memory', label: 'Memory', icon: Database, system: true },
 ]
 

@@ -35,9 +35,11 @@
  */
 
 import { useState } from 'react'
-import { Check, CircleDashed, Github, Lock, Plus, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Check, CircleDashed, ShieldCheck } from 'lucide-react'
 
 import { CapabilityNote } from '@/components/project/CapabilityNote'
+import { RepositoryPicker } from '@/components/project/RepositoryPicker'
 import { PageLayout } from '@/components/project/PageLayout'
 import { Field, FieldSet, Input, Select } from '@/components/ui/form'
 import {
@@ -52,10 +54,8 @@ import {
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
 import {
-  useAuthorizeMemoryConnection,
   useConfigureField,
   useMemoryConnections,
-  useRecordMemoryConnection,
   useRegisterTarget,
   useSetDefaultTarget,
   useSetup,
@@ -78,13 +78,6 @@ const FIELDS: {
   mono?: boolean
   options?: string[]
 }[] = [
-  {
-    name: 'primary_repository',
-    label: 'Source repository',
-    hint: 'Where this project’s code and documents live. KAE reads from here; it never writes here unless you set it as a destination below.',
-    placeholder: 'owner/repository',
-    mono: true,
-  },
   {
     name: 'primary_branch',
     label: 'Branch',
@@ -136,8 +129,8 @@ export function ProjectSetup() {
           <div className="space-y-5">
             <SetupSummary state={state} connections={connections.data ?? []} />
             <Configuration state={state} />
-            <Connections />
             <Destinations state={state} />
+            <ConnectionsMoved />
           </div>
         )}
       </QueryState>
@@ -236,6 +229,33 @@ function StateRow({
   )
 }
 
+/**
+ * Where the connection panels went, and why the page does not just drop them.
+ *
+ * `§6`: workflow selects, Settings configures. Removing them silently would
+ * leave a person who used them yesterday with no idea where they are — so the
+ * page says, once, and links.
+ */
+function ConnectionsMoved() {
+  return (
+    <Panel>
+      <PanelHeader>
+        <PanelTitle>Connections</PanelTitle>
+      </PanelHeader>
+      <PanelBody className="space-y-3">
+        <p className="text-[12.5px] leading-relaxed text-ink-muted">
+          Adding and granting a GitHub connection now lives in Project settings. This page selects
+          what is already configured; configuring it is a different kind of decision and belongs
+          somewhere it can be found deliberately.
+        </p>
+        <Button asChild variant="secondary">
+          <Link to="/settings/project">Manage connections</Link>
+        </Button>
+      </PanelBody>
+    </Panel>
+  )
+}
+
 /** The six configurable fields, each saved on blur. */
 function Configuration({ state }: { state: SetupState }) {
   return (
@@ -245,7 +265,15 @@ function Configuration({ state }: { state: SetupState }) {
       </PanelHeader>
       <PanelBody>
         <FieldSet
-          legend="Source and shape"
+          legend="Source repository"
+          description="Chosen from what KAE can actually reach, not typed from memory. Selecting one records where KAE reads from; it reads nothing until you ask it to."
+          className="mb-6 max-w-xl"
+        >
+          <SourceRepository state={state} />
+        </FieldSet>
+
+        <FieldSet
+          legend="Shape"
           description="Saved as you go. Every value records who set it and when, so a reader can tell a decision from a guess."
           className="max-w-xl"
         >
@@ -255,6 +283,41 @@ function Configuration({ state }: { state: SetupState }) {
         </FieldSet>
       </PanelBody>
     </Panel>
+  )
+}
+
+/**
+ * Repository selection, and the branch that comes with it.
+ *
+ * Selecting a repository also sets the branch to that repository's own default,
+ * because asking for both is asking a person to know something GitHub already
+ * told us. They can change it afterwards — `§5`: do not ask for what KAE can
+ * infer; show it for confirmation.
+ */
+function SourceRepository({ state }: { state: SetupState }) {
+  const configure = useConfigureField()
+  const current = state.configuration.primary_repository?.value ?? ''
+  const branch = state.configuration.primary_branch?.value ?? ''
+
+  return (
+    <div className="space-y-3">
+      <RepositoryPicker
+        value={current}
+        onSelect={(repo) => {
+          configure.mutate({ field: 'primary_repository', value: repo.fullName })
+          // Only when the branch is unset. Overwriting a branch somebody chose
+          // would make selecting a repository quietly undo a decision.
+          if (!branch) {
+            configure.mutate({ field: 'primary_branch', value: repo.defaultBranch })
+          }
+        }}
+      />
+      {configure.error instanceof Error && (
+        <p role="alert" className="text-[11.5px] text-blocking">
+          {configure.error.message}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -327,122 +390,6 @@ function ConfigField({
 }
 
 /** Credentials as references, and the check that earns the word *granted*. */
-function Connections() {
-  const connections = useMemoryConnections()
-  const record = useMemoryConnectionForm()
-
-  return (
-    <Panel>
-      <PanelHeader>
-        <PanelTitle>What KAE may reach</PanelTitle>
-        <Badge tone="neutral">
-          <Lock className="mr-1 size-3" aria-hidden="true" />
-          References only
-        </Badge>
-      </PanelHeader>
-      <PanelBody className="space-y-4">
-        <p className="text-[12px] leading-relaxed text-ink-muted">
-          A connection records <em>where</em> a credential lives — an environment variable name —
-          never the credential. Pasting a token here is refused rather than stored.
-        </p>
-
-        <QueryState
-          query={connections}
-          of="This project’s connections"
-          skeleton={<Skeleton className="h-16" />}
-          empty={
-            <p className="text-[12.5px] italic text-ink-subtle">
-              Nothing connected yet. KAE can read nothing outside this conversation.
-            </p>
-          }
-        >
-          {(rows) => (
-            <ul className="space-y-2">
-              {rows.map((connection) => (
-                <ConnectionRow key={connection.connectionId} connection={connection} />
-              ))}
-            </ul>
-          )}
-        </QueryState>
-
-        {record}
-      </PanelBody>
-    </Panel>
-  )
-}
-
-function ConnectionRow({ connection }: { connection: MemoryConnection }) {
-  const authorize = useAuthorizeMemoryConnection()
-  const granted = connection.state === 'granted'
-  const error = authorize.error instanceof Error ? authorize.error.message : null
-
-  return (
-    <li className="rounded-md border border-line bg-surface-sunken px-3 py-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[12.5px] font-medium text-ink">
-            <Github className="size-3.5 text-ink-subtle" aria-hidden="true" />
-            {connection.provider}
-            <Badge tone={granted ? 'confirmed' : 'attention'}>
-              {granted ? 'Granted' : 'Not granted'}
-            </Badge>
-          </p>
-          <p className="mt-1 text-[11.5px] text-ink-subtle">
-            <Mono>{connection.credentialReference ?? 'no reference'}</Mono>
-            {connection.authorizedBy && ` · granted by ${connection.authorizedBy}`}
-          </p>
-        </div>
-        {!granted && (
-          <Button
-            size="sm"
-            onClick={() => authorize.mutate(connection.connectionId)}
-            disabled={authorize.isPending}
-          >
-            {authorize.isPending ? 'Checking…' : 'Grant access'}
-          </Button>
-        )}
-      </div>
-      {error && <p className="mt-2 text-[11.5px] text-blocking">{error}</p>}
-    </li>
-  )
-}
-
-function useMemoryConnectionForm() {
-  const record = useRecordMemoryConnection()
-  const [reference, setReference] = useState('env:KAE_GITHUB_TOKEN')
-  const error = record.error instanceof Error ? record.error.message : null
-
-  return (
-    <div className="border-t border-line pt-4">
-      <Field
-        label="Add a connection"
-        hint="The name of the environment variable holding the token, not the token."
-        error={error}
-      >
-        {(props) => (
-          <div className="flex gap-2">
-            <Input
-              {...props}
-              mono
-              value={reference}
-              onChange={(event) => setReference(event.target.value)}
-              placeholder="env:KAE_GITHUB_TOKEN"
-            />
-            <Button
-              onClick={() => record.mutate({ credentialReference: reference })}
-              disabled={record.isPending || !reference.trim()}
-            >
-              <Plus className="size-3.5" aria-hidden="true" />
-              Add
-            </Button>
-          </div>
-        )}
-      </Field>
-    </div>
-  )
-}
-
-/** Where outputs go — the field that had nowhere durable to live. */
 function Destinations({ state }: { state: SetupState }) {
   const register = useRegisterTarget()
   const setDefault = useSetDefaultTarget()
