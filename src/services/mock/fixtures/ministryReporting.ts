@@ -11,6 +11,7 @@
 
 import type {
   AcceptanceTest,
+  ArchitectureGraph,
   ConversationMessage,
   Deliverable,
   InterviewSession,
@@ -1556,4 +1557,79 @@ export const preliminary: PreliminaryContext = {
     },
   ],
   warnings: [],
+}
+
+/* ---------------------------------------------------------- architecture */
+
+/**
+ * The architecture as KAE-Memory would hold it (`D-19`).
+ *
+ * Four modules and the edges between them — key, name, summary, status, and
+ * nothing else, because that is what Memory stores. The prototype's richer
+ * `modules` fixture stays where it is and keeps feeding the curation view,
+ * which is a different capability and still unbuilt.
+ */
+export const architecture: ArchitectureGraph = {
+  available: true,
+  reason: '',
+  modules: [
+    {
+      key: 'identity',
+      name: 'Identity and roles',
+      summary: 'Who a person is, and which church or region they act for.',
+      status: 'confirmed',
+    },
+    {
+      key: 'reporting',
+      name: 'Report submission',
+      summary: 'Composing, saving and submitting a monthly report.',
+      status: 'confirmed',
+    },
+    {
+      key: 'approval',
+      name: 'Approval workflow',
+      summary: 'Regional sign-off between submission and publication.',
+      status: 'proposed',
+    },
+    {
+      key: 'publication',
+      name: 'Publication',
+      summary: 'Releasing an approved report to the national board.',
+      status: 'proposed',
+    },
+  ],
+  edges: [
+    {
+      source: 'reporting',
+      relation: 'depends_on',
+      targetModule: 'identity',
+      targetKnowledge: null,
+    },
+    {
+      source: 'approval',
+      relation: 'depends_on',
+      targetModule: 'reporting',
+      targetKnowledge: null,
+    },
+    { source: 'approval', relation: 'depends_on', targetModule: 'identity', targetKnowledge: null },
+    {
+      source: 'publication',
+      relation: 'depends_on',
+      targetModule: 'approval',
+      targetKnowledge: null,
+    },
+    // An edge to a statement rather than a module. Both kinds arrive in one
+    // list and a surface has to render them differently — a module a reader
+    // can open, a statement they cannot.
+    {
+      source: 'approval',
+      relation: 'satisfies',
+      targetModule: null,
+      targetKnowledge: 'BR-APR-002',
+    },
+  ],
+  buildOrder: ['identity', 'reporting', 'approval', 'publication'],
+  note:
+    'Build order follows depends_on only. A module with no dependencies may still ' +
+    'need knowledge that is not yet confirmed.',
 }

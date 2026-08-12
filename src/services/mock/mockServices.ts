@@ -417,6 +417,7 @@ class MockProjectProjectionService implements ProjectProjectionService {
       modulesGap: null,
       contradictions: { count: 0, listable: true, reason: '' },
       preliminary: fixture.preliminary,
+      architecture: fixture.architecture,
       // The fixture project is one a model reviewed. A prototype that showed
       // "never classified" on every screen would train the eye to ignore the
       // one signal that means a project's number is not real.

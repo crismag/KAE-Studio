@@ -1489,17 +1489,40 @@ def create_app(settings: Settings) -> FastAPI:
         return {"error": {"code": "analysis_not_implemented", **ANALYSIS_UNAVAILABLE}}
 
     @app.get("/api/projects/{project_id}/modules")
-    async def modules(
-        project_id: str, _: Operator = Depends(require_operator)
-    ) -> Any:
-        """Reports a capability gap rather than an empty list.
+    async def modules(project_id: str, _: Operator = Depends(require_operator)) -> Any:
+        """Every module, every edge, and the order they can be built in.
 
-        Modules are MCP-only by decision, not by omission. An empty array here
-        would be indistinguishable from a project with no modules, and the UI
-        would render "no modules yet" about a capability that was never asked.
+        This returned a hardcoded capability gap — *"modules are MCP-only by
+        decision, not by omission"* — which was accurate and is no longer.
+        KAE-Memory had no module route at all; `D-19` added the reads, and an
+        agent connected over MCP could see a project's architecture while its
+        owner could not.
+
+        The gap that remains is **curation**: proposing a module or drawing an
+        edge is still a write path Studio has no contract for, and nothing here
+        simulates one.
         """
 
-        return {"available": False, "gap": asdict(MODULE_GAP), "results": []}
+        graph = await client.module_graph(project_id)
+        return {
+            "available": True,
+            "gap": asdict(MODULE_GAP),
+            "graph": graph,
+        }
+
+    @app.get("/api/projects/{project_id}/modules/{key}")
+    async def module_neighbourhood(
+        project_id: str, key: str, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """One module, and what it touches in both directions.
+
+        The *"dig deeper for module-level information"* half. Dependencies and
+        dependents arrive together because they answer opposite questions a
+        reader needs at the same moment: what must exist before I build this,
+        and what breaks if I change it.
+        """
+
+        return await client.module_neighbourhood(project_id, key)
 
     # -- error translation -------------------------------------------------
 

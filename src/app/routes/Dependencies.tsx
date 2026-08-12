@@ -1,9 +1,33 @@
+/**
+ * What must be built before what — from KAE-Memory's own graph (`D-19`).
+ *
+ * This page has rendered an empty state on every deployment since it was
+ * written, and the reason it gave was true: *"KAE-Memory exposes the module
+ * graph over MCP only."* An agent could read a project's architecture and the
+ * person who owns the project could not. The routes now exist and this reads
+ * them.
+ *
+ * ## What it stopped claiming
+ *
+ * The previous version was built on Studio's `ProjectModule`, which carries
+ * blocking dependencies with reasons, interface directions and protocols, and
+ * failure behaviour. **KAE-Memory holds none of that.** It holds a key, a name,
+ * a summary, a status, and typed edges between them.
+ *
+ * So the blocking-dependency warning, the interface list and the dependency
+ * rationales are gone rather than filled from a thinner source. Every one of
+ * them would have had to be invented per module, and a page that invents the
+ * reason a dependency blocks is worse than a page that never mentions
+ * blocking — a reader can work around silence and cannot work around a
+ * confident wrong sentence.
+ */
+
 import { useState } from 'react'
-import { ArrowRight, TriangleAlert } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/plural'
 import { PageLayout } from '@/components/project/PageLayout'
-import { StatusBadge } from '@/components/project/statusVocabulary'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
 import {
   Badge,
   Mono,
@@ -15,42 +39,11 @@ import {
   EmptyState,
 } from '@/components/ui/primitives'
 import { useProjection } from '@/hooks/useProject'
-import type { ProjectModule } from '@/domain/types'
-
-/**
- * Dependency relationships are rendered as a layered list rather than a
- * free-form graph. Build order is the question this screen answers, and a
- * layered reading answers it more legibly than an arbitrary node layout.
- */
-function computeLayers(modules: ProjectModule[]): ProjectModule[][] {
-  const byId = new Map(modules.map((m) => [m.id, m]))
-  const layers: ProjectModule[][] = []
-  const placed = new Set<string>()
-
-  let guard = 0
-  while (placed.size < modules.length && guard < 12) {
-    guard += 1
-    const layer = modules.filter(
-      (m) =>
-        !placed.has(m.id) &&
-        m.dependencies.every((d) => !byId.has(d.moduleId) || placed.has(d.moduleId)),
-    )
-    if (layer.length === 0) break // a cycle would land here
-    layer.forEach((m) => placed.add(m.id))
-    layers.push(layer)
-  }
-
-  const unplaced = modules.filter((m) => !placed.has(m.id))
-  if (unplaced.length > 0) layers.push(unplaced)
-  return layers
-}
+import { layersFrom } from './buildOrderLayers'
 
 export function Dependencies() {
   const { data: projection, isLoading } = useProjection()
-  // Empty, not 'MOD-APR'. That was a fixture module key; it selected nothing on
-  // a real project and fell through to `modules[0]`, which is what this now
-  // says outright.
-  const [selectedId, setSelectedId] = useState<string>('')
+  const [selectedKey, setSelectedKey] = useState<string>('')
 
   if (isLoading || !projection) {
     return (
@@ -60,51 +53,60 @@ export function Dependencies() {
     )
   }
 
-  // A project can genuinely have no modules — a young one has not been
-  // decomposed yet, and this deployment does not expose them over HTTP at all.
-  // Falling through to `modules[0]` crashed the route on both.
-  if (projection.modules.length === 0) {
+  const graph = projection.architecture
+
+  // Could not be read. Distinct from a project with no modules, and the
+  // distinction is the whole point of the capability — one is a fact about the
+  // project and the other is a fact about this deployment.
+  if (!graph.available) {
     return (
       <PageLayout title="Dependencies">
-        <EmptyState title="No module graph for this project">
-          Dependencies are drawn between modules, and this project has none that Studio can see.
-          KAE-Memory exposes the module graph over MCP only — its consumer is a coding agent
-          implementing one module, and Studio's curation flow is a separate contract that has not
-          been reconciled yet. Nothing is missing from the project; this view has nothing to draw.
+        <CapabilityNote
+          reason={`The module graph could not be read. ${graph.reason || 'KAE-Memory did not answer.'}`}
+        />
+      </PageLayout>
+    )
+  }
+
+  if (graph.modules.length === 0) {
+    return (
+      <PageLayout title="Dependencies">
+        <EmptyState title="This project has no modules yet">
+          Dependencies are drawn between modules, and nothing has proposed one. Modules are proposed
+          while a project is decomposed — through KAE-Memory directly today, because Studio has no
+          curation contract for defining one.
         </EmptyState>
       </PageLayout>
     )
   }
 
-  const layers = computeLayers(projection.modules)
-  const selected = projection.modules.find((m) => m.id === selectedId) ?? projection.modules[0]
-  const dependents = projection.modules.filter((m) =>
-    m.dependencies.some((d) => d.moduleId === selected.id),
+  const layers = layersFrom(graph)
+  const selected = graph.modules.find((module) => module.key === selectedKey) ?? graph.modules[0]
+
+  const dependsOn = graph.edges.filter(
+    (edge) => edge.source === selected.key && edge.relation === 'depends_on' && edge.targetModule,
   )
-  const blockingCount = projection.modules.reduce(
-    (n, m) => n + m.dependencies.filter((d) => d.blocking).length,
-    0,
+  const dependents = graph.edges.filter(
+    (edge) => edge.targetModule === selected.key && edge.relation === 'depends_on',
   )
-  // Named from the graph, not from the prototype. The warning below used to
-  // assert that "Approval Workflow has a blocking dependency on Identity and
-  // Access" for every project, including ones with neither module.
-  const blockedNames = projection.modules
-    .filter((m) => m.dependencies.some((d) => d.blocking))
-    .map((m) => m.name)
+  const statements = graph.edges.filter(
+    (edge) => edge.source === selected.key && edge.targetKnowledge,
+  )
+  const other = graph.edges.filter(
+    (edge) => edge.source === selected.key && edge.relation !== 'depends_on' && edge.targetModule,
+  )
+
+  const named = (key: string) => graph.modules.find((module) => module.key === key)?.name ?? key
+  const countDependencies = (key: string) =>
+    graph.edges.filter(
+      (edge) => edge.source === key && edge.relation === 'depends_on' && edge.targetModule,
+    ).length
 
   return (
     <PageLayout
       title="Dependencies"
       wide
-      lead="What depends on what, and therefore in which order this system can be built. A blocking dependency stops build order from being derivable past it."
-      actions={
-        blockingCount > 0 ? (
-          <Badge tone="blocking">
-            <TriangleAlert className="size-3" aria-hidden="true" />
-            {blockingCount} blocking
-          </Badge>
-        ) : null
-      }
+      lead="What depends on what, and therefore in which order this system can be built."
     >
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <Panel>
@@ -117,66 +119,50 @@ export function Dependencies() {
               <div key={index}>
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
                   Layer {index + 1}
-                  {index === 0 && ' — no dependencies'}
+                  {index === 0 && ' — nothing to build first'}
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {layer.map((m) => {
-                    const hasBlocking = m.dependencies.some((d) => d.blocking)
-                    const isSelected = m.id === selected.id
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setSelectedId(m.id)}
-                        aria-pressed={isSelected}
-                        className={cn(
-                          'rounded-md border px-3.5 py-3 text-left transition-colors',
-                          isSelected
-                            ? 'border-accent bg-accent-soft'
-                            : hasBlocking
-                              ? 'border-blocking-line bg-blocking-soft/40 hover:bg-blocking-soft'
-                              : 'border-line bg-surface hover:bg-surface-sunken',
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[13.5px] font-medium text-ink">{m.name}</span>
-                          {hasBlocking && (
-                            <TriangleAlert
-                              className="size-3.5 shrink-0 text-blocking"
-                              aria-hidden="true"
-                            />
-                          )}
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <Mono>{m.key}</Mono>
-                          <span className="text-[11.5px] text-ink-subtle">
-                            {plural(m.dependencies.length, 'dependency', 'dependencies')}
-                          </span>
-                        </div>
-                      </button>
-                    )
-                  })}
+                  {layer.map((module) => (
+                    <button
+                      key={module.key}
+                      type="button"
+                      onClick={() => setSelectedKey(module.key)}
+                      aria-pressed={module.key === selected.key}
+                      className={cn(
+                        'rounded-md border px-3.5 py-3 text-left transition-colors',
+                        module.key === selected.key
+                          ? 'border-accent bg-accent-soft'
+                          : 'border-line bg-surface hover:bg-surface-sunken',
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[13.5px] font-medium text-ink">{module.name}</span>
+                        {/* Where the module is in its own life, not how far
+                            along its implementation is. */}
+                        <Badge tone={module.status === 'confirmed' ? 'confirmed' : 'pending'}>
+                          {module.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <Mono>{module.key}</Mono>
+                        <span className="text-[11.5px] text-ink-subtle">
+                          {plural(countDependencies(module.key), 'dependency', 'dependencies')}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}
 
-            {blockingCount > 0 && (
-              <div className="rounded-md border border-attention-line bg-attention-soft/50 px-4 py-3">
-                <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-muted">
-                  <TriangleAlert
-                    className="mt-0.5 size-3.5 shrink-0 text-attention"
-                    aria-hidden="true"
-                  />
-                  <span>
-                    Build order is provisional past the first blocking dependency.{' '}
-                    {blockedNames.join(', ')}{' '}
-                    {blockedNames.length === 1
-                      ? 'has a dependency that blocks'
-                      : 'have dependencies that block'}{' '}
-                    it. Scheduling delivery on this order would assume answers nobody has given.
-                  </span>
-                </p>
-              </div>
+            {/* Memory's own sentence about what this order does not mean. An
+                order with nothing said about it reads as "ready to build in
+                this sequence", which is a claim about knowledge the graph has
+                not looked at. */}
+            {graph.note && (
+              <p className="border-t border-line pt-3 text-[11.5px] leading-relaxed text-ink-subtle">
+                {graph.note}
+              </p>
             )}
           </PanelBody>
         </Panel>
@@ -188,86 +174,88 @@ export function Dependencies() {
               <Mono>{selected.key}</Mono>
             </PanelHeader>
             <PanelBody className="space-y-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-                  Depends on
-                </p>
-                {selected.dependencies.length === 0 ? (
-                  <p className="mt-1.5 text-[12.5px] italic text-ink-subtle">Nothing.</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {selected.dependencies.map((d) => (
-                      <li
-                        key={d.moduleId}
-                        className={cn(
-                          'rounded-md border px-3 py-2',
-                          d.blocking ? 'border-blocking-line bg-blocking-soft/50' : 'border-line',
-                        )}
-                      >
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <ArrowRight className="size-3 text-ink-subtle" aria-hidden="true" />
-                          <Mono className="text-ink">{d.moduleId}</Mono>
-                          <Badge tone="neutral">{d.nature}</Badge>
-                        </div>
-                        <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
-                          {d.reason}
-                        </p>
-                        {d.blockingReason && (
-                          <p className="mt-1 text-[11.5px] leading-relaxed text-blocking">
-                            {d.blockingReason}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {selected.summary && (
+                <p className="text-[12.5px] leading-relaxed text-ink-muted">{selected.summary}</p>
+              )}
 
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-                  Depended on by
-                </p>
-                {dependents.length === 0 ? (
-                  <p className="mt-1.5 text-[12.5px] italic text-ink-subtle">Nothing yet.</p>
-                ) : (
-                  <ul className="mt-2 space-y-1.5">
-                    {dependents.map((m) => (
-                      <li
-                        key={m.id}
-                        className="flex items-center gap-2 text-[12.5px] text-ink-muted"
-                      >
-                        <Mono className="text-ink">{m.key}</Mono>
-                        {m.name}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-                  External and cross-module interfaces
-                </p>
-                <ul className="mt-2 space-y-1.5">
-                  {selected.interfaces.map((i) => (
-                    <li key={`${i.id}-${i.direction}`} className="text-[12.5px]">
-                      <span className="text-ink">{i.name}</span>{' '}
-                      <span className="text-ink-subtle">
-                        ({i.direction}, {i.protocol})
+              <Relation title="Depends on" empty="Nothing.">
+                {dependsOn.map((edge) => (
+                  <li key={edge.targetModule} className="rounded-md border border-line px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <ArrowRight className="size-3 text-ink-subtle" aria-hidden="true" />
+                      <Mono className="text-ink">{edge.targetModule}</Mono>
+                      <span className="text-[12px] text-ink-muted">
+                        {named(edge.targetModule ?? '')}
                       </span>
-                      {i.status === 'contested' && (
-                        <span className="ml-1.5 inline-block align-middle">
-                          <StatusBadge status="contested" />
-                        </span>
-                      )}
+                    </div>
+                  </li>
+                ))}
+              </Relation>
+
+              <Relation title="Depended on by" empty="Nothing yet.">
+                {dependents.map((edge) => (
+                  <li key={edge.source} className="flex items-center gap-2 text-[12.5px]">
+                    <Mono className="text-ink">{edge.source}</Mono>
+                    <span className="text-ink-muted">{named(edge.source)}</span>
+                  </li>
+                ))}
+              </Relation>
+
+              {other.length > 0 && (
+                <Relation title="Other relationships" empty="">
+                  {other.map((edge) => (
+                    <li
+                      key={`${edge.relation}-${edge.targetModule}`}
+                      className="flex flex-wrap items-center gap-1.5 text-[12.5px]"
+                    >
+                      <Badge tone="neutral">{edge.relation.replace(/_/g, ' ')}</Badge>
+                      <Mono className="text-ink">{edge.targetModule}</Mono>
                     </li>
                   ))}
-                </ul>
-              </div>
+                </Relation>
+              )}
+
+              {statements.length > 0 && (
+                <Relation title="Statements this module answers to" empty="">
+                  {statements.map((edge) => (
+                    <li
+                      key={`${edge.relation}-${edge.targetKnowledge}`}
+                      className="flex flex-wrap items-center gap-1.5 text-[12.5px]"
+                    >
+                      <Badge tone="neutral">{edge.relation.replace(/_/g, ' ')}</Badge>
+                      {/* A statement, not a module — no link, because this is
+                          an identifier a reader can search for and not a page
+                          this route can open. */}
+                      <Mono className="text-ink">{edge.targetKnowledge}</Mono>
+                    </li>
+                  ))}
+                </Relation>
+              )}
             </PanelBody>
           </Panel>
         </div>
       </div>
     </PageLayout>
+  )
+}
+
+function Relation({
+  title,
+  empty,
+  children,
+}: {
+  title: string
+  empty: string
+  children: React.ReactNode[]
+}) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">{title}</p>
+      {children.length === 0 ? (
+        empty && <p className="mt-1.5 text-[12.5px] italic text-ink-subtle">{empty}</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">{children}</ul>
+      )}
+    </div>
   )
 }

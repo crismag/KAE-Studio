@@ -778,6 +778,69 @@ export interface ProjectProjection {
    * last hop.
    */
   preliminary: PreliminaryContext
+  /**
+   * The architecture as KAE-Memory holds it: modules, the edges between them,
+   * and the order they can be built in.
+   *
+   * `D-19`. Reading this and **curating** it are different capabilities and
+   * this type deliberately carries only the first — `modulesGap` still reports
+   * that Studio cannot propose a module or draw an edge. A project whose
+   * architecture is readable is not a project whose modules can be edited.
+   */
+  architecture: ArchitectureGraph
+}
+
+/* ------------------------------------------------------------- architecture */
+
+/**
+ * One module, as KAE-Memory holds it.
+ *
+ * Four fields, and deliberately not Studio's `ProjectModule` — whose
+ * responsibilities, interfaces, data references and failure behaviour nothing
+ * derives. Filling those with empty arrays would render as a module that has
+ * no responsibilities rather than one nobody has described, and the difference
+ * is the whole discipline of this codebase.
+ */
+export interface ModuleSummary {
+  key: string
+  name: string
+  summary: string
+  /**
+   * Where the module is in its own life — proposed, confirmed, retired.
+   *
+   * Not progress. How far along an implementation is belongs to operational
+   * state, decays differently, and is settled by different evidence.
+   */
+  status: string
+}
+
+/** One directed edge, in the keys a reader recognises. */
+export interface ModuleEdge {
+  source: string
+  relation: string
+  /** Set when the edge runs to another module. Exclusive with the next. */
+  targetModule: string | null
+  /** Set when the edge runs to a statement — `satisfies`, `verified_by`. */
+  targetKnowledge: string | null
+}
+
+export interface ArchitectureGraph {
+  /** False when KAE-Memory did not answer. Not the same as "no modules". */
+  available: boolean
+  /** Why it could not be read. Empty when it was. */
+  reason: string
+  modules: ModuleSummary[]
+  edges: ModuleEdge[]
+  /**
+   * Every module in an order where dependencies come first.
+   *
+   * Memory's answer rather than one computed here: ties break by key there, so
+   * the order is stable between calls, and an order that varied could not be
+   * compared with the previous one — which is most of what it is for.
+   */
+  buildOrder: string[]
+  /** What build order does **not** mean, in Memory's words. */
+  note: string
 }
 
 /* ------------------------------------------------------ preliminary context */

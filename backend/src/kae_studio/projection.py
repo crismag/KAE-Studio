@@ -46,6 +46,7 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         blockers,
         preliminary,
         coverage,
+        graph,
     ) = await asyncio.gather(
         _safe(memory.get_project(project_id)),
         _safe(memory.readiness(project_id)),
@@ -58,6 +59,7 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         _safe(memory.blockers(project_id)),
         _safe(memory.preliminary_context(project_id)),
         _safe(memory.extraction_coverage(project_id)),
+        _safe(memory.module_graph(project_id)),
     )
 
     unavailable: list[dict[str, str]] = []
@@ -181,10 +183,71 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
             # reassurance derived from our own ignorance.
             "composed": bool(preliminary_data),
         },
-        # Named rather than absent. The UI has a Modules route, and it must show
-        # why the view is empty instead of implying the project has none.
+        # **Curation**, and still unavailable. Proposing a module or drawing
+        # an edge is KAE-Memory's MCP write path; Studio has no contract for
+        # it, and the Modules route must keep saying so rather than rendering
+        # an empty curation view.
         "modules": {"available": False, "gap": _gap(MODULE_GAP)},
+        # **Reading** the architecture, which is new (`D-19`) and is a
+        # different capability from curating it. Kept as its own key precisely
+        # so the two cannot be confused: a project whose architecture is
+        # readable is not a project whose modules can be edited.
+        "architecture": _architecture(graph),
         "unavailable": unavailable,
+    }
+
+
+def _architecture(pair: tuple[Any, str | None]) -> dict[str, Any]:
+    """The module graph as read, or why it could not be read.
+
+    Kept apart from `unavailable` because the two say different things to a
+    surface. `unavailable` means *this section of the projection failed*; this
+    means *the architecture view has nothing to draw*, and the page has to
+    render its own answer either way.
+
+    What arrives is what KAE-Memory holds — a key, a name, a summary, a status,
+    and the edges between them. Deliberately **not** mapped into Studio's rich
+    `ProjectModule`, whose responsibilities, interfaces and data references
+    nothing derives: filling those with empty arrays would render as a module
+    that has no responsibilities rather than one nobody has described.
+    """
+
+    payload, problem = pair
+    if problem is not None or not isinstance(payload, dict):
+        return {
+            "available": False,
+            "reason": problem or "KAE-Memory returned no module graph.",
+            "modules": [],
+            "edges": [],
+            "buildOrder": [],
+            "note": "",
+        }
+
+    return {
+        "available": True,
+        "reason": "",
+        "modules": [
+            {
+                "key": module.get("key", ""),
+                "name": module.get("name", ""),
+                "summary": module.get("summary", ""),
+                "status": module.get("status", ""),
+            }
+            for module in payload.get("modules", [])
+            if isinstance(module, dict)
+        ],
+        "edges": [
+            {
+                "source": edge.get("source", ""),
+                "relation": edge.get("relation", ""),
+                "targetModule": edge.get("target_module"),
+                "targetKnowledge": edge.get("target_knowledge"),
+            }
+            for edge in payload.get("edges", [])
+            if isinstance(edge, dict)
+        ],
+        "buildOrder": [key for key in payload.get("build_order", []) if isinstance(key, str)],
+        "note": payload.get("note", ""),
     }
 
 

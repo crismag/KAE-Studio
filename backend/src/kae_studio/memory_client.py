@@ -95,6 +95,20 @@ class MemoryClient:
     async def get_project(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}")
 
+    async def module_graph(self, project_id: str) -> Any:
+        """Every module, every edge, and the order they can be built in.
+
+        Reads only. Defining a module and drawing an edge stay on MCP until
+        somebody rules who may draw an architecture (`D-19`).
+        """
+
+        return await self._request("GET", f"/v1/projects/{project_id}/modules/graph")
+
+    async def module_neighbourhood(self, project_id: str, key: str) -> Any:
+        """One module, and what it touches in both directions."""
+
+        return await self._request("GET", f"/v1/projects/{project_id}/modules/{key}")
+
     async def readiness(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}/readiness")
 
@@ -563,16 +577,21 @@ class MemoryClient:
 
 
 MODULE_GAP = CapabilityGap(
-    capability="modules",
+    capability="modules.curate",
     reason=(
-        "KAE-Memory exposes modules over MCP only, deliberately: the consumer of a "
-        "module graph is a coding agent implementing one module. Studio's curation "
-        "flow is a different act with its own contract, still to be reconciled (N12). "
-        "Nothing here simulates it."
+        "Modules can be read here. Proposing one, or drawing an edge between two, "
+        "is KAE-Memory's MCP write path — Studio's curation flow is a different "
+        "act with its own contract, still to be reconciled (N12). Nothing here "
+        "simulates it."
     ),
 )
-"""The one gap Studio's prototype UI assumes away.
+"""What Studio still cannot do with a module, now that it can read one.
 
-Recorded as a value rather than discovered at each call site, so the reason
-travels with the gap and a reader is not left thinking it is an outage.
+This used to say modules were unreadable, and it was true: KAE-Memory had no
+module route at all, so Studio's projection reported the whole capability
+missing. `D-19` added the reads, and the gap narrowed to what it always
+actually was — **curation**, not visibility.
+
+Kept as a value rather than a sentence at each call site, so the reason travels
+with the gap and a reader is not left thinking it is an outage.
 """

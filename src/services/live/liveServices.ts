@@ -19,6 +19,7 @@ import type {
   Deliverable,
   ExtractionCoverage,
   InterviewSession,
+  ArchitectureGraph,
   MemoryConnection,
   PreliminaryContext,
   Project,
@@ -525,6 +526,14 @@ interface BackendProjection {
     warnings: string[]
   }
   modules: { available: boolean; gap: { capability: string; reason: string } }
+  architecture?: {
+    available?: boolean
+    reason?: string
+    modules?: unknown[]
+    edges?: unknown[]
+    buildOrder?: unknown[]
+    note?: string
+  }
   unavailable: { section: string; reason: string }[]
   classification?: {
     engine: string | null
@@ -694,6 +703,55 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
           provedInstead: [],
         },
     preliminary: toPreliminary(raw.preliminary),
+    architecture: toArchitecture(raw.architecture),
+  }
+}
+
+/**
+ * The architecture as KAE-Memory holds it (`D-19`).
+ *
+ * Absent on a Studio backend older than the module routes, and that reads as
+ * **not available** rather than as a project with no modules — the distinction
+ * the whole capability turns on.
+ */
+function toArchitecture(raw: BackendProjection['architecture']): ArchitectureGraph {
+  const text = (entry: Record<string, unknown>, key: string): string =>
+    typeof entry[key] === 'string' ? (entry[key] as string) : ''
+  const entries = (value: unknown[] | undefined): Record<string, unknown>[] =>
+    (value ?? []).filter(
+      (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
+    )
+
+  if (!raw) {
+    return {
+      available: false,
+      reason: 'This Studio deployment cannot read the module graph yet.',
+      modules: [],
+      edges: [],
+      buildOrder: [],
+      note: '',
+    }
+  }
+
+  return {
+    available: raw.available === true,
+    reason: typeof raw.reason === 'string' ? raw.reason : '',
+    modules: entries(raw.modules).map((module) => ({
+      key: text(module, 'key'),
+      name: text(module, 'name'),
+      summary: text(module, 'summary'),
+      status: text(module, 'status'),
+    })),
+    edges: entries(raw.edges).map((edge) => ({
+      source: text(edge, 'source'),
+      relation: text(edge, 'relation'),
+      targetModule: typeof edge.targetModule === 'string' ? edge.targetModule : null,
+      targetKnowledge: typeof edge.targetKnowledge === 'string' ? edge.targetKnowledge : null,
+    })),
+    // Memory's order, not one recomputed here. Two orders that disagree is a
+    // question nobody can answer from the screen.
+    buildOrder: (raw.buildOrder ?? []).filter((key): key is string => typeof key === 'string'),
+    note: typeof raw.note === 'string' ? raw.note : '',
   }
 }
 

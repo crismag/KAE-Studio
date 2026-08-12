@@ -96,6 +96,13 @@ class _CountingMemory:
     async def extraction_coverage(self, project_id: str) -> Any:
         return {"succeeded": 0, "abandoned": 0, "complete": True}
 
+    async def module_graph(self, project_id: str) -> Any:
+        # A read, like everything else a projection does. Present here so this
+        # double answers every call the projection makes — a stub missing one
+        # raises before `_safe` can catch it, and the failure reads as a
+        # product defect rather than an incomplete test.
+        return {"modules": [], "edges": [], "build_order": []}
+
     async def aclose(self) -> None:
         """Closing is not a failure, and a stub that raises here breaks teardown."""
 
