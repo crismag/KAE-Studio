@@ -144,7 +144,11 @@ describe('setup reports state, not a score', () => {
     renderSetup()
 
     expect(await screen.findByText(/^Sources$/)).toBeInTheDocument()
-    expect(screen.getByText(/a connection to it has been checked and granted/i)).toBeInTheDocument()
+    // The sentence for the state this project is actually in. The prototype has
+    // a repository named and nothing read from it, which is `configured` — and
+    // this used to assert the `verified` sentence against that same project,
+    // because the level was computed from a grant (`D-25`).
+    expect(screen.getByText(/nothing has been read from it yet/i)).toBeInTheDocument()
   })
 
   it('distinguishes configured from verified', async () => {
@@ -200,5 +204,99 @@ describe('when setup cannot be read', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not be read/i)
     expect(screen.queryByLabelText(/source repository/i)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * `D-25` — `verified` means proved, not granted.
+ *
+ * This file's subject states the rule in its own docstring: *"a source is
+ * configured when somebody typed a repository; it is verified when its content
+ * has actually been read."* The code read `connections.some(granted)`, which is
+ * **authorization** — somebody saying KAE may use a credential — and reported it
+ * as `verified`.
+ *
+ * The tell was that the description underneath stayed honest while the word
+ * above it did not, so a reader who trusted the badge and skipped the sentence
+ * was told the repository had been read. `ADR-0003` ruled this state model on
+ * exactly that distinction.
+ *
+ * It was not fixable when the page shipped: sources lived in a process
+ * dictionary, so *"has this been reached?"* had no answer that survived a
+ * restart, and a grant was the closest thing available. `D-21` made the source
+ * state durable.
+ */
+describe('verified is earned, not granted', () => {
+  const REPOSITORY = {
+    sourceId: 'src_1',
+    projectId: 'p1',
+    kind: 'github' as const,
+    connectionId: 'con_1',
+    location: 'kae/ministry-reporting',
+    reference: 'main',
+    state: 'configured' as const,
+    snapshot: null,
+    lastError: '',
+    analysis: { capability: 'analysis', reason: '', state: 'planned' as const, provedInstead: [] },
+  }
+
+  /**
+   * Explicit delegation, never a spread.
+   *
+   * The port is a class, so `{...port, listSources}` drops every prototype
+   * method and produces an object whose other calls all fail — which renders as
+   * a failed read and passes a failure-assertion for entirely the wrong reason.
+   */
+  function withSources(state: 'configured' | 'readable' | 'pinned') {
+    return (services: StudioServices): StudioServices => {
+      const port = services.acquisition
+      return {
+        ...services,
+        acquisition: {
+          availableRepositories: (q) => port.availableRepositories(q),
+          listConnections: () => port.listConnections(),
+          addConnection: (input) => port.addConnection(input),
+          checkConnectivity: (id, location) => port.checkConnectivity(id, location),
+          listSources: async () => ({ sources: [{ ...REPOSITORY, state }], unavailable: '' }),
+          addSource: (projectId, input) => port.addSource(projectId, input),
+          pinSource: (sourceId) => port.pinSource(sourceId),
+          listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
+          sample: (sourceId, path) => port.sample(sourceId, path),
+          ingestFiles: (sourceId, projectId, paths) => port.ingestFiles(sourceId, projectId, paths),
+        },
+      }
+    }
+  }
+
+  it('does not call a named repository verified', async () => {
+    renderSetup(withSources('configured'))
+
+    await screen.findByText(/^Sources$/)
+    expect(screen.getByText(/nothing has been read from it yet/i)).toBeInTheDocument()
+  })
+
+  it('says a granted credential is permission rather than proof', async () => {
+    // The sentence that replaced the old description, and the distinction the
+    // whole state model turns on.
+    renderSetup(withSources('configured'))
+
+    await screen.findByText(/^Sources$/)
+    expect(screen.getByText(/says KAE may look, not that it has/i)).toBeInTheDocument()
+  })
+
+  it('calls a repository verified once its content has been reached', async () => {
+    renderSetup(withSources('readable'))
+
+    await screen.findByText(/^Sources$/)
+    expect(screen.getByText(/its content has been reached and read/i)).toBeInTheDocument()
+  })
+
+  it('counts a pinned repository as reached too', async () => {
+    // A pin is resolved *after* reading, so a state map that only accepted
+    // `readable` would demote a source the moment it got more certain.
+    renderSetup(withSources('pinned'))
+
+    await screen.findByText(/^Sources$/)
+    expect(screen.getByText(/its content has been reached and read/i)).toBeInTheDocument()
   })
 })

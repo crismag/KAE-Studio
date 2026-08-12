@@ -56,11 +56,12 @@ import { QueryState } from '@/components/ui/QueryState'
 import {
   useConfigureField,
   useMemoryConnections,
+  useSources,
   useRegisterTarget,
   useSetDefaultTarget,
   useSetup,
 } from '@/hooks/useProject'
-import type { ConfiguredValue, MemoryConnection, SetupState } from '@/domain/types'
+import type { ConfiguredValue, ProjectSource, SetupState } from '@/domain/types'
 
 /**
  * The six fields KAE-Memory will accept, and what each is for in a sentence.
@@ -108,7 +109,8 @@ const FIELDS: {
 
 export function ProjectSetup() {
   const setup = useSetup()
-  const connections = useMemoryConnections()
+  // What has actually been reached, which is what `verified` claims (`D-25`).
+  const sources = useSources()
 
   return (
     <PageLayout
@@ -127,7 +129,7 @@ export function ProjectSetup() {
       >
         {(state) => (
           <div className="space-y-5">
-            <SetupSummary state={state} connections={connections.data ?? []} />
+            <SetupSummary state={state} sources={sources.data ?? []} />
             <Configuration state={state} />
             <Destinations state={state} />
             <ConnectionsMoved />
@@ -148,14 +150,26 @@ export function ProjectSetup() {
  */
 function SetupSummary({
   state,
-  connections,
+  sources: configured,
 }: {
   state: SetupState
-  connections: MemoryConnection[]
+  sources: ProjectSource[]
 }) {
   const repository = state.configuration.primary_repository
-  const anyGranted = connections.some((c) => c.state === 'granted')
-  const sources: Level = !repository?.in_use ? 'none' : anyGranted ? 'verified' : 'configured'
+  // `readable` is the provider confirming the location exists and can be read.
+  // Anything at or past it means somebody reached the repository; `configured`
+  // means only that its name was written down (`D-25`).
+  //
+  // This read `connections.some((c) => c.state === 'granted')`, which is
+  // **authorization** — somebody saying KAE may use a credential — and reported
+  // it as `verified` against this file's own rule four lines above and against
+  // `ADR-0003`'s *"verified means proved, not declared"*. It was the closest
+  // thing available when the page shipped, because sources were not durable and
+  // "has this been reached?" had no answer that survived a restart.
+  const reached = configured.some(
+    (source) => source.state === 'readable' || source.state === 'pinned',
+  )
+  const sources: Level = !repository?.in_use ? 'none' : reached ? 'verified' : 'configured'
   const destination = state.targets.find((t) => t.isDefault)
   const destinations: Level = !destination ? 'none' : destination.available ? 'configured' : 'none'
 
@@ -173,8 +187,10 @@ function SetupSummary({
           level={sources}
           means={{
             none: 'No repository configured. KAE has nothing to read from.',
-            configured: 'A repository is named. Nothing has been read from it yet.',
-            verified: 'A connection to it has been checked and granted.',
+            configured:
+              'A repository is named. Nothing has been read from it yet — a granted ' +
+              'credential says KAE may look, not that it has.',
+            verified: 'Its content has been reached and read.',
           }}
         />
         <StateRow
