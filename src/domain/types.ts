@@ -268,7 +268,20 @@ export interface ModuleDependency {
 export interface OpenDecision {
   id: string
   question: string
-  whyItMatters: string
+  /**
+   * How much this matters, in Memory's own grading.
+   *
+   * **Not a reason, and no longer labelled as one.** This was `whyItMatters`,
+   * rendered under every question in the position an interface reserves for
+   * *why this matters* — and filled with `Severity: major`. Nothing was
+   * invented; the severity is real. It answered a different question from the
+   * one the label asked, and the reader supplied the difference.
+   *
+   * Memory's clarification candidates carry a severity and no rationale, so
+   * there is no reason to render. An absent reason claims less than a grade
+   * wearing a reason's label.
+   */
+  severity: string
   blocks: string[]
   suggestedOwner: string
   deferred: boolean

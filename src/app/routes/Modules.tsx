@@ -4,6 +4,7 @@ import { Check, ChevronRight, GitMerge, Info, Pencil, Split, TriangleAlert, X } 
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/plural'
 import { PageLayout } from '@/components/project/PageLayout'
+import { SeverityBadge } from '@/components/project/SeverityBadge'
 import { ReadinessBadge, StatusBadge } from '@/components/project/statusVocabulary'
 import { DIMENSION_LABEL, readinessLabel } from '@/components/project/labels'
 import { Badge, Button, Mono, Panel, Skeleton } from '@/components/ui/primitives'
@@ -669,8 +670,8 @@ function ModuleSpecification({
                   <p className="text-[13px] font-medium text-ink">{d.question}</p>
                   {d.deferred && <StatusBadge status="deferred" />}
                 </div>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">
-                  {d.whyItMatters}
+                <p className="mt-1">
+                  <SeverityBadge severity={d.severity} />
                 </p>
                 <p className="mt-1.5 text-[11.5px] text-ink-subtle">
                   Suggested owner: {d.suggestedOwner}

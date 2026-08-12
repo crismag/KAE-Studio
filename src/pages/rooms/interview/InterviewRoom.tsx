@@ -26,6 +26,7 @@ import {
   PanelHeader,
   PanelTitle,
 } from '@/components/ui/primitives'
+import { SeverityBadge } from '@/components/project/SeverityBadge'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import {
   ConcludedList,
@@ -438,7 +439,12 @@ function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
         <p className="text-[12.5px] font-medium leading-snug text-ink">{decision.question}</p>
         {decision.deferred && <StatusBadge status="deferred" />}
       </div>
-      <p className="mt-1 text-[11.5px] leading-snug text-ink-subtle">{decision.whyItMatters}</p>
+      {/* A grade, shown as a grade. There is no "why" behind an open question
+          — Memory grades clarification candidates and does not explain them —
+          and a sentence here would have to be invented to exist. */}
+      <p className="mt-1">
+        <SeverityBadge severity={decision.severity} />
+      </p>
       <div className="mt-2 flex items-center gap-3">
         <span className="font-mono text-[10.5px] text-ink-subtle">{decision.id}</span>
         {/* Only for a question somebody has actually been asked.

@@ -613,8 +613,7 @@ export const openDecisions: OpenDecision[] = [
   {
     id: 'OD-011',
     question: 'Which role holds approval authority?',
-    whyItMatters:
-      'Approval authorisation, the approver queue, and the security requirements for the approval module all depend on it. Until it is decided, the Approval Workflow module cannot be implemented safely.',
+    severity: 'critical',
     blocks: ['MOD-APR', 'SR-APR-001'],
     suggestedOwner: 'Church leadership',
     deferred: false,
@@ -623,8 +622,7 @@ export const openDecisions: OpenDecision[] = [
   {
     id: 'OD-012',
     question: 'Is a single approval sufficient, or is a second reviewer required?',
-    whyItMatters:
-      'Determines whether approval is one decision or a sequence, which changes the module state machine and the audit record.',
+    severity: 'major',
     blocks: ['MOD-APR'],
     suggestedOwner: 'Church leadership',
     deferred: false,
@@ -633,8 +631,7 @@ export const openDecisions: OpenDecision[] = [
   {
     id: 'OD-013',
     question: 'How is a published report corrected once an error is found?',
-    whyItMatters:
-      'Immutability after approval leaves no correction path. Withdraw-and-supersede, or correct-with-audit-note, are both viable and have different data models.',
+    severity: 'major',
     blocks: ['MOD-PUB', 'FR-PUB-002'],
     suggestedOwner: 'Administrator',
     deferred: false,
@@ -643,7 +640,7 @@ export const openDecisions: OpenDecision[] = [
   {
     id: 'OD-014',
     question: 'Can an administrator override a rejection?',
-    whyItMatters: 'Affects the permission model and whether rejection is final.',
+    severity: 'minor',
     blocks: ['MOD-APR'],
     suggestedOwner: 'Church leadership',
     deferred: true,

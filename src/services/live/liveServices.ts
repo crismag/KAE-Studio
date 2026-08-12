@@ -586,7 +586,9 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
     openDecisions: raw.openQuestions.map((q) => ({
       id: q.id,
       question: q.question,
-      whyItMatters: `Severity: ${q.severity}`,
+      // Carried as what it is. It used to arrive as `whyItMatters`, which
+      // promised a reason and delivered a grade (`D-17`).
+      severity: q.severity,
       blocks: [],
       suggestedOwner: 'you',
       deferred: q.disposition !== 'open',
