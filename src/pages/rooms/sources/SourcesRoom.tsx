@@ -74,12 +74,7 @@ import {
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
 import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
-import {
-  Activity as RunActivity,
-  Coverage,
-  PasteDocument,
-  UploadIsNotBuilt,
-} from './intake'
+import { Activity as RunActivity, Coverage, PasteDocument, UploadIsNotBuilt } from './intake'
 import { useIngestFiles, useSampleFile, useSourceFiles, useSources } from '@/hooks/useProject'
 import type { ProjectSource, SourceState } from '@/domain/types'
 

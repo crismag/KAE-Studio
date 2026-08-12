@@ -4,7 +4,7 @@
 **Redirects here:** `/ingestion`
 
 The first folder under `pages/rooms/`, and the shape the rest follow.
-`§13`: *"a developer can find a screen by looking at the filesystem."*
+`§13`: _"a developer can find a screen by looking at the filesystem."_
 
 ## Purpose
 
@@ -26,10 +26,10 @@ Project Settings rather than a dead end.
 
 ## Data it consumes
 
-| Port | For |
-|---|---|
+| Port          | For                                                |
+| ------------- | -------------------------------------------------- |
 | `acquisition` | sources, file listings, file excerpts, file ingest |
-| `ingestion` | pasted text, extraction coverage, agent runs |
+| `ingestion`   | pasted text, extraction coverage, agent runs       |
 
 Both are revision-pinned by the backend: a file listing and an ingest happen at
 the same commit, which is what makes provenance point at something stable.
@@ -45,7 +45,7 @@ plain-words reading of a run's error code, used by nothing else.
 - **Connection configuration.** `§6`: workflow selects, Settings configures.
   Adding or granting a credential is `/settings/project`.
 - **Repository selection for the project.** That is a `primary_repository`
-  decision and belongs to setup/intake; this Room manages what is *already*
+  decision and belongs to setup/intake; this Room manages what is _already_
   attached.
 - **What the extracted statements mean.** Candidates go to the Review Room.
 - **Any judgement about a repository.** Reading is not analysis, and the Room
