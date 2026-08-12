@@ -94,7 +94,7 @@ export function Ingestion() {
   )
 }
 
-function PasteDocument() {
+export function PasteDocument() {
   const ingest = useIngestText()
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
@@ -262,7 +262,7 @@ function FromRepository() {
  * There is no bytes path, no MIME handling and no file decode anywhere in the
  * estate. A zone that accepted a PDF and lost it would be worse than this.
  */
-function UploadIsNotBuilt() {
+export function UploadIsNotBuilt() {
   return (
     <Panel>
       <PanelBody className="space-y-3">
@@ -282,7 +282,7 @@ function UploadIsNotBuilt() {
   )
 }
 
-function Coverage() {
+export function Coverage() {
   const coverage = useExtractionCoverage()
 
   return (
@@ -323,7 +323,7 @@ function Coverage() {
 }
 
 /** What KAE has actually done, and how each attempt ended. */
-function Activity() {
+export function Activity() {
   const runs = useRuns()
 
   return (

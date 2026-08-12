@@ -271,3 +271,48 @@ describe('when there is nothing connected', () => {
     expect(screen.queryByLabelText(/find a file/i)).not.toBeInTheDocument()
   })
 })
+
+describe('one Source abstraction, not two pages', () => {
+  it('offers repositories, text, files and activity in one place', async () => {
+    // `§7`: repository, document, pasted note and the rest are Project Sources,
+    // not unrelated fields. Split across two routes, "give KAE something to
+    // read" meant two navigation items depending on where the material lived.
+    renderSources((services) => withPinnedSource(services))
+
+    expect(await screen.findByRole('tab', { name: /repositories/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^text$/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /^files$/i })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /activity/i })).toBeInTheDocument()
+  })
+
+  it('takes pasted text without leaving the room', async () => {
+    const user = userEvent.setup()
+    renderSources((services) => withPinnedSource(services))
+
+    await user.click(await screen.findByRole('tab', { name: /^text$/i }))
+
+    expect(await screen.findByLabelText(/what is this/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /read this/i })).toBeInTheDocument()
+  })
+
+  it('still states the file gap rather than offering a drop zone', async () => {
+    const user = userEvent.setup()
+    renderSources((services) => withPinnedSource(services))
+
+    await user.click(await screen.findByRole('tab', { name: /^files$/i }))
+
+    expect(await screen.findByText(/KAE cannot read files yet/i)).toBeInTheDocument()
+    expect(document.querySelector('input[type="file"]')).toBeNull()
+  })
+
+  it('keeps the run history reachable', async () => {
+    const user = userEvent.setup()
+    renderSources((services) => withPinnedSource(services))
+
+    await user.click(await screen.findByRole('tab', { name: /activity/i }))
+
+    // The merge must not lose what /ingestion made visible: a person who starts
+    // a read still has to be able to watch it, and see why it failed.
+    expect(await screen.findByText(/quoted text that is not in the source/i)).toBeInTheDocument()
+  })
+})

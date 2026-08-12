@@ -29,6 +29,22 @@
  * person can do about it. Here it is `lastError` on the source, shown on the
  * source rather than over the page.
  *
+ * ## One Source abstraction, not two pages
+ *
+ * `§7`: *"Treat repository, uploaded document, pasted note, URL, interview
+ * transcript, existing context package, and imported specification as **Project
+ * Sources** rather than unrelated fields."*
+ *
+ * Studio split them — repositories here, text and files on `/ingestion` — so
+ * *"give KAE something to read"* meant two different navigation items depending
+ * on where the material happened to live. That is the product's own idea
+ * rendered as two ideas, and a person with a brief in one hand and a repository
+ * in the other had to know which page KAE files each under.
+ *
+ * The tabs are the merge. `/ingestion` redirects rather than disappearing,
+ * because the composer's Paperclip points at it and the directive forbids
+ * removing a route before its replacement is verified.
+ *
  * ## The two vocabularies, kept apart
  *
  * `SourceState` is `configured · readable · pinned · analyzed`, and `analyzed`
@@ -39,7 +55,7 @@
  */
 
 import { useState } from 'react'
-import { FileCode, Lock, Search } from 'lucide-react'
+import { Activity, FileCode, FileText, FolderGit2, Lock, Search, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { CapabilityNote } from '@/components/project/CapabilityNote'
@@ -57,24 +73,75 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
+import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
+import {
+  Activity as RunActivity,
+  Coverage,
+  PasteDocument,
+  UploadIsNotBuilt,
+} from '@/app/routes/Ingestion'
 import { useIngestFiles, useSampleFile, useSourceFiles, useSources } from '@/hooks/useProject'
 import type { ProjectSource, SourceState } from '@/domain/types'
 
 export function Sources() {
+  return (
+    <PageLayout
+      title="Sources"
+      lead="Everything this project reads from — repositories, text you paste, files you have. KAE reads at a pinned revision, so every statement it proposes stays traceable to an exact version of an exact thing."
+      wide
+      actions={
+        <Button asChild variant="secondary">
+          <Link to="/settings/project">Manage connections</Link>
+        </Button>
+      }
+    >
+      <Tabs defaultValue="repositories">
+        <TabList>
+          <Tab value="repositories">
+            <FolderGit2 className="mr-1.5 inline size-3.5" aria-hidden="true" />
+            Repositories
+          </Tab>
+          <Tab value="text">
+            <FileText className="mr-1.5 inline size-3.5" aria-hidden="true" />
+            Text
+          </Tab>
+          <Tab value="files">
+            <Upload className="mr-1.5 inline size-3.5" aria-hidden="true" />
+            Files
+          </Tab>
+          <Tab value="activity">
+            <Activity className="mr-1.5 inline size-3.5" aria-hidden="true" />
+            Activity
+          </Tab>
+        </TabList>
+
+        <TabPanel value="repositories">
+          <Repositories />
+        </TabPanel>
+        <TabPanel value="text">
+          <PasteDocument />
+        </TabPanel>
+        <TabPanel value="files">
+          <UploadIsNotBuilt />
+        </TabPanel>
+        <TabPanel value="activity">
+          <div className="space-y-5">
+            <Coverage />
+            <RunActivity />
+          </div>
+        </TabPanel>
+      </Tabs>
+    </PageLayout>
+  )
+}
+
+/** The repositories tab — what this page was before the merge. */
+function Repositories() {
   const sources = useSources()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   return (
-    <PageLayout
-      title="Sources"
-      lead="Repositories this project can read from. KAE reads at a pinned commit, so every statement it proposes stays traceable to an exact revision of an exact file."
-      wide
-      actions={
-        <Button asChild variant="secondary">
-          <Link to="/setup">Connect a repository</Link>
-        </Button>
-      }
-    >
+    <>
       <QueryState
         query={sources}
         of="Your sources"
@@ -101,7 +168,7 @@ export function Sources() {
           )
         }}
       </QueryState>
-    </PageLayout>
+    </>
   )
 }
 

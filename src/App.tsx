@@ -8,7 +8,7 @@ import { ProjectGate } from '@/app/shell/ProjectGate'
 import { ActiveProjectProvider } from '@/app/shell/activeProject'
 import { SignInGate } from '@/app/shell/SignInGate'
 import { RouteError } from '@/app/shell/RouteError'
-import { ROUTES } from '@/app/registries/routes'
+import { REDIRECT_ROUTES, ROUTES } from '@/app/registries/routes'
 
 // Hash routing: the static build must work on Hostinger shared hosting
 // without server rewrite rules for client-side routes.
@@ -24,6 +24,13 @@ const router = createHashRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace />, errorElement: <RouteError /> },
       ...ROUTES.map(({ path, element }) => ({ path, element, errorElement: <RouteError /> })),
+      // Merged surfaces keep their paths. A deep link that used to work still
+      // does, which is what lets a page be merged at all.
+      ...REDIRECT_ROUTES.map(({ path, to }) => ({
+        path,
+        element: <Navigate to={to} replace />,
+        errorElement: <RouteError />,
+      })),
       { path: '*', element: <Navigate to="/dashboard" replace />, errorElement: <RouteError /> },
     ],
   },

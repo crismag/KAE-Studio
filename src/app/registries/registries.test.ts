@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { ROUTES } from './routes'
-import { ROOMS, SURFACES, surfaceById, surfaceByRoute } from './rooms'
+import { REDIRECTS, ROOMS, SURFACES, surfaceById, surfaceByRoute } from './rooms'
 
 describe('the surface registry is a single source of identity', () => {
   it('has a unique id per surface', () => {
@@ -115,6 +115,36 @@ describe('Rooms are user intent, not backend services', () => {
         `${surface.id} belongs to "${surface.partOf}", which is not a surface`,
       ).toBeDefined()
       expect(parent?.kind, `${surface.id} belongs to a non-Room`).toBe('room')
+    }
+  })
+})
+
+describe('a merged surface keeps its path', () => {
+  it('redirects every retired route somewhere that exists', () => {
+    // `§18`: do not remove an old route until its replacement is verified. A
+    // redirect pointing at a path no surface serves is the same broken link
+    // with an extra hop.
+    for (const redirect of REDIRECTS) {
+      expect(
+        surfaceByRoute(redirect.to),
+        `${redirect.from} redirects to ${redirect.to}, which no surface serves`,
+      ).toBeDefined()
+    }
+  })
+
+  it('never redirects a path that is still a surface', () => {
+    // Both would match, and which one wins depends on router ordering — a
+    // route that works today and stops working when the array is sorted.
+    for (const redirect of REDIRECTS) {
+      expect(surfaceByRoute(redirect.from)).toBeUndefined()
+    }
+  })
+
+  it('says why each path was retired', () => {
+    // A redirect with no reason is one nobody can safely delete later, because
+    // deleting it means knowing what it was for.
+    for (const redirect of REDIRECTS) {
+      expect(redirect.because.trim().length).toBeGreaterThan(10)
     }
   })
 })

@@ -27,7 +27,6 @@ import { Architecture } from '@/app/routes/Architecture'
 import { Dashboard } from '@/app/routes/Dashboard'
 import { Deliverables } from '@/app/routes/Deliverables'
 import { Dependencies } from '@/app/routes/Dependencies'
-import { Ingestion } from '@/app/routes/Ingestion'
 import { Memory } from '@/app/routes/Memory'
 import { Modules } from '@/app/routes/Modules'
 import { Plan } from '@/app/routes/Plan'
@@ -38,7 +37,7 @@ import { Requirements } from '@/app/routes/Requirements'
 import { Reviews } from '@/app/routes/Reviews'
 import { Sources } from '@/app/routes/Sources'
 import { Workspace } from '@/app/routes/Workspace'
-import { SURFACES, type SurfaceDefinition } from './rooms'
+import { REDIRECTS, SURFACES, type SurfaceDefinition } from './rooms'
 
 /** Surface id → the component that renders it. */
 const PAGES: Record<string, () => ReactElement> = {
@@ -46,7 +45,6 @@ const PAGES: Record<string, () => ReactElement> = {
   setup: () => <ProjectSetup />,
   interview: () => <Workspace />,
   sources: () => <Sources />,
-  ingestion: () => <Ingestion />,
   definition: () => <ProjectDefinition />,
   requirements: () => <Requirements />,
   modules: () => <Modules />,
@@ -83,3 +81,14 @@ export const ROUTES: RouteDefinition[] = SURFACES.map((surface) => {
   }
   return { surface, path: surface.route.replace(/^\//, ''), element: page() }
 })
+
+/**
+ * Old paths, kept alive.
+ *
+ * Exported beside the routes so a reader sees both halves of the migration in
+ * one file: what exists, and what used to.
+ */
+export const REDIRECT_ROUTES = REDIRECTS.map((redirect) => ({
+  path: redirect.from.replace(/^\//, ''),
+  to: redirect.to,
+}))

@@ -101,20 +101,10 @@ export const SURFACES: SurfaceDefinition[] = [
     title: 'Sources',
     route: '/sources',
     kind: 'room',
-    purpose: 'Manage the repositories and material this project reads from',
+    purpose: 'Everything this project reads from, and what KAE did with it',
     readiness: 'partial',
     limit:
-      'Repositories only. Documents, URLs and transcripts are a separate page until §7’s Source abstraction unifies them.',
-  },
-  {
-    id: 'ingestion',
-    title: 'Ingestion',
-    route: '/ingestion',
-    kind: 'surface',
-    partOf: 'sources',
-    purpose: 'Give KAE something to read, and watch what it did with it',
-    readiness: 'partial',
-    limit: 'Text and repository files. KAE cannot decode uploaded files.',
+      'Repositories and pasted text. KAE cannot decode uploaded files, and URLs and transcripts are not source kinds yet.',
   },
   {
     id: 'definition',
@@ -215,6 +205,22 @@ export const SURFACES: SurfaceDefinition[] = [
 
 /** Rooms only, in registry order. What a Room switcher or Dashboard offers. */
 export const ROOMS = SURFACES.filter((surface) => surface.kind === 'room')
+
+/**
+ * Paths that used to be surfaces and now resolve elsewhere.
+ *
+ * `§18`'s guardrail: *"Do not remove old routes until redirects/deep links and
+ * replacement behavior are verified."* A merged page keeps its path — the
+ * composer's Paperclip points at `/ingestion`, and it was dead for the life of
+ * the product until yesterday.
+ */
+export const REDIRECTS: { from: string; to: string; because: string }[] = [
+  {
+    from: '/ingestion',
+    to: '/sources',
+    because: '§7 — repositories, text and files are one Source abstraction, not two pages',
+  },
+]
 
 export function surfaceById(id: string): SurfaceDefinition | undefined {
   return SURFACES.find((surface) => surface.id === id)
