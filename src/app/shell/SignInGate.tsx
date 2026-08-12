@@ -12,6 +12,9 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 
+import { Field, Input } from '@/components/ui/form'
+import { Button, Mono, Panel, PanelBody } from '@/components/ui/primitives'
+
 const API = (import.meta.env.VITE_STUDIO_API as string | undefined) ?? ''
 
 type State = 'checking' | 'signed-out' | 'signed-in' | 'unreachable'
@@ -74,26 +77,31 @@ export function SignInGate({ children }: { children: ReactNode }) {
     }
   }
 
-  if (state === 'checking') return <Centered>Checking Studio…</Centered>
+  if (state === 'checking')
+    return (
+      <Centered>
+        <p className="text-[13px] text-ink-muted">Checking Studio…</p>
+      </Centered>
+    )
 
   if (state === 'unreachable') {
     return (
       <Centered>
-        <h1 style={{ fontSize: 18, marginBottom: 8 }}>Studio backend unreachable</h1>
-        <p style={{ opacity: 0.75, maxWidth: 460 }}>
-          Nothing was loaded, and nothing on screen would be project truth. Expected it at{' '}
-          <code>{API || '(same origin)'}</code>.
-        </p>
-        <p style={{ opacity: 0.6, maxWidth: 460, fontSize: 13, marginTop: 8 }}>
-          A restart looks exactly like this for the few seconds it takes. Nothing was written.
-        </p>
-        <button
-          type="button"
-          onClick={retry}
-          style={{ marginTop: 14, padding: '8px 14px', borderRadius: 6 }}
-        >
-          Try again
-        </button>
+        <Panel className="max-w-md text-left">
+          <PanelBody className="space-y-2">
+            <h1 className="text-[15px] font-semibold text-ink">Studio backend unreachable</h1>
+            <p className="text-[13px] leading-relaxed text-ink-muted">
+              Nothing was loaded, and nothing on screen would be project truth. Expected it at{' '}
+              <Mono>{API || '(same origin)'}</Mono>.
+            </p>
+            <p className="text-[12px] leading-relaxed text-ink-subtle">
+              A restart looks exactly like this for the few seconds it takes. Nothing was written.
+            </p>
+            <Button type="button" onClick={retry} className="mt-1">
+              Try again
+            </Button>
+          </PanelBody>
+        </Panel>
       </Centered>
     )
   }
@@ -101,29 +109,40 @@ export function SignInGate({ children }: { children: ReactNode }) {
   if (state === 'signed-out') {
     return (
       <Centered>
-        <form onSubmit={signIn} style={{ display: 'grid', gap: 12, width: 320 }}>
-          <h1 style={{ fontSize: 18 }}>Sign in to KAE-Studio</h1>
-          <p style={{ opacity: 0.7, fontSize: 13 }}>
-            Memory:{' '}
-            {backend.memory_reachable ? (
-              <span>reachable at {backend.memory_url}</span>
-            ) : (
-              <span>not reachable — sign-in will work, data will not</span>
-            )}
-          </p>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Operator password"
-            autoFocus
-            style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #8884' }}
-          />
-          {error && <span style={{ color: '#c33', fontSize: 13 }}>{error}</span>}
-          <button type="submit" style={{ padding: '8px 10px', borderRadius: 6 }}>
-            Sign in
-          </button>
-        </form>
+        <Panel className="w-[22rem] text-left">
+          <PanelBody>
+            <form onSubmit={signIn} className="space-y-3">
+              <h1 className="text-[15px] font-semibold text-ink">Sign in to KAE-Studio</h1>
+              {/* Said before signing in rather than discovered after. Memory
+                  being unreachable does not stop sign-in and does stop every
+                  page behind it, which is the kind of thing a person should
+                  learn at the door. */}
+              <p className="text-[12px] leading-relaxed text-ink-muted">
+                {backend.memory_reachable ? (
+                  <>
+                    Memory reachable at <Mono>{backend.memory_url}</Mono>
+                  </>
+                ) : (
+                  'Memory is not reachable. Sign-in will work; nothing behind it will have data.'
+                )}
+              </p>
+              <Field label="Operator password" error={error}>
+                {(props) => (
+                  <Input
+                    {...props}
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoFocus
+                  />
+                )}
+              </Field>
+              <Button type="submit" variant="primary" className="w-full">
+                Sign in
+              </Button>
+            </form>
+          </PanelBody>
+        </Panel>
       </Centered>
     )
   }
@@ -133,15 +152,7 @@ export function SignInGate({ children }: { children: ReactNode }) {
 
 function Centered({ children }: { children: ReactNode }) {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
-        textAlign: 'center',
-        padding: 24,
-      }}
-    >
+    <div className="grid min-h-screen place-items-center bg-canvas p-6">
       <div>{children}</div>
     </div>
   )

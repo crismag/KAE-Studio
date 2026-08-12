@@ -19,6 +19,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { STORAGE_KEY, readActiveProject } from './activeProjectStorage'
+import { Field, Input, Textarea } from '@/components/ui/form'
+import { Button, Panel, PanelBody } from '@/components/ui/primitives'
 
 const API = (import.meta.env.VITE_STUDIO_API as string | undefined) ?? ''
 
@@ -103,25 +105,34 @@ export function ProjectGate({
     setActive(id)
   }, [])
 
-  if (listing.state === 'loading') return <Centered>Loading your projects…</Centered>
+  if (listing.state === 'loading')
+    return (
+      <Centered>
+        <p className="text-[13px] text-ink-muted">Loading your projects…</p>
+      </Centered>
+    )
 
   if (listing.state === 'unreachable') {
     return (
       <Centered>
-        <h1 className="text-lg">Projects could not be loaded</h1>
-        <p className="mt-2 max-w-md text-sm opacity-75">
-          Nothing was opened, so nothing on screen would be project truth. {listing.detail}
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setListing({ state: 'loading' })
-            setAttempt((n) => n + 1)
-          }}
-          className="mt-4 rounded border border-line px-3 py-1.5 text-sm"
-        >
-          Try again
-        </button>
+        <Panel className="max-w-md text-left">
+          <PanelBody className="space-y-2">
+            <h1 className="text-[15px] font-semibold text-ink">Projects could not be loaded</h1>
+            <p className="text-[13px] leading-relaxed text-ink-muted">
+              Nothing was opened, so nothing on screen would be project truth. {listing.detail}
+            </p>
+            <Button
+              type="button"
+              onClick={() => {
+                setListing({ state: 'loading' })
+                setAttempt((n) => n + 1)
+              }}
+              className="mt-1"
+            >
+              Try again
+            </Button>
+          </PanelBody>
+        </Panel>
       </Centered>
     )
   }
@@ -251,9 +262,9 @@ function Picker({
                 <button
                   type="button"
                   onClick={() => onChoose(project.id)}
-                  className="flex w-full items-baseline justify-between gap-4 rounded border border-line px-3 py-2 text-left hover:border-accent"
+                  className="flex w-full items-baseline justify-between gap-4 rounded-md border border-line bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
                 >
-                  <span className="text-sm text-ink">{project.name}</span>
+                  <span className="text-[13px] text-ink">{project.name}</span>
                   <span className="shrink-0 font-mono text-[11px] text-ink-subtle">
                     {project.knowledgeRevision === undefined
                       ? ''
@@ -272,30 +283,38 @@ function Picker({
         <h2 id="new-project" className="text-xs uppercase tracking-wide text-ink-subtle">
           Start a new one
         </h2>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Project name"
-          className="rounded border border-line bg-surface px-3 py-2 text-sm"
-        />
-        <textarea
-          value={context}
-          onChange={(e) => setContext(e.target.value)}
-          rows={3}
-          placeholder="One sentence about it, if you have one. You can leave this empty."
-          className="rounded border border-line bg-surface px-3 py-2 text-sm"
-        />
-        <p className="text-[11.5px] text-ink-subtle">
-          A name is enough. Unknowns are expected — nothing here has to be decided before you start.
-        </p>
-        {error && <p className="text-[12px] text-danger">{error}</p>}
-        <button
+        <Field label="Project name" error={error}>
+          {(props) => (
+            <Input
+              {...props}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Reporting platform"
+            />
+          )}
+        </Field>
+        <Field
+          label="One sentence about it"
+          hint="Optional. A name is enough — unknowns are expected, and nothing here has to be decided before you start."
+        >
+          {(props) => (
+            <Textarea
+              {...props}
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              rows={3}
+              placeholder="You can leave this empty."
+            />
+          )}
+        </Field>
+        <Button
           type="submit"
+          variant="primary"
           disabled={!name.trim() || busy}
-          className="justify-self-start rounded border border-line px-3 py-1.5 text-sm disabled:opacity-50"
+          className="justify-self-start"
         >
           {busy ? 'Creating…' : 'Create project'}
-        </button>
+        </Button>
       </form>
     </div>
   )

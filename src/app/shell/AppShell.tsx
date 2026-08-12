@@ -241,14 +241,14 @@ function StatusBar() {
         {deployment.state === 'checking' ? (
           <span className="text-ink">checking…</span>
         ) : deployment.state === 'unavailable' ? (
-          <span className="text-danger">Studio unreachable</span>
+          <span className="text-blocking">Studio unreachable</span>
         ) : status?.memoryReachable ? (
           <span className="text-ink">
             reachable
             {status.migrationRevision ? ` · schema ${status.migrationRevision}` : ''}
           </span>
         ) : (
-          <span className="text-danger">not reachable</span>
+          <span className="text-blocking">not reachable</span>
         )}
       </span>
 
