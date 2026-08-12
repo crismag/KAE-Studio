@@ -4,7 +4,8 @@ import { PageLayout, FutureState } from '@/components/project/PageLayout'
 import { StageReadiness } from '@/components/project/StageReadiness'
 import { prerequisitesFor } from '@/components/project/stagePrerequisites'
 import { useProjection } from '@/hooks/useProject'
-import { Button } from '@/components/ui/primitives'
+import { Button, Panel, PanelBody, PanelHeader, PanelTitle } from '@/components/ui/primitives'
+import { ArchitectureDiagram } from '@/components/project/ArchitectureDiagram'
 
 export function Architecture() {
   const { data: projection } = useProjection()
@@ -21,6 +22,27 @@ export function Architecture() {
         <StageReadiness stage="Architecture" prerequisites={prerequisitesFor(projection)} />
       )}
 
+      {/* The one part of an architecture this product actually holds, drawn
+          (`ARC-1b`). It sits above the list of what is still unbuilt because a
+          reader arrives asking what the structure *is*, and a page that opens
+          with everything it cannot do buries the one thing it can. */}
+      {projection?.architecture.available && projection.architecture.modules.length > 0 && (
+        <Panel className="mb-6">
+          <PanelHeader>
+            <PanelTitle>Modules and what depends on what</PanelTitle>
+            <Link
+              to="/dependencies"
+              className="text-[12px] text-accent-ink underline-offset-2 hover:underline"
+            >
+              Read it as a list
+            </Link>
+          </PanelHeader>
+          <PanelBody>
+            <ArchitectureDiagram graph={projection.architecture} />
+          </PanelBody>
+        </Panel>
+      )}
+
       <FutureState
         willContain={[
           'System context — the system and everything it talks to',
@@ -34,7 +56,7 @@ export function Architecture() {
         // the second and third sentences here were fixture prose about module
         // boundaries and an authority model belonging to a project that does
         // not exist. The first sentence was always true of every project.
-        whyNotReady="The architecture interview has not been conducted. Generating a component diagram before one would present a design nobody has discussed as though it were decided."
+        whyNotReady="The architecture interview has not been conducted. The module graph above is what a project has decomposed into and how the parts depend on each other; a component design, a data model and a deployment topology are none of those, and deriving them from what is here would present a design nobody has discussed as though it were decided."
         nextAction={
           <Button variant="secondary" size="sm" asChild>
             <Link to="/workspace">

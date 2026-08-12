@@ -142,8 +142,14 @@ export const SURFACES: SurfaceDefinition[] = [
     route: '/architecture',
     kind: 'room',
     purpose: 'Understand system structure and how the parts relate',
-    readiness: 'awaiting-capability',
-    limit: 'Nothing derives an architecture. The page states what it will hold.',
+    // Was `awaiting-capability` on the grounds that *"nothing derives an
+    // architecture"*. Something does — the module decomposition and its
+    // dependencies — and `ARC-1b` draws it. What is still underived is the
+    // rest of an architecture, which the page continues to say.
+    readiness: 'partial',
+    limit:
+      'The module decomposition is drawn. Component design, the data model ' +
+      'and deployment topology are not derived by anything.',
   },
   {
     id: 'dependencies',
