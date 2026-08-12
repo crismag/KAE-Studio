@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
+  LayoutDashboard,
   Settings2,
   FileInput,
   FolderGit2,
@@ -43,6 +44,7 @@ interface NavItem {
  * presentation choice the registry has no business holding.
  */
 const ICONS: Record<string, NavItem['icon']> = {
+  dashboard: LayoutDashboard,
   setup: SlidersHorizontal,
   interview: MessagesSquare,
   sources: FolderGit2,

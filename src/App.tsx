@@ -22,9 +22,9 @@ const router = createHashRouter([
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <Navigate to="/workspace" replace />, errorElement: <RouteError /> },
+      { index: true, element: <Navigate to="/dashboard" replace />, errorElement: <RouteError /> },
       ...ROUTES.map(({ path, element }) => ({ path, element, errorElement: <RouteError /> })),
-      { path: '*', element: <Navigate to="/workspace" replace />, errorElement: <RouteError /> },
+      { path: '*', element: <Navigate to="/dashboard" replace />, errorElement: <RouteError /> },
     ],
   },
 ])

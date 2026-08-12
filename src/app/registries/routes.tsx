@@ -24,6 +24,7 @@
 import type { ReactElement } from 'react'
 
 import { Architecture } from '@/app/routes/Architecture'
+import { Dashboard } from '@/app/routes/Dashboard'
 import { Deliverables } from '@/app/routes/Deliverables'
 import { Dependencies } from '@/app/routes/Dependencies'
 import { Ingestion } from '@/app/routes/Ingestion'
@@ -41,6 +42,7 @@ import { SURFACES, type SurfaceDefinition } from './rooms'
 
 /** Surface id → the component that renders it. */
 const PAGES: Record<string, () => ReactElement> = {
+  dashboard: () => <Dashboard />,
   setup: () => <ProjectSetup />,
   interview: () => <Workspace />,
   sources: () => <Sources />,

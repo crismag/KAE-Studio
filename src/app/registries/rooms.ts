@@ -69,6 +69,16 @@ export interface SurfaceDefinition {
  */
 export const SURFACES: SurfaceDefinition[] = [
   {
+    id: 'dashboard',
+    title: 'Project home',
+    route: '/dashboard',
+    kind: 'surface',
+    purpose: 'See where the project stands, what needs you, and where to go next',
+    readiness: 'partial',
+    limit:
+      'Recent changes and per-Room attention counts need contracts that do not exist — a change feed in Memory, and §4’s work-item model.',
+  },
+  {
     id: 'setup',
     title: 'Project Setup',
     route: '/setup',
