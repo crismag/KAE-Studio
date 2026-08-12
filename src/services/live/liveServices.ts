@@ -1648,10 +1648,15 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     },
 
     listSources: async (id) => {
-      const body = await callArtifacts<{ sources: WireSource[] }>(
+      const body = await callArtifacts<{ sources: WireSource[]; unavailable?: string }>(
         `/api/projects/${resolve(id)}/sources`,
       )
-      return body.sources.map(projectSource)
+      return {
+        sources: body.sources.map(projectSource),
+        // Absent on a backend older than the durable record, and that reads as
+        // "nothing was missing" — which is what was true then.
+        unavailable: typeof body.unavailable === 'string' ? body.unavailable : '',
+      }
     },
 
     addSource: async (id, input) =>

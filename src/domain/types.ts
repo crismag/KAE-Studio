@@ -790,6 +790,20 @@ export interface ProjectProjection {
   architecture: ArchitectureGraph
 }
 
+/**
+ * A project's configured sources, and whether anything is missing from the list.
+ *
+ * `D-21`. Sources became durable, which means reading them can now fail —
+ * before, an empty list was the only thing an empty process could say. A caller
+ * that renders `sources` without checking `unavailable` states that a project
+ * has no sources on the strength of a request that did not complete.
+ */
+export interface SourceListing {
+  sources: ProjectSource[]
+  /** Empty when the record was read. Non-empty is the reason it was not. */
+  unavailable: string
+}
+
 /* ------------------------------------------------------------- architecture */
 
 /**

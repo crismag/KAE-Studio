@@ -58,7 +58,6 @@ import { useState } from 'react'
 import { Activity, FileCode, FileText, FolderGit2, Lock, Search, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { PageLayout } from '@/components/project/PageLayout'
 import { Field, Input } from '@/components/ui/form'
 import {
@@ -75,7 +74,14 @@ import {
 import { QueryState } from '@/components/ui/QueryState'
 import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
 import { Activity as RunActivity, Coverage, PasteDocument, UploadIsNotBuilt } from './intake'
-import { useIngestFiles, useSampleFile, useSourceFiles, useSources } from '@/hooks/useProject'
+import {
+  useIngestFiles,
+  useSampleFile,
+  useSourceFiles,
+  useSources,
+  useSourcesUnavailable,
+} from '@/hooks/useProject'
+import { CapabilityNote } from '@/components/project/CapabilityNote'
 import type { ProjectSource, SourceState } from '@/domain/types'
 
 export function SourcesRoom() {
@@ -133,24 +139,37 @@ export function SourcesRoom() {
 /** The repositories tab — what this page was before the merge. */
 function Repositories() {
   const sources = useSources()
+  // Whether the list above is complete. Sources became durable (`D-21`), so
+  // reading them can fail, and the empty state below would otherwise announce
+  // "no repository connected yet" about a request that did not finish — to a
+  // person who connected one an hour ago.
+  const unreadable = useSourcesUnavailable()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   return (
     <>
+      {unreadable.data ? <CapabilityNote reason={unreadable.data} /> : null}
       <QueryState
         query={sources}
         of="Your sources"
         skeleton={<Skeleton className="h-48" />}
         empty={
-          <EmptyState title="No repository connected yet">
-            <p>
-              KAE can read nothing outside this conversation until a repository is connected and
-              pinned to a commit.
-            </p>
-            <Button asChild className="mt-3">
-              <Link to="/setup">Connect one in Project setup</Link>
-            </Button>
-          </EmptyState>
+          // The note above already says the list may be short. Adding "no
+          // repository connected yet" beneath it would put two answers on one
+          // screen — one about the project, one about the deployment — and the
+          // wrong one carries a button telling somebody to redo work they have
+          // already done.
+          unreadable.data ? null : (
+            <EmptyState title="No repository connected yet">
+              <p>
+                KAE can read nothing outside this conversation until a repository is connected and
+                pinned to a commit.
+              </p>
+              <Button asChild className="mt-3">
+                <Link to="/setup">Connect one in Project setup</Link>
+              </Button>
+            </EmptyState>
+          )
         }
       >
         {(rows) => {

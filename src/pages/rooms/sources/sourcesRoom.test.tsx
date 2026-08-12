@@ -83,7 +83,7 @@ function withPinnedSource(services: StudioServices, over: Partial<AcquisitionPor
     { path: 'docs/ARCHITECTURE.md', size: 12_408 },
   ]
   return withAcquisition(services, {
-    listSources: async () => [PINNED],
+    listSources: async () => ({ sources: [PINNED], unavailable: '' }),
     listFiles: async () => ({ files, truncated: false }),
     sample: async (_sourceId, path) => ({
       path,
@@ -239,9 +239,10 @@ describe('the page never calls connecting analysis', () => {
     // branches nothing can ever produce.
     renderSources((services) =>
       withPinnedSource(services, {
-        listSources: async () => [
-          { ...PINNED, lastError: '404: the repository was not found at this revision' },
-        ],
+        listSources: async () => ({
+          unavailable: '',
+          sources: [{ ...PINNED, lastError: '404: the repository was not found at this revision' }],
+        }),
       }),
     )
 
@@ -255,7 +256,9 @@ describe('the page never calls connecting analysis', () => {
 
 describe('when there is nothing connected', () => {
   it('sends a person to the page that can connect one', async () => {
-    renderSources((services) => withAcquisition(services, { listSources: async () => [] }))
+    renderSources((services) =>
+      withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
+    )
 
     expect(await screen.findByText(/No repository connected yet/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /connect one in project setup/i })).toHaveAttribute(
@@ -265,7 +268,9 @@ describe('when there is nothing connected', () => {
   })
 
   it('does not render an empty file browser over it', async () => {
-    renderSources((services) => withAcquisition(services, { listSources: async () => [] }))
+    renderSources((services) =>
+      withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
+    )
 
     await screen.findByText(/No repository connected yet/i)
     expect(screen.queryByLabelText(/find a file/i)).not.toBeInTheDocument()
@@ -314,5 +319,52 @@ describe('one Source abstraction, not two pages', () => {
     // The merge must not lose what /ingestion made visible: a person who starts
     // a read still has to be able to watch it, and see why it failed.
     expect(await screen.findByText(/quoted text that is not in the source/i)).toBeInTheDocument()
+  })
+})
+
+/**
+ * `D-21` — an empty list and an unread record are different statements.
+ *
+ * Sources became durable, which means reading them can now fail. Before, an
+ * empty process could only ever say "none", and that was true. Now the same
+ * empty list can mean *"KAE-Memory did not answer"* — and the page's own empty
+ * state, "No repository connected yet… connect one in Project setup", would be
+ * telling somebody who connected a repository last week to go and do it again.
+ */
+describe('when the record cannot be read', () => {
+  it('says why the list may be short, in the backend`s words', async () => {
+    const reason = 'Configured sources could not be read from KAE-Memory: connection refused'
+    renderSources((services) =>
+      withAcquisition(services, {
+        listSources: async () => ({ sources: [], unavailable: reason }),
+      }),
+    )
+
+    expect(await screen.findByText(new RegExp('connection refused'))).toBeInTheDocument()
+  })
+
+  it('does not tell a person to connect a repository they may already have', async () => {
+    renderSources((services) =>
+      withAcquisition(services, {
+        listSources: async () => ({
+          sources: [],
+          unavailable: 'Configured sources could not be read from KAE-Memory: 503',
+        }),
+      }),
+    )
+
+    await screen.findByText(/503/)
+    expect(screen.queryByText(/No repository connected yet/i)).not.toBeInTheDocument()
+  })
+
+  it('says nothing when the record read', async () => {
+    // The other half. A standing notice on every project is one nobody reads,
+    // and it would make the warning above invisible.
+    renderSources((services) =>
+      withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
+    )
+
+    expect(await screen.findByText(/No repository connected yet/i)).toBeInTheDocument()
+    expect(screen.queryByText(/could not be read/i)).not.toBeInTheDocument()
   })
 })

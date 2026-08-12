@@ -11,7 +11,7 @@
  */
 
 import type {
-  ConversationMessage,
+  AgentRunRecord,
   ArtifactApproval,
   ArtifactDestination,
   ArtifactPackage,
@@ -21,21 +21,22 @@ import type {
   ArtifactPublication,
   CapabilityGap,
   ConnectivityResult,
+  ConversationMessage,
   Deliverable,
-  ProjectSource,
-  ProviderConnection,
+  DocumentIngestOutcome,
+  ExtractionCoverage,
   GenerationRun,
   InterviewSession,
+  MemoryConnection,
   ProjectModule,
   ProjectProjection,
-  PublisherAvailability,
-  ValidationResult,
-  MemoryConnection,
+  ProjectSource,
+  ProviderConnection,
   PublicationTarget,
+  PublisherAvailability,
   SetupState,
-  AgentRunRecord,
-  ExtractionCoverage,
-  DocumentIngestOutcome,
+  SourceListing,
+  ValidationResult,
 } from '@/domain/types'
 import type {
   AcquisitionPort,
@@ -1180,8 +1181,13 @@ class MockAcquisition implements AcquisitionPort {
     })
   }
 
-  listSources(projectId: string): Promise<ProjectSource[]> {
-    return delay(this.sources.filter((s) => s.projectId === projectId).map((s) => ({ ...s })))
+  listSources(projectId: string): Promise<SourceListing> {
+    return delay({
+      sources: this.sources.filter((s) => s.projectId === projectId).map((s) => ({ ...s })),
+      // The prototype's record always reads. Kept explicit rather than
+      // omitted, so the surface is exercised against "nothing missing" too.
+      unavailable: '',
+    })
   }
 
   addSource(

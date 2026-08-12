@@ -17,29 +17,30 @@
  */
 
 import type {
-  ConnectivityResult,
-  ProjectSource,
-  ProviderConnection,
+  AgentRunRecord,
   ArtifactApproval,
+  ArtifactDestination,
   ArtifactPackage,
   ArtifactPlan,
   ArtifactPreview,
   ArtifactProfile,
   ArtifactPublication,
-  ArtifactDestination,
+  ConnectivityResult,
   ConversationMessage,
   Deliverable,
-  GenerationRun,
-  AgentRunRecord,
-  ExtractionCoverage,
   DocumentIngestOutcome,
+  ExtractionCoverage,
+  GenerationRun,
   InterviewSession,
   MemoryConnection,
   Project,
   ProjectProjection,
+  ProjectSource,
+  ProviderConnection,
   PublicationTarget,
   PublisherAvailability,
   SetupState,
+  SourceListing,
   ValidationResult,
 } from '@/domain/types'
 
@@ -351,7 +352,16 @@ export interface AcquisitionPort {
   /** Ask the provider what a credential can do. **Writes nothing.** */
   checkConnectivity(connectionId: string, location: string): Promise<ConnectivityResult>
 
-  listSources(projectId: string): Promise<ProjectSource[]>
+  /**
+   * This project's configured sources, and whether the list is complete.
+   *
+   * `unavailable` is non-empty when Studio could not read the durable record
+   * (`D-21`). It exists because an empty list and *"I could not ask"* look
+   * identical on screen and mean opposite things — one is a fact about the
+   * project, the other about this deployment, and after a restart the second
+   * is the likely one.
+   */
+  listSources(projectId: string): Promise<SourceListing>
   addSource(
     projectId: string,
     input: { kind: string; connectionId: string; location: string; reference: string },

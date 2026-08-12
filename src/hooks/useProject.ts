@@ -434,11 +434,38 @@ export function useCheckConnectivity() {
   })
 }
 
+/**
+ * This project's sources.
+ *
+ * Selected down to the list, so every existing caller keeps its shape and
+ * `QueryState` keeps its meaning — an empty array is still an empty project.
+ * Whether the list is *complete* is the other question and it has its own hook,
+ * because a caller that answers one while believing it answered the other is
+ * exactly the failure `D-21` introduced the field to prevent.
+ */
 export function useSources() {
   const { acquisition, projectId } = useServices()
   return useQuery({
     queryKey: ['sources', projectId],
     queryFn: () => acquisition.listSources(projectId),
+    select: (listing) => listing.sources,
+  })
+}
+
+/**
+ * Why this project's source list may be short, or `''` when it is not.
+ *
+ * The same query and the same cache entry as `useSources` — not a second
+ * request. Sources became durable in `D-21`, which means reading them can now
+ * fail, and an empty list then says *"this project has no sources"* about a
+ * request that did not complete.
+ */
+export function useSourcesUnavailable() {
+  const { acquisition, projectId } = useServices()
+  return useQuery({
+    queryKey: ['sources', projectId],
+    queryFn: () => acquisition.listSources(projectId),
+    select: (listing) => listing.unavailable,
   })
 }
 
