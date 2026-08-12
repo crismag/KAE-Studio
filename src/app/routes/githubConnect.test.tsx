@@ -164,6 +164,106 @@ describe('choosing a repository', () => {
   })
 })
 
+describe('a value GitHub supplied is not a value a person confirmed', () => {
+  it('records the branch as inferred, with its evidence', async () => {
+    // `INFER-1`. Memory models `inferred` and `suggested` with evidence,
+    // `/setup` renders them, and nothing produced one — a state with a reader
+    // and no writer. This is its first writer, and it corrects an attribution:
+    // the branch was being recorded as `confirmed`, which is the word this
+    // product uses for human agreement, about a value nobody looked at.
+    const user = userEvent.setup()
+    const written: { field: string; state?: string; evidence?: string }[] = []
+    const { ProjectSetup } = await import('./ProjectSetup')
+
+    const base = createMockServices()
+    const services: StudioServices = {
+      ...base,
+      setup: {
+        // A project with no branch chosen yet — the case the inference is for.
+        // The fixture has one, and with a branch already set the guard
+        // correctly declines to overwrite it.
+        getSetup: async (id) => {
+          const state = await base.setup.getSetup(id)
+          const { primary_branch: _dropped, ...rest } = state.configuration
+          return { ...state, configuration: rest }
+        },
+        registerTarget: (id, i) => base.setup.registerTarget(id, i),
+        setDefaultTarget: (id, t) => base.setup.setDefaultTarget(id, t),
+        listConnections: (id) => base.setup.listConnections(id),
+        recordConnection: (id, i) => base.setup.recordConnection(id, i),
+        authorizeConnection: (id, c) => base.setup.authorizeConnection(id, c),
+        configure: async (id, field, value, options) => {
+          written.push({ field, state: options?.state, evidence: options?.evidence })
+          return base.setup.configure(id, field, value, options)
+        },
+      },
+    }
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ServiceProvider services={services}>
+            <ProjectSetup />
+          </ServiceProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    )
+
+    await user.click(await screen.findByRole('option', { name: /identity-service/ }))
+
+    const branch = written.find((entry) => entry.field === 'primary_branch')
+    expect(branch?.state).toBe('inferred')
+    // Evidence travels with it. The domain refuses an inference without one,
+    // and a reader deciding whether to trust a value needs to know who said it.
+    expect(branch?.evidence).toMatch(/GitHub reports this as the default branch/)
+  })
+
+  it('still records the repository as the person’s choice', async () => {
+    // The other half. Selecting *is* a decision, so the repository stays
+    // `confirmed` — the correction is about the branch that came along with it.
+    const user = userEvent.setup()
+    const written: { field: string; state?: string }[] = []
+    const { ProjectSetup } = await import('./ProjectSetup')
+
+    const base = createMockServices()
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ServiceProvider
+            services={{
+              ...base,
+              setup: {
+                getSetup: (id) => base.setup.getSetup(id),
+                registerTarget: (id, i) => base.setup.registerTarget(id, i),
+                setDefaultTarget: (id, t) => base.setup.setDefaultTarget(id, t),
+                listConnections: (id) => base.setup.listConnections(id),
+                recordConnection: (id, i) => base.setup.recordConnection(id, i),
+                authorizeConnection: (id, c) => base.setup.authorizeConnection(id, c),
+                configure: async (id, field, value, options) => {
+                  written.push({ field, state: options?.state })
+                  return base.setup.configure(id, field, value, options)
+                },
+              },
+            }}
+          >
+            <ProjectSetup />
+          </ServiceProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    )
+
+    await user.click(await screen.findByRole('option', { name: /identity-service/ }))
+
+    const repository = written.find((entry) => entry.field === 'primary_repository')
+    expect(repository?.state).toBeUndefined()
+  })
+})
+
 describe('configuring GitHub lives in Settings', () => {
   it('is where the credential reference is added', async () => {
     renderWith(<ProjectSettings />)

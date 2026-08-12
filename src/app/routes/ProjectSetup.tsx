@@ -307,8 +307,19 @@ function SourceRepository({ state }: { state: SetupState }) {
           configure.mutate({ field: 'primary_repository', value: repo.fullName })
           // Only when the branch is unset. Overwriting a branch somebody chose
           // would make selecting a repository quietly undo a decision.
+          //
+          // `inferred`, not `confirmed`. **GitHub reported this; the person did
+          // not choose it.** `confirmed` is the word this product uses for human
+          // agreement, and spending it on a value nobody looked at is the
+          // substitution the audit spent a week removing. `§5` asks for inferred
+          // values shown *for confirmation*, which is a different claim.
           if (!branch) {
-            configure.mutate({ field: 'primary_branch', value: repo.defaultBranch })
+            configure.mutate({
+              field: 'primary_branch',
+              value: repo.defaultBranch,
+              state: 'inferred',
+              evidence: `GitHub reports this as the default branch of ${repo.fullName}`,
+            })
           }
         }}
       />
