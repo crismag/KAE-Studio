@@ -50,6 +50,21 @@ class RecordingMemory:
     def __init__(self) -> None:
         self.rows: dict[str, list[dict[str, Any]]] = {}
         self.registrations = 0
+        #: Grants a person made, which outlive any process (`D-22`).
+        self.connections: dict[str, list[dict[str, Any]]] = {}
+
+    def grant(self, project_id: str, connection_id: str = "con-durable") -> str:
+        self.connections.setdefault(project_id, []).append(
+            {
+                "connection_id": connection_id,
+                "provider": "github",
+                "state": "granted",
+                "credential_reference": "env:STUDIO_GITHUB_SOURCE_TOKEN",
+                "authorized_by": "cris",
+                "detail": "",
+            }
+        )
+        return connection_id
 
     async def register_source(self, project_id: str, body: dict[str, Any]) -> dict[str, Any]:
         self.registrations += 1
@@ -76,6 +91,9 @@ class RecordingMemory:
         }
         rows.append(row)
         return row
+
+    async def memory_connections(self, project_id: str) -> list[dict[str, Any]]:
+        return list(self.connections.get(project_id, []))
 
     async def project_sources(self, project_id: str) -> list[dict[str, Any]]:
         return list(self.rows.get(project_id, []))
@@ -261,3 +279,99 @@ class TestWhenTheRecordCannotBeRead:
             client.__exit__(None, None, None)
 
         assert body["unavailable"] == ""
+
+
+class TestAddingASourceAfterARestart:
+    """`D-22` — the workflow and the setup page stop contradicting each other.
+
+    `add_source` validates its `connection_id` against this process's working
+    set, and the product records connections in KAE-Memory. So somebody who
+    authorized GitHub last week met *unknown connection* in the Sources Room
+    while Project setup, two clicks away, showed the same connection as granted.
+
+    Worse than the vanishing it replaced: the record says the thing exists and
+    the workflow says it does not.
+    """
+
+    def test_a_grant_this_process_never_saw_is_enough_to_add_a_source(self) -> None:
+        memory = RecordingMemory()
+        durable = memory.grant("p1")
+
+        # A fresh app. It has never issued a connection and holds none.
+        client = app_with(memory)
+        try:
+            response = client.post(
+                "/api/projects/p1/sources", json={**CONFIGURED, "connection_id": durable}
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert response.status_code == 201, response.text
+        assert response.json()["location"] == "kae/ministry-reporting"
+
+    def test_a_connection_nobody_granted_is_still_refused(self) -> None:
+        """The half that keeps the fix from being a hole.
+
+        Rehydrating must not mean accepting any identifier a browser sends. A
+        source pointing at a grant that does not exist would be a source nothing
+        can ever read, recorded as though it were configured.
+        """
+
+        memory = RecordingMemory()
+        memory.grant("p1")
+
+        client = app_with(memory)
+        try:
+            response = client.post(
+                "/api/projects/p1/sources",
+                json={**CONFIGURED, "connection_id": "con-nobody-granted"},
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert response.status_code == 404
+
+    def test_another_project_s_grant_does_not_carry(self) -> None:
+        """One environment variable, many project-scoped grants.
+
+        The reason per-project won (`D-22`): permission to use a credential for
+        one project is a decision, and a second project inheriting it is a
+        decision nobody made.
+        """
+
+        memory = RecordingMemory()
+        theirs = memory.grant("someone-else")
+
+        client = app_with(memory)
+        try:
+            response = client.post(
+                "/api/projects/p1/sources", json={**CONFIGURED, "connection_id": theirs}
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert response.status_code == 404
+
+    def test_a_rehydrated_grant_is_not_reported_as_verified(self) -> None:
+        """Memory's `granted` means a person authorized this.
+
+        It does not mean the provider was contacted, and this process has
+        contacted nothing since it started. Verification is one round trip, and
+        claiming it without making it is exactly what `ConnectionState` splits
+        `configured` from `verified` to prevent.
+        """
+
+        memory = RecordingMemory()
+        durable = memory.grant("p1")
+
+        client = app_with(memory)
+        try:
+            client.post("/api/projects/p1/sources", json={**CONFIGURED, "connection_id": durable})
+            listed = client.get("/api/connections").json()["connections"]
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [c["state"] for c in listed] == ["configured"]
+        # And never the reference itself: it names an environment variable, and
+        # publishing that to a browser says which one to go after.
+        assert all("connection_ref" not in c for c in listed)

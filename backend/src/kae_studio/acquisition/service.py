@@ -178,6 +178,20 @@ class AcquisitionService:
         self._sources[source.source_id] = source
         return source
 
+    def adopt_connection(self, connection: Connection) -> Connection:
+        """Take a connection read back from KAE-Memory into this process.
+
+        `D-22`: a connection belongs to the project and its record is Memory's.
+        This dictionary is a working copy, and after a restart it is empty while
+        every grant a person made is still real.
+
+        Locally-held state wins, as it does for sources: a connection verified
+        against the provider a moment ago carries a `can_read` this process
+        established and Memory has not been told about.
+        """
+
+        return self._connections.setdefault(connection.connection_id, connection)
+
     def adopt(self, source: Source) -> Source:
         """Take a source read back from KAE-Memory into this process.
 

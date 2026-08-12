@@ -1264,6 +1264,19 @@ def create_app(settings: Settings) -> FastAPI:
     async def list_connections(
         request: Request, _: Operator = Depends(require_operator)
     ) -> Any:
+        """This process's connections, across every project.
+
+        **Not the durable record and not what source creation reads** (`D-22`).
+        The record is per-project and lives in KAE-Memory, reached through
+        `/api/projects/{id}/memory-connections`; this is the working set, and it
+        is empty until something rehydrates it.
+
+        Kept because no page reads it and a route may not be removed before its
+        replacement is verified — there is nothing here to verify a replacement
+        against.
+        """
+
+
         # `redacted()`, never the raw object: a connection holds a reference
         # naming where a secret lives, and publishing that to a browser tells an
         # attacker which variable to go after.
@@ -1294,6 +1307,41 @@ def create_app(settings: Settings) -> FastAPI:
             acquisition(request).check, body.connection_id, body.location
         )
         return result.describe()
+
+    async def _rehydrate_connections(request: Request, project_id: str) -> None:
+        """Take this project's durable connections into the working set (`D-22`).
+
+        Source creation validates its `connection_id` against the working set,
+        and the product records connections in Memory. Without this, somebody
+        who authorized GitHub last week is told *unknown connection* while the
+        Project setup page two clicks away shows the same connection as granted
+        — the record saying a thing exists and the workflow saying it does not.
+        """
+
+        from .acquisition.model import Connection, ConnectionState
+
+        payload = await memory(request).memory_connections(project_id)
+        entries = payload if isinstance(payload, list) else payload.get("connections", [])
+        for entry in entries if isinstance(entries, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            acquisition(request).adopt_connection(
+                Connection(
+                    connection_id=str(entry.get("connection_id", "")),
+                    provider=str(entry.get("provider", "")),
+                    # Memory records the grant, not what somebody calls it.
+                    # Naming it after the provider beats inventing a label.
+                    label=str(entry.get("provider", "")),
+                    connection_ref=str(entry.get("credential_reference") or ""),
+                    # `configured`, never `verified`. Memory's `granted` means a
+                    # person authorized this; it does not mean the provider was
+                    # contacted, and this process has contacted nothing since it
+                    # started. Verification is one round trip and claiming it
+                    # without making it is what `ConnectionState` exists to stop.
+                    state=ConnectionState.CONFIGURED,
+                    detail=str(entry.get("detail", "")),
+                )
+            )
 
     async def _rehydrate(request: Request, project_id: str) -> None:
         """Take this project's durable sources into the working set (`D-21`).
@@ -1375,6 +1423,10 @@ def create_app(settings: Settings) -> FastAPI:
             include_paths=tuple(body.include_paths),
             documentation_only=body.documentation_only,
         )
+        # The connection this names is the project's, and its record is
+        # Memory's (`D-22`). Without this the first source added after a restart
+        # is refused against a grant the setup page is displaying as live.
+        await _rehydrate_connections(request, project_id)
         # Recorded durably first, and its identity comes back from there
         # (`D-21`). Minting an id here and telling Memory afterwards would give
         # one source two identities whenever the second call failed.
