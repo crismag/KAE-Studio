@@ -33,6 +33,7 @@ import {
   type Disposition,
   type Recommendation,
 } from '@/components/project/RecommendationCard'
+import { AssistantProse } from '@/components/project/AssistantProse'
 import { NextAction } from '@/components/project/NextAction'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { SectionsNotRead } from '@/components/project/SectionsNotRead'
@@ -173,7 +174,10 @@ export function AssistantMessage({
           <Sparkle className="size-3.5" />
         </div>
         <div className="min-w-0 max-w-[52rem] space-y-3">
-          <p className="text-[14px] leading-relaxed text-ink">{message.body}</p>
+          {/* `VC-03/E`. CIE has specified rich Markdown since the first slice
+              and this was a bare `<p>`, so a reply comparing three options
+              arrived as one paragraph with literal pipe characters in it. */}
+          <AssistantProse>{message.body}</AssistantProse>
 
           {/* Explanation is on demand — R2's third channel.
 
