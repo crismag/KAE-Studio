@@ -52,6 +52,7 @@ class RecordingMemory:
         self.registrations = 0
         #: Grants a person made, which outlive any process (`D-22`).
         self.connections: dict[str, list[dict[str, Any]]] = {}
+        self.configuration: dict[str, dict[str, str]] = {}
 
     def grant(self, project_id: str, connection_id: str = "con-durable") -> str:
         self.connections.setdefault(project_id, []).append(
@@ -91,6 +92,12 @@ class RecordingMemory:
         }
         rows.append(row)
         return row
+
+    async def configure(
+        self, project_id: str, field: str, value: str, **_: Any
+    ) -> dict[str, Any]:
+        self.configuration.setdefault(project_id, {})[field] = value
+        return {"field": field, "value": value, "state": "confirmed"}
 
     async def memory_connections(self, project_id: str) -> list[dict[str, Any]]:
         return list(self.connections.get(project_id, []))
@@ -375,3 +382,124 @@ class TestAddingASourceAfterARestart:
         # And never the reference itself: it names an environment variable, and
         # publishing that to a browser says which one to go after.
         assert all("connection_ref" not in c for c in listed)
+
+
+class TestTheRepositoryNamedInSetupIsASource:
+    """`D-23` — the loop between the two surfaces has something in it.
+
+    Project setup wrote `primary_repository` into `project_configuration`. The
+    Sources Room listed sources. Nothing joined them, so a person who named
+    their repository in setup was told by the Sources Room that no repository
+    was connected — with a button sending them back to setup, where it already
+    was. Each screen was truthful, which is why it survived being built twice in
+    one run.
+    """
+
+    def test_naming_it_registers_it(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/setup/configuration",
+                json={"field": "primary_repository", "value": "kae/ministry-reporting"},
+            )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [source["location"] for source in listed["sources"]] == [
+            "kae/ministry-reporting"
+        ]
+
+    def test_it_is_named_rather_than_read(self) -> None:
+        """`configured`, never `readable`.
+
+        Nothing has contacted the provider. Claiming access on the strength of
+        somebody typing a repository name is the substitution `SourceState`
+        exists to refuse — a successful form submission is not a successful GET.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/setup/configuration",
+                json={"field": "primary_repository", "value": "kae/ministry-reporting"},
+            )
+            source = client.get("/api/projects/p1/sources").json()["sources"][0]
+        finally:
+            client.__exit__(None, None, None)
+
+        assert source["state"] == "configured"
+        assert source["snapshot"] is None
+
+    def test_saving_the_same_repository_twice_registers_one_source(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            for _ in range(2):
+                client.post(
+                    "/api/projects/p1/setup/configuration",
+                    json={"field": "primary_repository", "value": "kae/ministry-reporting"},
+                )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert len(listed["sources"]) == 1
+
+    def test_changing_it_does_not_delete_the_previous_source(self) -> None:
+        """Deleting acquired configuration is an act nobody has designed.
+
+        Two sources after a change is visibly odd and recoverable. A source
+        deleted because somebody edited a field is neither, and a settings write
+        is the worst possible place to invent a deletion.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            for repository in ("kae/first", "kae/second"):
+                client.post(
+                    "/api/projects/p1/setup/configuration",
+                    json={"field": "primary_repository", "value": repository},
+                )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert {source["location"] for source in listed["sources"]} == {
+            "kae/first",
+            "kae/second",
+        }
+
+    def test_another_setting_registers_nothing(self) -> None:
+        # Only the repository is a source. A project kind or a working
+        # directory is a setting, and registering one as a source would put a
+        # row in the intake record for something nobody can read.
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/setup/configuration",
+                json={"field": "project_kind", "value": "web_application"},
+            )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed["sources"] == []
+
+    def test_clearing_it_registers_nothing(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/setup/configuration",
+                json={"field": "primary_repository", "value": "   "},
+            )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed["sources"] == []

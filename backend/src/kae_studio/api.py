@@ -536,7 +536,7 @@ def create_app(settings: Settings) -> FastAPI:
         about a value that Memory cannot check for itself.
         """
 
-        return await memory(request).configure(
+        configured = await memory(request).configure(
             project_id,
             body.field,
             body.value,
@@ -544,6 +544,37 @@ def create_app(settings: Settings) -> FastAPI:
             evidence=body.evidence,
             confirmed_by=operator.name if body.state == "confirmed" else None,
         )
+
+        # The repository a person names here **is** a Source (`D-23`, `§7`).
+        # Without this the Sources Room said "no repository connected yet" and
+        # sent them to this page, where their repository already was — a closed
+        # loop with nothing in it, and each screen individually truthful.
+        #
+        # Idempotent on Memory's side by (kind, location), so re-saving the same
+        # repository registers nothing twice. Changing it leaves the previous
+        # source alone: deleting acquired configuration is an act nobody has
+        # designed, and a settings write is the worst place to invent one.
+        if body.field == "primary_repository" and body.value.strip():
+            await memory(request).register_source(
+                project_id,
+                {
+                    "kind": "github",
+                    "location": body.value.strip(),
+                    # Named, not read. `configured` is the honest state: nothing
+                    # has contacted the provider, and `readable` on the strength
+                    # of somebody typing a repository name would be a claim
+                    # about access made without asking for any.
+                    "state": "configured",
+                    # A connection is not required to name a repository. Pinning
+                    # needs a credential; this does not, and refusing to record
+                    # a repository somebody plainly named would be worse than
+                    # recording one that cannot be read yet.
+                    "connection_id": None,
+                    "scope": {},
+                },
+            )
+
+        return configured
 
     @app.post("/api/projects/{project_id}/publication-targets")
     async def register_publication_target(
