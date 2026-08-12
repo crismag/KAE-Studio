@@ -24,6 +24,7 @@ import { Badge, Button } from '@/components/ui/primitives'
 import { useActiveProject } from '@/app/shell/activeProject'
 import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
 import { useProject, useProjection } from '@/hooks/useProject'
+import { SURFACES } from '@/app/registries/rooms'
 import { useServices } from '@/hooks/useServices'
 
 interface NavItem {
@@ -34,28 +35,39 @@ interface NavItem {
   system?: boolean
 }
 
-const NAV: NavItem[] = [
-  // Stage one of the seven in `01_PRODUCT_OPERATING_MODEL.md`, and first here
-  // because it is where a project starts: sources, destination, and what KAE
-  // may reach. It did not exist until now, so the product's only way in was
-  // the interview.
-  { to: '/setup', label: 'Project Setup', icon: SlidersHorizontal },
-  { to: '/workspace', label: 'Workspace', icon: MessagesSquare },
-  // The second intake path. Beside the conversation because they are two ways
-  // of doing the same thing — telling KAE what the project is.
-  { to: '/sources', label: 'Sources', icon: FolderGit2 },
-  { to: '/ingestion', label: 'Ingestion', icon: FileInput },
-  { to: '/definition', label: 'Project Definition', icon: ClipboardList },
-  { to: '/modules', label: 'Modules', icon: Boxes },
-  { to: '/requirements', label: 'Requirements', icon: ListChecks },
-  { to: '/architecture', label: 'Architecture', icon: PanelsTopLeft },
-  { to: '/dependencies', label: 'Dependencies', icon: GitBranch },
-  { to: '/plan', label: 'Plan', icon: LayoutGrid },
-  { to: '/deliverables', label: 'Deliverables', icon: FileOutput },
-  { to: '/reviews', label: 'Reviews', icon: ScanSearch },
-  { to: '/settings/project', label: 'Project Settings', icon: Settings2, system: true },
-  { to: '/memory', label: 'Memory', icon: Database, system: true },
-]
+/**
+ * Icons per surface id, and nothing else.
+ *
+ * The label, the path and the order come from the registry, so a rename or a
+ * route move is one edit rather than three. Only the icon lives here — it is a
+ * presentation choice the registry has no business holding.
+ */
+const ICONS: Record<string, NavItem['icon']> = {
+  setup: SlidersHorizontal,
+  interview: MessagesSquare,
+  sources: FolderGit2,
+  ingestion: FileInput,
+  definition: ClipboardList,
+  modules: Boxes,
+  requirements: ListChecks,
+  architecture: PanelsTopLeft,
+  dependencies: GitBranch,
+  planning: LayoutGrid,
+  deliverables: FileOutput,
+  review: ScanSearch,
+  'project-settings': Settings2,
+  memory: Database,
+}
+
+/** Settings and Memory sit below the separator; everything else is work. */
+const SYSTEM = new Set(['project-settings', 'memory'])
+
+const NAV: NavItem[] = SURFACES.map((surface) => ({
+  to: surface.route,
+  label: surface.title,
+  icon: ICONS[surface.id] ?? Database,
+  system: SYSTEM.has(surface.id),
+}))
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: projection } = useProjection()
