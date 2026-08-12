@@ -764,6 +764,88 @@ export interface ProjectProjection {
    * showed a green `0` over a real number (AUD-003).
    */
   contradictions: { count: number; listable: boolean; reason: string }
+  /**
+   * What was said, what KAE is guessing, and what nobody has decided.
+   *
+   * `D-18`. KAE-Memory composes this for exactly the project that has almost
+   * nothing yet, and keeps its collections apart on purpose: *"a reader who
+   * cannot tell a confirmed requirement from a plausible guess has a document
+   * that is worse than nothing — the same document with the warning removed."*
+   *
+   * Studio received all of it and rendered none of it. The adapter's own type
+   * declared two of the fields, read one, and put it into
+   * `health.recommendedNext`, which no component renders. `AUD-041` at the
+   * last hop.
+   */
+  preliminary: PreliminaryContext
+}
+
+/* ------------------------------------------------------ preliminary context */
+
+/**
+ * One thing a person actually said, as it was recorded.
+ *
+ * First in the section, and first in KAE-Memory's own object, for the reason
+ * it gives: *"a preliminary context is most often wrong in its interpretation
+ * rather than in its transcription. A reader who can see the original sentence
+ * can catch that; one who cannot, cannot."*
+ */
+export interface StatedVerbatim {
+  messageId: string
+  text: string
+  actorType: string
+  messageType: string
+}
+
+/** One assumption, with what it would cost to be wrong. */
+export interface AssumedEntry {
+  assumptionId: string
+  subject: string
+  assumedValue: string
+  reason: string
+  origin: string
+  consequence: string
+  state: string
+  reversible: boolean
+  /** Architectural, unsafe, or irreversible — the ones worth a person's time. */
+  material: boolean
+  acceptedBy: string | null
+  /** A line a reader can act on, written by Memory and rendered unedited. */
+  disclosure: string
+}
+
+/** One thing nobody has decided, and whether it is worth deciding now. */
+export interface UnknownEntry {
+  clarificationId: string
+  question: string
+  areaKey: string | null
+  severity: string
+  findingKind: string
+  material: boolean
+  /**
+   * `open` means nobody was asked. Anything else means someone **was** asked
+   * and did not decide — a different situation, and one Memory requires to
+   * stay visible (`N36`).
+   */
+  disposition: string
+}
+
+export interface PreliminaryContext {
+  /**
+   * Whether this section was composed at all.
+   *
+   * `false` when Memory did not answer, and it is not the same as *"nothing
+   * is preliminary here"* — a distinction the surface has to keep, because
+   * silence read as reassurance is this estate's most repeated defect.
+   */
+  composed: boolean
+  /** Whether anything here rests on something nobody has confirmed. */
+  isPreliminary: boolean
+  statedVerbatim: StatedVerbatim[]
+  assumed: AssumedEntry[]
+  materialUnknowns: UnknownEntry[]
+  deferrableUnknowns: UnknownEntry[]
+  warnings: string[]
 }
 
 /* ------------------------------------------------------------ project setup */

@@ -15,6 +15,7 @@ import type {
   Deliverable,
   InterviewSession,
   OpenDecision,
+  PreliminaryContext,
   Project,
   ProjectDefinition,
   ProjectHealth,
@@ -1459,3 +1460,100 @@ export const recentChanges = [
     at: '2026-07-28T09:15:44Z',
   },
 ]
+
+/* --------------------------------------------------- preliminary context */
+
+/**
+ * What was said, what KAE is guessing, and what nobody has decided (`D-18`).
+ *
+ * The fixture project is well past preliminary — it has confirmed
+ * requirements and a reviewed readiness number — so `isPreliminary` is false
+ * and the collections are small. That is the honest shape for this project,
+ * and it exercises the case a fuller fixture would hide: a section that must
+ * still say something useful when most of it is empty.
+ *
+ * `assumed` is populated because assumptions outlive preliminary status —
+ * an assumption nobody has revisited is exactly what a mature project forgets
+ * it is standing on.
+ */
+export const preliminary: PreliminaryContext = {
+  composed: true,
+  isPreliminary: false,
+  statedVerbatim: [
+    {
+      messageId: 'msg-001',
+      // Somebody's own sentence, unedited. The reason this collection exists:
+      // a preliminary context is more often wrong in its interpretation than
+      // in its transcription, and only the original sentence shows which.
+      text: 'We need our churches to submit their monthly reports without me chasing them on WhatsApp.',
+      actorType: 'user',
+      messageType: 'statement',
+    },
+    {
+      messageId: 'msg-004',
+      text: 'The regional office has to sign off before anything is published to the national board.',
+      actorType: 'user',
+      messageType: 'statement',
+    },
+  ],
+  assumed: [
+    {
+      assumptionId: 'ASM-01',
+      subject: 'Report submission cadence',
+      assumedValue: 'Monthly, aligned to calendar months',
+      reason: 'Every example given described a monthly cycle; no other cadence was mentioned.',
+      origin: 'inferred_from_statements',
+      consequence:
+        'A quarterly or liturgical cycle would change the reminder schedule and the reporting period boundaries.',
+      state: 'proposed',
+      reversible: true,
+      material: false,
+      acceptedBy: null,
+      disclosure:
+        'KAE assumed monthly reporting because every example described one. If the cycle is quarterly, reminders and period boundaries change.',
+    },
+    {
+      assumptionId: 'ASM-02',
+      subject: 'Who may approve',
+      assumedValue: 'A regional officer, not the submitting church',
+      reason: 'Approval was described as happening at the regional office.',
+      origin: 'inferred_from_statements',
+      consequence:
+        'The approval module`s permission model is built on this. If a church may self-approve, the module changes shape rather than configuration.',
+      state: 'proposed',
+      reversible: false,
+      material: true,
+      acceptedBy: null,
+      disclosure:
+        'KAE assumed a church cannot approve its own report. This is architectural: if it can, the approval module changes shape rather than configuration.',
+    },
+  ],
+  materialUnknowns: [
+    {
+      clarificationId: 'OD-011',
+      question: 'Which role holds approval authority?',
+      areaKey: 'approval',
+      severity: 'critical',
+      findingKind: 'missing_decision',
+      material: true,
+      // Nobody has been asked. Distinct from `deferred`, where somebody was
+      // asked and chose not to decide (N36).
+      disposition: 'open',
+    },
+  ],
+  deferrableUnknowns: [
+    {
+      clarificationId: 'OD-014',
+      question: 'Can an administrator override a rejection?',
+      areaKey: 'approval',
+      severity: 'minor',
+      findingKind: 'missing_decision',
+      material: false,
+      // Asked, and answered with *not now*. An answer, and one that has to
+      // stay visible — it is the difference between a project that has not
+      // looked and one that looked and moved on.
+      disposition: 'deferred',
+    },
+  ],
+  warnings: [],
+}

@@ -154,12 +154,32 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
             "listable": False,
             "reason": "KAE-Memory exposes contradictions for recording and resolving, not listing.",
         },
+        # Six collections KAE-Memory keeps deliberately apart, carried apart.
+        #
+        # Its own words: *"known, proposed, assumed and unknown are four
+        # separate collections and never merge."* Nothing here summarises,
+        # counts, or folds them, because the distinction between what a person
+        # said, what KAE inferred, and what nobody has decided is the entire
+        # value of the section (`D-18`).
+        #
+        # `known` and `proposed` are deliberately **not** carried: the same
+        # statements already reach the reader through `confirmed`/`proposed`
+        # above, and two paths to one set of statements is two things to keep
+        # in agreement forever.
         "preliminary": {
             "isPreliminary": preliminary_data.get("is_preliminary"),
             "statedVerbatim": preliminary_data.get("stated_verbatim", []),
             "assumed": preliminary_data.get("assumed", []),
             "materialUnknowns": preliminary_data.get("material_unknowns", []),
+            # Carried, because *not now* is an answer and an unrendered
+            # deferrable unknown is one KAE has silently dropped.
+            "deferrableUnknowns": preliminary_data.get("deferrable_unknowns", []),
             "warnings": preliminary_data.get("warnings", []),
+            # Whether this section was composed at all. `False` because a
+            # Memory that did not answer has told us nothing, and a section
+            # rendering as "nothing preliminary here" on that basis would be a
+            # reassurance derived from our own ignorance.
+            "composed": bool(preliminary_data),
         },
         # Named rather than absent. The UI has a Modules route, and it must show
         # why the view is empty instead of implying the project has none.

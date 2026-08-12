@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Ban, Check } from 'lucide-react'
+import { PreliminaryContextPanel } from '@/components/project/PreliminaryContextPanel'
 import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
@@ -229,6 +230,12 @@ export function ProjectDefinition() {
             ))}
           </PanelBody>
         </Panel>
+
+        {/* Before the definition's own assumptions and constraints, because
+            this is what those were derived *from*, and after the definition
+            itself, because a reader arrives here asking what the project is
+            rather than how sure KAE is about it (`D-18`). */}
+        <PreliminaryContextPanel preliminary={projection.preliminary} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Panel>

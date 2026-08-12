@@ -20,10 +20,12 @@ import type {
   ExtractionCoverage,
   InterviewSession,
   MemoryConnection,
+  PreliminaryContext,
   Project,
   PublicationTarget,
   SetupGap,
   SetupState,
+  UnknownEntry,
   ArtifactDestination,
   ArtifactPlan,
   ArtifactPreview,
@@ -513,7 +515,15 @@ interface BackendProjection {
   }[]
   blockers: unknown[]
   contradictions: { count: number; listable: boolean; reason: string }
-  preliminary: { warnings: string[]; materialUnknowns: unknown[] }
+  preliminary: {
+    composed?: boolean
+    isPreliminary?: boolean | null
+    statedVerbatim?: unknown[]
+    assumed?: unknown[]
+    materialUnknowns?: unknown[]
+    deferrableUnknowns?: unknown[]
+    warnings: string[]
+  }
   modules: { available: boolean; gap: { capability: string; reason: string } }
   unavailable: { section: string; reason: string }[]
   classification?: {
@@ -683,6 +693,69 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
           state: 'planned',
           provedInstead: [],
         },
+    preliminary: toPreliminary(raw.preliminary),
+  }
+}
+
+/**
+ * Memory's preliminary view, carried entry by entry (`D-18`).
+ *
+ * Nothing here counts, merges, or summarises. The whole point of the section
+ * is that a person can tell what was *said* from what KAE *inferred* from what
+ * nobody has decided, and every one of those distinctions dies in a total.
+ */
+function toPreliminary(raw: BackendProjection['preliminary']): PreliminaryContext {
+  const entries = (value: unknown[] | undefined): Record<string, unknown>[] =>
+    (value ?? []).filter(
+      (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
+    )
+  const text = (entry: Record<string, unknown>, key: string): string =>
+    typeof entry[key] === 'string' ? (entry[key] as string) : ''
+
+  const unknowns = (value: unknown[] | undefined): UnknownEntry[] =>
+    entries(value).map((entry) => ({
+      clarificationId: text(entry, 'clarification_id'),
+      question: text(entry, 'question'),
+      areaKey: typeof entry.area_key === 'string' ? entry.area_key : null,
+      severity: text(entry, 'severity'),
+      findingKind: text(entry, 'finding_kind'),
+      material: entry.material === true,
+      // Never defaulted to `open`. "Nobody was asked" and "someone was asked
+      // and did not decide" are different states (N36), and a default that
+      // renders identically to a fact is how a wrong reading survives.
+      disposition: text(entry, 'disposition'),
+    }))
+
+  return {
+    composed: raw.composed === true,
+    isPreliminary: raw.isPreliminary === true,
+    statedVerbatim: entries(raw.statedVerbatim).map((entry) => ({
+      messageId: text(entry, 'message_id'),
+      // Unedited, untrimmed of meaning, never summarised. This is the one
+      // field in the projection that is somebody's own sentence.
+      text: text(entry, 'text'),
+      actorType: text(entry, 'actor_type'),
+      messageType: text(entry, 'message_type'),
+    })),
+    assumed: entries(raw.assumed).map((entry) => ({
+      assumptionId: text(entry, 'assumption_id'),
+      subject: text(entry, 'subject'),
+      assumedValue: text(entry, 'assumed_value'),
+      reason: text(entry, 'reason'),
+      origin: text(entry, 'origin'),
+      consequence: text(entry, 'consequence'),
+      state: text(entry, 'state'),
+      // Absent reads as *not* reversible and *not* material — the reading that
+      // costs a person attention rather than the one that costs them a
+      // decision they did not know they were making.
+      reversible: entry.reversible === true,
+      material: entry.material === true,
+      acceptedBy: typeof entry.accepted_by === 'string' ? entry.accepted_by : null,
+      disclosure: text(entry, 'disclosure'),
+    })),
+    materialUnknowns: unknowns(raw.materialUnknowns),
+    deferrableUnknowns: unknowns(raw.deferrableUnknowns),
+    warnings: [...raw.warnings],
   }
 }
 
