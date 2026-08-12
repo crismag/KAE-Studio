@@ -21,6 +21,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
 import { SourcesRoom } from './SourcesRoom'
+import { PasteDocument } from './intake'
 import type { AcquisitionPort, StudioServices } from '@/services/interfaces'
 import type { ProjectSource } from '@/domain/types'
 
@@ -104,7 +105,7 @@ function renderSources(patch?: (services: StudioServices) => StudioServices) {
   const base = createMockServices()
   const services = patch ? patch(base) : base
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
-  return render(
+  const rendered = render(
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
         <ServiceProvider services={services}>
@@ -113,6 +114,8 @@ function renderSources(patch?: (services: StudioServices) => StudioServices) {
       </QueryClientProvider>
     </MemoryRouter>,
   )
+
+  return rendered
 }
 
 describe('a repository’s files are visible at all', () => {
@@ -416,5 +419,75 @@ describe('sources of different kinds are not shown as one another', () => {
     )
 
     expect(await screen.findByText(/No repository connected yet/i)).toBeInTheDocument()
+  })
+})
+
+describe('the documents already given', () => {
+  const PASTED = {
+    ...PINNED,
+    sourceId: 'src_paste',
+    kind: 'paste' as const,
+    location: 'Project brief',
+    state: 'readable' as const,
+    snapshot: null,
+  }
+
+  /**
+   * `PasteDocument` directly rather than through the Room.
+   *
+   * The Room is tabbed, only the open panel renders, and Radix triggers do not
+   * switch on a synthetic click — so a test driving the tab would assert
+   * against whatever the default panel happened to be. This renders the
+   * component that owns the behaviour.
+   */
+  function renderPaste(patch: (services: StudioServices) => StudioServices) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    return render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ServiceProvider services={patch(createMockServices())}>
+            <PasteDocument />
+          </ServiceProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    )
+  }
+
+  it('lists what this project has been handed', async () => {
+    renderPaste((services) =>
+      withAcquisition(services, {
+        listSources: async () => ({ sources: [PASTED], unavailable: '' }),
+      }),
+    )
+
+    expect(await screen.findByText('Project brief')).toBeInTheDocument()
+  })
+
+  it('says an unread record is not an empty one', async () => {
+    // Found by re-scanning this change rather than by anybody hitting it. An
+    // absent section reads as "nothing has been given", to somebody deciding
+    // whether to paste their brief a second time.
+    renderPaste((services) =>
+      withAcquisition(services, {
+        listSources: async () => ({ sources: [], unavailable: 'KAE-Memory returned 503.' }),
+      }),
+    )
+
+    const notice = await screen.findByRole('alert')
+    expect(notice).toHaveTextContent(/503/)
+    expect(notice).toHaveTextContent(/not a statement that nothing was/i)
+  })
+
+  it('says nothing at all when nothing has been given', async () => {
+    renderPaste((services) =>
+      withAcquisition(services, {
+        listSources: async () => ({ sources: [], unavailable: '' }),
+      }),
+    )
+
+    await screen.findByText(/Read this/i)
+    expect(screen.queryByText(/already given/i)).not.toBeInTheDocument()
   })
 })

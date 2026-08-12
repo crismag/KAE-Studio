@@ -56,6 +56,7 @@ import {
   useRuns,
   useSources,
   useSourcesOfKind,
+  useSourcesUnavailable,
 } from '@/hooks/useProject'
 import type { AgentRunRecord, DocumentIngestOutcome } from '@/domain/types'
 
@@ -174,6 +175,24 @@ export function PasteDocument() {
  */
 function DocumentsGiven() {
   const documents = useSourcesOfKind(['paste'])
+  // The same illusion the Repositories tab had, one tab over, and found by
+  // re-scanning this change rather than by anybody hitting it: if the record
+  // cannot be read, this section is simply absent — and absent here reads as
+  // *"nothing has been given"*, to somebody deciding whether to paste their
+  // brief a second time.
+  const unreadable = useSourcesUnavailable()
+
+  if (unreadable.data) {
+    return (
+      <div className="border-t border-line pt-4">
+        <p role="alert" className="text-[11.5px] leading-relaxed text-ink-muted">
+          {unreadable.data} Anything given earlier is not listed here — this is not a statement that
+          nothing was.
+        </p>
+      </div>
+    )
+  }
+
   if (!documents.data?.length) return null
 
   return (
