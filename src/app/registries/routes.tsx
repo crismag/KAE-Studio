@@ -35,7 +35,7 @@ import { ProjectSettings } from '@/app/routes/ProjectSettings'
 import { ProjectSetup } from '@/app/routes/ProjectSetup'
 import { Requirements } from '@/app/routes/Requirements'
 import { Reviews } from '@/app/routes/Reviews'
-import { Sources } from '@/app/routes/Sources'
+import { SourcesRoom } from '@/pages/rooms/sources/SourcesRoom'
 import { Workspace } from '@/app/routes/Workspace'
 import { REDIRECTS, SURFACES, type SurfaceDefinition } from './rooms'
 
@@ -44,7 +44,7 @@ const PAGES: Record<string, () => ReactElement> = {
   dashboard: () => <Dashboard />,
   setup: () => <ProjectSetup />,
   interview: () => <Workspace />,
-  sources: () => <Sources />,
+  sources: () => <SourcesRoom />,
   definition: () => <ProjectDefinition />,
   requirements: () => <Requirements />,
   modules: () => <Modules />,

@@ -36,7 +36,7 @@ import { Link } from 'react-router-dom'
 
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { PageLayout } from '@/components/project/PageLayout'
-import { readFailure, readRole } from '@/components/project/runVocabulary'
+import { readFailure, readRole } from './runVocabulary'
 import { Field, Input, Textarea } from '@/components/ui/form'
 import {
   Badge,
@@ -53,7 +53,7 @@ import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
 import { useExtractionCoverage, useIngestText, useRuns, useSources } from '@/hooks/useProject'
 import type { AgentRunRecord, DocumentIngestOutcome } from '@/domain/types'
 
-export function Ingestion() {
+export function Intake() {
   return (
     <PageLayout
       title="Give KAE something to read"

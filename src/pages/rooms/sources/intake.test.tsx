@@ -18,7 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { Ingestion } from './Ingestion'
+import { Intake } from './intake'
 import type { IngestionPort, StudioServices } from '@/services/interfaces'
 
 /**
@@ -47,7 +47,7 @@ function renderIngestion(patch?: (services: StudioServices) => StudioServices) {
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
         <ServiceProvider services={services}>
-          <Ingestion />
+          <Intake />
         </ServiceProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -266,7 +266,7 @@ describe('the composer’s attach button', () => {
     // main surface. It links rather than opening a file picker because KAE
     // still cannot read files, and offering a picker would be the dead control
     // replaced by a lying one.
-    const { Composer } = await import('./Workspace')
+    const { Composer } = await import('@/app/routes/Workspace')
     render(
       <MemoryRouter>
         <Composer onSend={() => {}} pending={false} draft="" setDraft={() => {}} />

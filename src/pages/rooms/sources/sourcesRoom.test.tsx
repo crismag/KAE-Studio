@@ -20,7 +20,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { Sources } from './Sources'
+import { SourcesRoom } from './SourcesRoom'
 import type { AcquisitionPort, StudioServices } from '@/services/interfaces'
 import type { ProjectSource } from '@/domain/types'
 
@@ -108,7 +108,7 @@ function renderSources(patch?: (services: StudioServices) => StudioServices) {
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
         <ServiceProvider services={services}>
-          <Sources />
+          <SourcesRoom />
         </ServiceProvider>
       </QueryClientProvider>
     </MemoryRouter>,

@@ -79,11 +79,11 @@ import {
   Coverage,
   PasteDocument,
   UploadIsNotBuilt,
-} from '@/app/routes/Ingestion'
+} from './intake'
 import { useIngestFiles, useSampleFile, useSourceFiles, useSources } from '@/hooks/useProject'
 import type { ProjectSource, SourceState } from '@/domain/types'
 
-export function Sources() {
+export function SourcesRoom() {
   return (
     <PageLayout
       title="Sources"
