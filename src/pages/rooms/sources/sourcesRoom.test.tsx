@@ -368,3 +368,53 @@ describe('when the record cannot be read', () => {
     expect(screen.queryByText(/could not be read/i)).not.toBeInTheDocument()
   })
 })
+
+/**
+ * `D-24` — a pasted document is a Source, and is not a repository.
+ *
+ * The ingest path worked the whole time and recorded nothing that said intake
+ * had happened, so the Sources Room listed repositories and nothing else.
+ * Somebody who handed KAE their brief last week found no trace of it on the
+ * page that takes documents, and the honest response to that is to paste it
+ * again.
+ *
+ * The risk the fix carries is the opposite one: every source used to be a
+ * repository, so a pasted brief in the Repositories tab would be labelled one
+ * by its surroundings — a claim a list makes without saying a word.
+ */
+describe('sources of different kinds are not shown as one another', () => {
+  const PASTED = {
+    ...PINNED,
+    sourceId: 'src_paste',
+    kind: 'paste' as const,
+    location: 'Project brief',
+    state: 'readable' as const,
+    snapshot: null,
+  }
+
+  it('keeps a pasted document out of the repository list', async () => {
+    renderSources((services) =>
+      withAcquisition(services, {
+        listSources: async () => ({ sources: [PINNED, PASTED], unavailable: '' }),
+      }),
+    )
+
+    // The repository appears twice — once in the list, once in the detail
+    // panel beside it — so its presence is asserted through the list rather
+    // than a bare text lookup.
+    expect((await screen.findAllByText(PINNED.location)).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Project brief')).not.toBeInTheDocument()
+  })
+
+  it('says no repository is connected when only a document was given', async () => {
+    // The reading that matters. A project with a pasted brief and no repository
+    // has no repository, and a list that counted the brief would say otherwise.
+    renderSources((services) =>
+      withAcquisition(services, {
+        listSources: async () => ({ sources: [PASTED], unavailable: '' }),
+      }),
+    )
+
+    expect(await screen.findByText(/No repository connected yet/i)).toBeInTheDocument()
+  })
+})

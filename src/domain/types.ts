@@ -631,7 +631,16 @@ export interface CapabilityGap {
 export interface ProjectSource {
   sourceId: string
   projectId: string
-  kind: 'github' | 's3' | 'upload'
+  /**
+   * Where the material comes from.
+   *
+   * `§7` names seven kinds; four exist. `paste` is text a person typed or
+   * pasted (`D-24`) and needed no new capability — the ingest path was live and
+   * left no record that intake had happened. Upload needs a bytes path that
+   * exists nowhere in the estate; URL needs outbound egress somebody has to
+   * sanction.
+   */
+  kind: 'github' | 's3' | 'upload' | 'paste'
   connectionId: string
   location: string
   reference: string

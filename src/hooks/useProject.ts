@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServices } from '@/hooks/useServices'
 import type { ArtifactPlanEdit, ModuleDecision, PublishInput } from '@/services/interfaces'
-import type { ArtifactPublication, ArtifactDestination } from '@/domain/types'
+import type { ArtifactPublication, ArtifactDestination, ProjectSource } from '@/domain/types'
 
 /**
  * The mock fixture's project id.
@@ -449,6 +449,23 @@ export function useSources() {
     queryKey: ['sources', projectId],
     queryFn: () => acquisition.listSources(projectId),
     select: (listing) => listing.sources,
+  })
+}
+
+/**
+ * Sources of one kind — the same query and cache entry as `useSources`.
+ *
+ * Added when `paste` became a kind (`D-24`). Every source used to be a
+ * repository, so the Repositories tab could list them all; a pasted brief
+ * appearing there would be labelled a repository by its surroundings, which is
+ * a claim the list makes without saying a word.
+ */
+export function useSourcesOfKind(kinds: ProjectSource['kind'][]) {
+  const { acquisition, projectId } = useServices()
+  return useQuery({
+    queryKey: ['sources', projectId],
+    queryFn: () => acquisition.listSources(projectId),
+    select: (listing) => listing.sources.filter((source) => kinds.includes(source.kind)),
   })
 }
 

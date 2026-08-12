@@ -78,7 +78,7 @@ import {
   useIngestFiles,
   useSampleFile,
   useSourceFiles,
-  useSources,
+  useSourcesOfKind,
   useSourcesUnavailable,
 } from '@/hooks/useProject'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
@@ -137,8 +137,21 @@ export function SourcesRoom() {
 }
 
 /** The repositories tab — what this page was before the merge. */
+/**
+ * What the Repositories tab is about.
+ *
+ * A list, rather than "not paste", so a kind added later has to be placed
+ * deliberately instead of arriving here by default — which is how a pasted
+ * document would have been labelled a repository by its surroundings.
+ */
+const REPOSITORY_KINDS: ProjectSource['kind'][] = ['github', 's3']
+
 function Repositories() {
-  const sources = useSources()
+  // Repositories, not every source. A pasted brief listed here would be
+  // labelled a repository by its surroundings — a claim the list makes without
+  // saying a word — and `§7`'s point is that one abstraction covers several
+  // kinds, not that they all read the same (`D-24`).
+  const sources = useSourcesOfKind(REPOSITORY_KINDS)
   // Whether the list above is complete. Sources became durable (`D-21`), so
   // reading them can fail, and the empty state below would otherwise announce
   // "no repository connected yet" about a request that did not finish — to a

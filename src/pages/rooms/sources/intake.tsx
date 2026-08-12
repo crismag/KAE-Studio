@@ -50,7 +50,13 @@ import {
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
 import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
-import { useExtractionCoverage, useIngestText, useRuns, useSources } from '@/hooks/useProject'
+import {
+  useExtractionCoverage,
+  useIngestText,
+  useRuns,
+  useSources,
+  useSourcesOfKind,
+} from '@/hooks/useProject'
 import type { AgentRunRecord, DocumentIngestOutcome } from '@/domain/types'
 
 export function Intake() {
@@ -151,8 +157,45 @@ export function PasteDocument() {
         </div>
 
         {ingest.data && <IngestResult outcome={ingest.data} />}
+
+        <DocumentsGiven />
       </PanelBody>
     </Panel>
+  )
+}
+
+/**
+ * What this project has already been given in text (`D-24`).
+ *
+ * The paste path worked the whole time and recorded nothing that said intake
+ * had happened, so a person who handed KAE their brief last week found no
+ * trace of it on the page that takes documents — and the honest response to
+ * that is to paste it again.
+ */
+function DocumentsGiven() {
+  const documents = useSourcesOfKind(['paste'])
+  if (!documents.data?.length) return null
+
+  return (
+    <div className="border-t border-line pt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
+        Already given
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {documents.data.map((document) => (
+          <li key={document.sourceId} className="flex flex-wrap items-center gap-2 text-[12.5px]">
+            <FileText className="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
+            <span className="text-ink">{document.location}</span>
+          </li>
+        ))}
+      </ul>
+      {/* Given, which is not the same as read. What each run made of it is
+          below, and conflating the two here would let a document that failed
+          extraction read as knowledge the project holds. */}
+      <p className="mt-2 text-[11.5px] leading-relaxed text-ink-subtle">
+        Handed to KAE. What each one produced is in the runs below.
+      </p>
+    </div>
   )
 }
 

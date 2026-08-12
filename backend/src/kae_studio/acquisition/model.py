@@ -32,9 +32,24 @@ class ConnectionState(StrEnum):
 
 
 class SourceKind(StrEnum):
+    """Where material comes from.
+
+    `§7` names seven. Three exist: a repository, an object store, and a file
+    somebody hands over. `PASTE` is the fourth (`D-24`) and it is the only one
+    that needed no new capability — the ingest path was live and unrecorded.
+
+    **Upload and URL are not among these by omission.** Upload needs a bytes
+    path, MIME handling and decode, none of which exists anywhere in the estate;
+    URL needs outbound egress from the host, which is a surface somebody has to
+    sanction rather than something a source kind quietly acquires.
+    """
+
     GITHUB = "github"
     S3 = "s3"
     UPLOAD = "upload"
+    #: Text a person typed or pasted. Its content is in hand the moment it
+    #: arrives, so it is never `configured` — there is nothing left to reach.
+    PASTE = "paste"
 
 
 class SourceState(StrEnum):

@@ -99,6 +99,18 @@ class RecordingMemory:
         self.configuration.setdefault(project_id, {})[field] = value
         return {"field": field, "value": value, "state": "confirmed"}
 
+    async def ingest_document(
+        self, project_id: str, title: str, text: str, **_: Any
+    ) -> dict[str, Any]:
+        # Carries loss, because `AUD-024` is that loss must reach a person and
+        # a double that never reports any cannot catch a route that drops it.
+        return {
+            "document": title,
+            "chunks_recorded": 1,
+            "truncated_chunks": 3,
+            "warnings": ["content was cut at the chunk ceiling"],
+        }
+
     async def memory_connections(self, project_id: str) -> list[dict[str, Any]]:
         return list(self.connections.get(project_id, []))
 
@@ -498,6 +510,130 @@ class TestTheRepositoryNamedInSetupIsASource:
                 "/api/projects/p1/setup/configuration",
                 json={"field": "primary_repository", "value": "   "},
             )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed["sources"] == []
+
+
+class TestAPastedDocumentIsASource:
+    """`D-24` — the surface that answers *what has this project been given?*
+
+    `POST /v1/projects/{id}/documents` chunks a pasted document, stores it
+    verbatim as evidence and queues extraction. It has worked the whole time and
+    left **no record that intake happened**, so the Sources Room listed
+    repositories and nothing else. Somebody who handed KAE their brief saw no
+    trace of it anywhere that names intake.
+
+    Same shape as `D-23`: one idea, two records, and the surface that should
+    answer the question answering part of it.
+    """
+
+    def test_pasting_records_the_intake(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/documents",
+                json={"title": "Project brief", "text": "We need monthly reports."},
+            )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [(s["kind"], s["location"]) for s in listed["sources"]] == [
+            ("paste", "Project brief")
+        ]
+
+    def test_its_content_is_in_hand_rather_than_reachable(self) -> None:
+        """`readable`, never `configured`.
+
+        The content arrived with the request. A state meaning *"we know where
+        this is"* would understate a document already held — and `analyzed`
+        would overstate it, because whether findings were proposed is the
+        extraction run's business and those runs are shown elsewhere.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/documents",
+                json={"title": "Project brief", "text": "We need monthly reports."},
+            )
+            source = client.get("/api/projects/p1/sources").json()["sources"][0]
+        finally:
+            client.__exit__(None, None, None)
+
+        assert source["state"] == "readable"
+
+    def test_re_pasting_a_corrected_brief_is_one_source(self) -> None:
+        """The same origin supplying material again, not a second origin.
+
+        A row per submission would make the manifest a log, and the question
+        the Sources Room answers is *where does this project's material come
+        from* rather than *how many times was it sent*.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            for text in ("We need monthly reports.", "We need monthly reports, signed off."):
+                client.post(
+                    "/api/projects/p1/documents", json={"title": "Project brief", "text": text}
+                )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert len(listed["sources"]) == 1
+
+    def test_a_different_document_is_a_different_source(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            for title in ("Project brief", "Integration specification"):
+                client.post(
+                    "/api/projects/p1/documents", json={"title": title, "text": "Something."}
+                )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert {s["location"] for s in listed["sources"]} == {
+            "Project brief",
+            "Integration specification",
+        }
+
+    def test_the_ingest_response_reaches_the_caller_unaltered(self) -> None:
+        """`AUD-024`, which this change must not undo.
+
+        Memory's body carries `truncated_chunks` and `warnings`, and a document
+        silently cut at a chunk limit is the finding. Recording a source
+        afterwards must not swallow or reshape that answer.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            body = client.post(
+                "/api/projects/p1/documents",
+                json={"title": "Project brief", "text": "We need monthly reports."},
+            ).json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert body["truncated_chunks"] == 3
+        assert body["warnings"] == ["content was cut at the chunk ceiling"]
+
+    def test_a_document_with_no_title_records_no_source(self) -> None:
+        # Identity is the title. A blank one would register a source nobody can
+        # tell apart from the next blank one.
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post("/api/projects/p1/documents", json={"title": "   ", "text": "Something."})
             listed = client.get("/api/projects/p1/sources").json()
         finally:
             client.__exit__(None, None, None)

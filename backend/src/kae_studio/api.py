@@ -474,9 +474,39 @@ def create_app(settings: Settings) -> FastAPI:
         document silently cut at a chunk limit is `AUD-024`.
         """
 
-        return await memory(request).ingest_document(
+        ingested = await memory(request).ingest_document(
             project_id, body.title, body.text, max_chunks=body.max_chunks
         )
+
+        # A pasted document is a Source (`D-24`, `§7`). The ingest path has
+        # worked the whole time and left no record that intake happened, so the
+        # Sources Room — the surface that answers *what has this project been
+        # given?* — showed repositories and nothing else.
+        #
+        # Identity is the title on Memory's side: re-pasting a corrected brief
+        # is the same origin supplying material again, not a second origin.
+        title = body.title.strip()
+        if title:
+            await memory(request).register_source(
+                project_id,
+                {
+                    "kind": "paste",
+                    "location": title,
+                    # `readable`, never `configured`: the content arrived with
+                    # the request. There is nothing left to reach, and a state
+                    # meaning "we know where it is" would understate it.
+                    #
+                    # And never `analyzed` — that is the extraction run's
+                    # business, the runs are already on `/ingestion`, and the
+                    # state stays unreachable while repository analysis is
+                    # unbuilt.
+                    "state": "readable",
+                    "connection_id": None,
+                    "scope": {},
+                },
+            )
+
+        return ingested
 
     @app.get("/api/projects/{project_id}/extraction-coverage")
     async def extraction_coverage(
