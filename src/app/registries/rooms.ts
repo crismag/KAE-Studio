@@ -152,8 +152,13 @@ export const SURFACES: SurfaceDefinition[] = [
     kind: 'surface',
     partOf: 'architecture',
     purpose: 'See what must be built before what',
-    readiness: 'awaiting-capability',
-    limit: 'The module graph is reachable over MCP only, so this is empty on every deployment.',
+    // Was `awaiting-capability`, limited by *"the module graph is reachable
+    // over MCP only, so this is empty on every deployment"* — true, and fixed
+    // by `D-19` rather than by this page.
+    readiness: 'partial',
+    limit:
+      'Modules are proposed through KAE-Memory directly. Studio can read the ' +
+      'graph and has no contract for defining one.',
   },
   {
     id: 'planning',
