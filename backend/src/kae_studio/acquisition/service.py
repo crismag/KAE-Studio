@@ -155,10 +155,19 @@ class AcquisitionService:
         location: str,
         reference: str,
         scope: SourceScope | None = None,
+        source_id: str | None = None,
     ) -> Source:
+        """Configure a source.
+
+        `source_id` is supplied by the caller when KAE-Memory has already
+        assigned one (`D-21`). Studio minting its own would give one source two
+        identities — one durable, one not — and every later call would have to
+        know which it was holding.
+        """
+
         self.connection(connection_id)
         source = Source(
-            source_id=f"src_{uuid.uuid4().hex[:12]}",
+            source_id=source_id or f"src_{uuid.uuid4().hex[:12]}",
             project_id=project_id,
             kind=kind,
             connection_id=connection_id,
@@ -168,6 +177,22 @@ class AcquisitionService:
         )
         self._sources[source.source_id] = source
         return source
+
+    def adopt(self, source: Source) -> Source:
+        """Take a source read back from KAE-Memory into this process.
+
+        `AUD-005`: this store is a working set, not a record. After a restart it
+        is empty, and every source a person configured is still real — it is
+        held in Memory, which is what `ADR-0004` ruled. Adoption is how the two
+        meet, and it is deliberately not a write: nothing here re-registers what
+        was just read.
+
+        Locally-held state wins. A source pinned in this process a moment ago
+        has a snapshot Memory has not been told about yet, and overwriting it
+        with the durable record would undo work that succeeded.
+        """
+
+        return self._sources.setdefault(source.source_id, source)
 
     def sources(self, project_id: str) -> list[Source]:
         return [s for s in self._sources.values() if s.project_id == project_id]

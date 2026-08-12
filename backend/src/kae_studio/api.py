@@ -1295,13 +1295,71 @@ def create_app(settings: Settings) -> FastAPI:
         )
         return result.describe()
 
+    async def _rehydrate(request: Request, project_id: str) -> None:
+        """Take this project's durable sources into the working set (`D-21`).
+
+        `AUD-005` was that a deploy erased every source somebody had configured.
+        It no longer does — KAE-Memory holds them — but this process starts
+        empty, so the record has to be read back before the working set can be
+        right.
+
+        Failure here is **not** fatal and is not silent either: the response
+        falls back to whatever this process holds, which after a restart is
+        nothing. Saying "no sources" when Memory could not be asked would be
+        the substitution this codebase exists to refuse, so the caller is told.
+        """
+
+        from .acquisition.model import Source, SourceKind, SourceScope, SourceState
+
+        payload = await memory(request).project_sources(project_id)
+        for entry in payload if isinstance(payload, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                kind = SourceKind(entry.get("kind", ""))
+                state = SourceState(entry.get("state", "configured"))
+            except ValueError:
+                # A kind or state this deployment does not know. Skipped rather
+                # than coerced: a source rendered under the wrong kind is worse
+                # than one a newer Studio will show.
+                continue
+            scope = entry.get("scope") or {}
+            acquisition(request).adopt(
+                Source(
+                    source_id=str(entry.get("source_id", "")),
+                    project_id=project_id,
+                    kind=kind,
+                    connection_id=str(entry.get("connection_id") or ""),
+                    location=str(entry.get("location", "")),
+                    reference=str(scope.get("reference", "")),
+                    scope=SourceScope(
+                        include_paths=tuple(scope.get("include_paths", ())),
+                        exclude_paths=tuple(scope.get("exclude_paths", ())),
+                        max_file_bytes=int(
+                            scope.get("max_file_bytes", SourceScope().max_file_bytes)
+                        ),
+                        documentation_only=bool(scope.get("documentation_only", False)),
+                    ),
+                    state=state,
+                )
+            )
+
     @app.get("/api/projects/{project_id}/sources")
     async def list_sources(
         project_id: str, request: Request, _: Operator = Depends(require_operator)
     ) -> Any:
+        unavailable = ""
+        try:
+            await _rehydrate(request, project_id)
+        except (MemoryUnavailable, MemoryRefused) as error:
+            unavailable = f"Configured sources could not be read from KAE-Memory: {error}"
+
         return {
             "sources": [s.describe() for s in acquisition(request).sources(project_id)],
             "analysis": ANALYSIS_UNAVAILABLE,
+            # Empty when the record was read. Non-empty means this list may be
+            # short, and a caller must not render it as "no sources".
+            "unavailable": unavailable,
         }
 
     @app.post("/api/projects/{project_id}/sources", status_code=status.HTTP_201_CREATED)
@@ -1317,6 +1375,25 @@ def create_app(settings: Settings) -> FastAPI:
             include_paths=tuple(body.include_paths),
             documentation_only=body.documentation_only,
         )
+        # Recorded durably first, and its identity comes back from there
+        # (`D-21`). Minting an id here and telling Memory afterwards would give
+        # one source two identities whenever the second call failed.
+        registered = await memory(request).register_source(
+            project_id,
+            {
+                "kind": body.kind,
+                "location": body.location,
+                "state": "configured",
+                "connection_id": None,
+                "scope": {
+                    "include_paths": list(body.include_paths),
+                    "exclude_paths": [],
+                    "max_file_bytes": scope.max_file_bytes,
+                    "documentation_only": body.documentation_only,
+                    "reference": body.reference,
+                },
+            },
+        )
         source = acquisition(request).add_source(
             project_id=project_id,
             kind=SourceKind(body.kind),
@@ -1324,6 +1401,7 @@ def create_app(settings: Settings) -> FastAPI:
             location=body.location,
             reference=body.reference,
             scope=scope,
+            source_id=str(registered.get("source_id")) if isinstance(registered, dict) else None,
         )
         return source.describe()
 
@@ -1339,6 +1417,23 @@ def create_app(settings: Settings) -> FastAPI:
         """
 
         source = await run_in_threadpool(acquisition(request).pin, source_id)
+        if source.snapshot is not None:
+            # The revision is the point of the record. A pin held only in this
+            # process is one the next deploy erases, which is `AUD-005` in the
+            # single place it costs the most.
+            await memory(request).pin_source(
+                source.project_id,
+                source.source_id,
+                {
+                    "revision": source.snapshot.revision,
+                    "digest": source.snapshot.content_digest or None,
+                    "state": source.state.value,
+                },
+            )
+        else:
+            await memory(request).record_source_state(
+                source.project_id, source.source_id, source.state.value, source.last_error
+            )
         return source.describe()
 
     @app.post("/api/sources/{source_id}/sample")

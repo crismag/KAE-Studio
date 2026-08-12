@@ -95,6 +95,34 @@ class MemoryClient:
     async def get_project(self, project_id: str) -> Any:
         return await self._request("GET", f"/v1/projects/{project_id}")
 
+    async def register_source(self, project_id: str, body: dict[str, Any]) -> Any:
+        """Record where this project's material comes from (`D-21`).
+
+        Idempotent by `(kind, location)` on Memory's side, so a retry after a
+        lost response registers nothing twice.
+        """
+
+        return await self._request("POST", f"/v1/projects/{project_id}/sources", json=body)
+
+    async def project_sources(self, project_id: str) -> Any:
+        return await self._request("GET", f"/v1/projects/{project_id}/sources")
+
+    async def record_source_state(
+        self, project_id: str, source_id: str, state: str, detail: str = ""
+    ) -> Any:
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/sources/{source_id}/state",
+            json={"state": state, "detail": detail},
+        )
+
+    async def pin_source(self, project_id: str, source_id: str, body: dict[str, Any]) -> Any:
+        """Fix a source to the revision Studio resolved against the provider."""
+
+        return await self._request(
+            "POST", f"/v1/projects/{project_id}/sources/{source_id}/pin", json=body
+        )
+
     async def module_graph(self, project_id: str) -> Any:
         """Every module, every edge, and the order they can be built in.
 
