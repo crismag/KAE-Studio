@@ -202,6 +202,19 @@ export type RequirementCategory =
   | 'open_question'
 
 export interface Requirement {
+  /**
+   * Which set of adjacent statements this one belongs to, if any.
+   *
+   * `PPA-15`: seventy flat statements is the customer's original problem
+   * restated in the product's own words. Statements sharing a group say
+   * adjacent things and are worth reading together.
+   *
+   * **A group is not a merge.** Every member renders whole and stays separately
+   * confirmable. `null` means this resembles nothing else, which is a fact
+   * about it — and also what a project too large to group returns, so a surface
+   * must not read it as "nothing here resembles anything".
+   */
+  relatedGroup?: number | null
   id: string
   category: RequirementCategory
   statement: string

@@ -232,6 +232,11 @@ def _statements(payload: Any) -> list[dict[str, Any]]:
                 # listing started returning it, which is what lets Definition
                 # show a problem statement at all.
                 "areas": list(item.get("areas") or []),
+                # Which statements say adjacent things (`ES-5`, `PPA-15`).
+                # Carried, never acted on: Studio groups them for reading and
+                # merges nothing, because `EM-3`'s ruling on unattended merging
+                # is open and grouping does not need it answered.
+                "related_group": item.get("related_group"),
                 # Like the timestamp, the number lives on the version, not the
                 # item. Defaulting to 1 made every reject claim to have seen the
                 # first wording, which is the opposite of what the check is for.

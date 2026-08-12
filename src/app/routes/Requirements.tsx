@@ -193,21 +193,95 @@ function HowThisPageWorks() {
   )
 }
 
+/**
+ * Statements that say adjacent things, next to each other.
+ *
+ * `PPA-15`: *"KAE generated 70 things I don't know how to organise."* The
+ * grouping Memory computes is useless if the rows still arrive in extraction
+ * order — a person scanning a list cannot see that rows 3 and 27 are two
+ * wordings of one obligation.
+ *
+ * **Reordering, never folding.** Every statement keeps its own row, its own
+ * badge and its own controls; the group is a heading and an indent. `EM-3`'s
+ * ruling on unattended merging is untouched, and would be broken the moment
+ * this rendered one member and hid the rest.
+ *
+ * Grouped rows come first because they are the ones carrying a decision — *are
+ * these two the same thing?* — and ungrouped rows need no decision at all.
+ */
+type Entry =
+  | { kind: 'divider'; key: string; count: number }
+  | { kind: 'row'; requirement: Requirement; grouped: boolean }
+
+function orderedByGroup(items: Requirement[]): Entry[] {
+  const groups = new Map<number, Requirement[]>()
+  const alone: Requirement[] = []
+  for (const item of items) {
+    if (item.relatedGroup === null || item.relatedGroup === undefined) {
+      alone.push(item)
+      continue
+    }
+    const existing = groups.get(item.relatedGroup)
+    if (existing) existing.push(item)
+    else groups.set(item.relatedGroup, [item])
+  }
+
+  const entries: Entry[] = []
+  for (const [id, members] of [...groups].sort((a, b) => b[1].length - a[1].length)) {
+    // A group of one is not a group. Memory does not send them; this guards
+    // against a filtered view splitting one — a lone row under a "2 related"
+    // heading claims something that is no longer true.
+    if (members.length < 2) {
+      alone.push(...members)
+      continue
+    }
+    entries.push({ kind: 'divider', key: `group-${id}`, count: members.length })
+    entries.push(
+      ...members.map((requirement) => ({ kind: 'row' as const, requirement, grouped: true })),
+    )
+  }
+  entries.push(
+    ...alone.map((requirement) => ({ kind: 'row' as const, requirement, grouped: false })),
+  )
+  return entries
+}
+
+function RelatedHeading({ count }: { count: number }) {
+  return (
+    <li className="bg-surface-sunken px-5 py-1.5">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-ink-subtle">
+        {count} related statements
+      </p>
+      {/* Said once, here, rather than implied by the indent. A reader who takes
+          "related" to mean "KAE merged these" would stop checking them. */}
+      <p className="mt-0.5 text-[11px] text-ink-subtle">
+        These say adjacent things. Each is still separate, and confirming one confirms only it.
+      </p>
+    </li>
+  )
+}
+
 function RequirementRow({
   requirement,
   modules,
   tests,
+  grouped = false,
 }: {
   requirement: Requirement
   modules: ProjectModule[]
   tests: AcceptanceTest[]
+  grouped?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const module = modules.find((m) => m.id === requirement.moduleId)
   const verifying = tests.filter((t) => requirement.verifiedBy.includes(t.id))
 
   return (
-    <li className="px-5 py-3.5">
+    <li
+      className={
+        grouped ? 'border-l-2 border-accent-line bg-surface px-5 py-3.5 pl-6' : 'px-5 py-3.5'
+      }
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 gap-3">
           {/* U2. The storage id used to occupy the leftmost column, where a
@@ -422,14 +496,19 @@ export function Requirements() {
                 </summary>
                 <PanelBody className="px-0 py-0">
                   <ul className="divide-y divide-line">
-                    {items.map((r) => (
-                      <RequirementRow
-                        key={r.id}
-                        requirement={r}
-                        modules={projection.modules}
-                        tests={projection.acceptanceTests}
-                      />
-                    ))}
+                    {orderedByGroup(items).map((entry) =>
+                      entry.kind === 'divider' ? (
+                        <RelatedHeading key={entry.key} count={entry.count} />
+                      ) : (
+                        <RequirementRow
+                          key={entry.requirement.id}
+                          requirement={entry.requirement}
+                          modules={projection.modules}
+                          tests={projection.acceptanceTests}
+                          grouped={entry.grouped}
+                        />
+                      ),
+                    )}
                   </ul>
                 </PanelBody>
               </details>

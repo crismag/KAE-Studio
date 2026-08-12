@@ -456,6 +456,10 @@ interface BackendStatement {
   kind: string
   lifecycle: string
   updatedAt: string
+  /** Which statements say adjacent things (`ES-5`). `null` when this resembles
+   *  nothing else — and also on a project too large to group, which a reader
+   *  must not take as "nothing here resembles anything". */
+  related_group?: number | null
 }
 
 /** Shape of the backend's projection. Deliberately not the UI's own type. */
@@ -554,6 +558,10 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
     },
     requirements: statements.map((s) => ({
       id: s.id,
+      // Carried through. A grouping the backend computed and the adapter
+      // dropped is `AUD-002` again, and this estate has found that shape
+      // enough times to check for it on the way past.
+      relatedGroup: s.related_group ?? null,
       // Unrecognised kinds land in `functional` rather than being dropped: a
       // new Memory kind should look mislabelled, not disappear.
       category: CATEGORY_FOR_KIND[s.kind] ?? 'functional',

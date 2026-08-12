@@ -43,8 +43,9 @@ from cie_slim.kae.skills import SKILL_NAMES
 TABLE = (
     Path(__file__).resolve().parents[2]
     / "src"
-    / "components"
-    / "project"
+    / "pages"
+    / "rooms"
+    / "interview"
     / "skillSentences.ts"
 )
 
