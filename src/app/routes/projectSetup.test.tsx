@@ -300,3 +300,87 @@ describe('verified is earned, not granted', () => {
     expect(screen.getByText(/its content has been reached and read/i)).toBeInTheDocument()
   })
 })
+
+/**
+ * `D-26` — a destination that cannot be reached is not one nobody set.
+ *
+ * `destination.available ? 'configured' : 'none'` rounded a registered
+ * destination down to **"No output destination. Generated documents have
+ * nowhere to go."** — shown to somebody who chose a repository, chose a path
+ * and saved it, whose actual problem is an ungranted credential, and whose
+ * implied next step is the one thing that will not help.
+ *
+ * Losing a fact by rounding down is the same defect as claiming one by rounding
+ * up (`D-25`). Both replace what is true with what is easy to compute.
+ */
+describe('a registered destination stays registered', () => {
+  function withTarget(available: boolean, unavailableReason: string | null = null) {
+    return (services: StudioServices): StudioServices =>
+      withSetup(services, {
+        getSetup: async (projectId) => ({
+          ...(await services.setup.getSetup(projectId)),
+          targets: [
+            {
+              targetId: 'tgt_1',
+              provider: 'github',
+              name: 'Planning documents',
+              purpose: 'documentation',
+              isDefault: true,
+              enabled: true,
+              available,
+              unavailableReason,
+              authorization: available ? 'granted' : 'never_granted',
+              configuration: {},
+            },
+          ],
+        }),
+      })
+  }
+
+  it('does not report an unreachable destination as none', async () => {
+    renderSetup(withTarget(false))
+
+    await screen.findByText(/^Destinations$/)
+    expect(screen.queryByText(/nowhere to go/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/a destination is registered/i)).toBeInTheDocument()
+  })
+
+  it('says why it cannot be reached, in the backend`s words where there are any', async () => {
+    renderSetup(withTarget(false, 'The connection for this target was revoked.'))
+
+    // Twice on the page: once in the summary caveat, once on the destination
+    // itself further down. Both are the reason, and asserting through the
+    // summary alone would pass if the caveat never rendered.
+    const shown = await screen.findAllByText(/the connection for this target was revoked/i)
+    expect(shown.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('falls back to a reason of its own rather than saying nothing', async () => {
+    // A caveat with no sentence is a caveat nobody can act on, and Memory does
+    // not always supply one.
+    renderSetup(withTarget(false))
+
+    expect(await screen.findByText(/has not been granted/i)).toBeInTheDocument()
+  })
+
+  it('says nothing extra when the destination is reachable', async () => {
+    // The other half. A caveat on every project is one nobody reads.
+    renderSetup(withTarget(true))
+
+    await screen.findByText(/^Destinations$/)
+    expect(screen.queryByText(/cannot be reached/i)).not.toBeInTheDocument()
+  })
+
+  it('still reports no destination when there genuinely is none', async () => {
+    renderSetup((services) =>
+      withSetup(services, {
+        getSetup: async (projectId) => ({
+          ...(await services.setup.getSetup(projectId)),
+          targets: [],
+        }),
+      }),
+    )
+
+    expect(await screen.findByText(/nowhere to go/i)).toBeInTheDocument()
+  })
+})

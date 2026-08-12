@@ -171,7 +171,19 @@ function SetupSummary({
   )
   const sources: Level = !repository?.in_use ? 'none' : reached ? 'verified' : 'configured'
   const destination = state.targets.find((t) => t.isDefault)
-  const destinations: Level = !destination ? 'none' : destination.available ? 'configured' : 'none'
+  // Registered is registered. This read `destination.available ? 'configured' :
+  // 'none'`, so a destination whose credential is not authorized rendered as
+  // "No output destination" — to somebody who chose a repository, chose a path
+  // and saved it, and whose actual problem is a grant (`D-26`).
+  //
+  // Losing a fact by rounding it down is the same defect as claiming one by
+  // rounding it up; both replace what is true with what is easy to compute.
+  const destinations: Level = !destination ? 'none' : 'configured'
+  const unreachable =
+    destination && !destination.available
+      ? destination.unavailableReason ||
+        'It cannot be reached yet — the connection it uses has not been granted.'
+      : ''
 
   return (
     <Panel>
@@ -196,9 +208,10 @@ function SetupSummary({
         <StateRow
           label="Destinations"
           level={destinations}
+          detail={unreachable}
           means={{
             none: 'No output destination. Generated documents have nowhere to go.',
-            configured: 'A destination is registered and reachable.',
+            configured: 'A destination is registered.',
             // Deliberately unreachable today, and named rather than hidden:
             // `verified` means a publish path was exercised, and publishing is
             // off by decision (`D-8`).
@@ -222,10 +235,19 @@ function StateRow({
   label,
   level,
   means,
+  detail = '',
 }: {
   label: string
   level: Level
   means: Record<Level, string>
+  /**
+   * A caveat belonging to this project rather than to the vocabulary.
+   *
+   * `means` says what a level means for anybody; this says what is true here —
+   * a destination that is registered and cannot be reached, for instance. Kept
+   * apart so a caveat can never be mistaken for a definition (`D-26`).
+   */
+  detail?: string
 }) {
   const { icon: Icon, tone, word } = LEVEL[level]
   return (
@@ -241,6 +263,7 @@ function StateRow({
         </Badge>
       </div>
       <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">{means[level]}</p>
+      {detail && <p className="mt-1 text-[11.5px] leading-relaxed text-attention">{detail}</p>}
     </div>
   )
 }
