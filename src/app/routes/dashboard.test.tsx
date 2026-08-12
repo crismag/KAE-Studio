@@ -20,6 +20,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
 import { Dashboard } from './Dashboard'
+import { SURFACES } from '@/app/registries/rooms'
 import type { ProjectProjection } from '@/domain/types'
 import type { StudioServices } from '@/services/interfaces'
 
@@ -124,17 +125,35 @@ describe('Room launchers tell the truth before they are clicked', () => {
   it('says what a Room is waiting for', async () => {
     renderDashboard()
 
-    // `§13`: truthful availability. A person should not have to open
-    // Architecture to discover nothing derives one.
-    expect(await screen.findByText(/nothing derives an architecture/i)).toBeInTheDocument()
+    // `§13`: truthful availability. A person should not have to open a Room to
+    // discover it cannot do its job.
+    //
+    // Read from the registry rather than quoting one Room's sentence. The
+    // first version of this asserted *"nothing derives an architecture"* and
+    // failed the day that stopped being true — which is the check working, and
+    // also a test that has to be rewritten every time the product improves.
+    // What `§13` actually requires is that **every** limit reaches the card.
+    const limited = SURFACES.filter((surface) => surface.kind === 'room' && surface.limit)
+
+    expect(limited.length).toBeGreaterThan(0)
+    for (const room of limited) {
+      expect(
+        await screen.findByText(room.limit!),
+        `${room.title} states a limit the Dashboard does not show`,
+      ).toBeInTheDocument()
+    }
   })
 
   it('marks a Room that cannot do its job yet', async () => {
     renderDashboard()
 
-    // "Architecture" appears twice — as a journey stage and as a Room — so the
-    // card is found through its own purpose line rather than its title.
-    const card = (await screen.findByText(/understand system structure/i)).closest('a')!
+    const waiting = SURFACES.find(
+      (surface) => surface.kind === 'room' && surface.readiness === 'awaiting-capability',
+    )!
+    // Found through its own purpose line: a Room's title can also be a journey
+    // stage, and appear twice.
+    const card = (await screen.findByText(waiting.purpose)).closest('a')!
+
     expect(card).toHaveTextContent('Not yet')
   })
 
@@ -186,7 +205,13 @@ describe('what the skeleton deliberately omits', () => {
     // and a guess wearing one's clothes.
     renderDashboard()
 
-    expect(await screen.findByText(/derived/i)).toBeInTheDocument()
+    // The sentence itself, not the word. `/derived/i` matched this *and* a
+    // Room limit reading "not derived by anything", so the assertion started
+    // failing on an unrelated change — a matcher loose enough to hit two
+    // different claims was never testing this one.
+    expect(
+      await screen.findByText(/Suggested from where this project has got to/i),
+    ).toBeInTheDocument()
   })
 })
 
