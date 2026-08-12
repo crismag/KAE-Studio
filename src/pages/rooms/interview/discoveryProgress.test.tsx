@@ -15,7 +15,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CoverageSection } from './Workspace'
+import { CoverageSection } from './InterviewRoom'
 import type { ProjectProjection } from '@/domain/types'
 
 function projection(): ProjectProjection {

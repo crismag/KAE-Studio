@@ -36,14 +36,14 @@ import { ProjectSetup } from '@/app/routes/ProjectSetup'
 import { Requirements } from '@/app/routes/Requirements'
 import { Reviews } from '@/app/routes/Reviews'
 import { SourcesRoom } from '@/pages/rooms/sources/SourcesRoom'
-import { Workspace } from '@/app/routes/Workspace'
+import { InterviewRoom } from '@/pages/rooms/interview/InterviewRoom'
 import { REDIRECTS, SURFACES, type SurfaceDefinition } from './rooms'
 
 /** Surface id → the component that renders it. */
 const PAGES: Record<string, () => ReactElement> = {
   dashboard: () => <Dashboard />,
   setup: () => <ProjectSetup />,
-  interview: () => <Workspace />,
+  interview: () => <InterviewRoom />,
   sources: () => <SourcesRoom />,
   definition: () => <ProjectDefinition />,
   requirements: () => <Requirements />,

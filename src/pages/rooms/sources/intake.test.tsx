@@ -266,7 +266,7 @@ describe('the composer’s attach button', () => {
     // main surface. It links rather than opening a file picker because KAE
     // still cannot read files, and offering a picker would be the dead control
     // replaced by a lying one.
-    const { Composer } = await import('@/app/routes/Workspace')
+    const { Composer } = await import('@/pages/rooms/interview/InterviewRoom')
     render(
       <MemoryRouter>
         <Composer onSend={() => {}} pending={false} draft="" setDraft={() => {}} />

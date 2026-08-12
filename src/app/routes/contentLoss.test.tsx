@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ContentLoss } from './Workspace'
+import { ContentLoss } from '@/pages/rooms/interview/InterviewRoom'
 
 describe('the content-loss disclosure', () => {
   it('says how much was not read, beside the figures it undermines', () => {

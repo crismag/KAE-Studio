@@ -33,8 +33,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { ClassificationState } from '@/components/project/ClassificationState'
-import { neverClassified } from '@/components/project/neverClassified'
+import { ClassificationState } from './ClassificationState'
+import { neverClassified } from './neverClassified'
 import type { ClassificationState as Classification } from '@/domain/types'
 
 const NEVER: Classification = {

@@ -17,7 +17,7 @@ import {
 import { cn } from '@/lib/cn'
 import { formatDateTime } from '@/lib/format'
 import { plural } from '@/lib/plural'
-import { SKILL_SENTENCES } from '@/components/project/skillSentences'
+import { SKILL_SENTENCES } from './skillSentences'
 import {
   Badge,
   Button,
@@ -32,12 +32,12 @@ import {
   RecommendationCard,
   type Disposition,
   type Recommendation,
-} from '@/components/project/RecommendationCard'
-import { AssistantProse } from '@/components/project/AssistantProse'
+} from './RecommendationCard'
+import { AssistantProse } from './AssistantProse'
 import { NextAction } from '@/components/project/NextAction'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { SectionsNotRead } from '@/components/project/SectionsNotRead'
-import { ClassificationState } from '@/components/project/ClassificationState'
+import { ClassificationState } from './ClassificationState'
 import { sectionsNotRead } from '@/components/project/sectionsNotRead'
 import { floorAction, type RecommendedAction } from '@/components/project/nextActionFloor'
 import {
@@ -797,7 +797,7 @@ export function Composer({
 
 /* -------------------------------------------------------------------- page */
 
-export function Workspace() {
+export function InterviewRoom() {
   const { data: messages, isLoading } = useMessages()
   const { data: session } = useInterviewSession()
   const sendMessage = useSendMessage()
