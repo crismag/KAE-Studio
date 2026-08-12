@@ -51,7 +51,12 @@ import {
   useProjection,
   useSendMessage,
 } from '@/hooks/useProject'
-import type { ConversationMessage, OpenDecision, ProjectProjection } from '@/domain/types'
+import type {
+  ConversationMessage,
+  CoverageTopic,
+  OpenDecision,
+  ProjectProjection,
+} from '@/domain/types'
 import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
 
 /* ------------------------------------------------------------- transcript */
@@ -378,12 +383,26 @@ function UnderstandingField({
   )
 }
 
-const COVERAGE_TONE = {
+const COVERAGE_TONE: Record<CoverageTopic['state'], string> = {
   strong: 'bg-confirmed',
   forming: 'bg-accent',
   thin: 'bg-attention',
   missing: 'bg-line-strong',
-} as const
+  // Not a gap and not progress. The quietest mark available, because an area
+  // that does not apply to this project should not draw attention on a panel
+  // about what is missing from it (`D-27`).
+  notApplicable: 'bg-line',
+}
+
+/** What each coverage state is called on screen. */
+const COVERAGE_WORD: Record<CoverageTopic['state'], string> = {
+  strong: 'strong',
+  forming: 'forming',
+  thin: 'thin',
+  missing: 'missing',
+  // `capitalize` on the raw key would render "notapplicable".
+  notApplicable: 'not applicable',
+}
 
 export function CoverageSection({
   projection,
@@ -410,12 +429,17 @@ export function CoverageSection({
           <div className="min-w-0">
             <p className="text-[12.5px] font-medium text-ink">
               {topic.name}
-              <span className="ml-1.5 font-normal capitalize text-ink-subtle">{topic.state}</span>
+              <span className="ml-1.5 font-normal text-ink-subtle">
+                {COVERAGE_WORD[topic.state]}
+              </span>
             </p>
             <p className="text-[11.5px] leading-snug text-ink-subtle">{topic.detail}</p>
             {/* U4. Back into the conversation with the subject named, rather
                 than a second editing surface beside the one that works. */}
-            {onDiscuss && topic.state !== 'strong' && (
+            {/* Nothing to discuss about an area that does not apply, and
+                offering it would invite somebody to fill a gap KAE does not
+                think exists. */}
+            {onDiscuss && topic.state !== 'strong' && topic.state !== 'notApplicable' && (
               <button
                 type="button"
                 onClick={() => onDiscuss(topic.name)}

@@ -668,7 +668,16 @@ export interface ConnectivityResult {
 export interface CoverageTopic {
   key: string
   name: string
-  state: 'strong' | 'forming' | 'thin' | 'missing'
+  /**
+   * How well covered this area is.
+   *
+   * `notApplicable` is not a degree of coverage and is in the union anyway,
+   * because KAE-Memory has a fourth state meaning *this area does not apply to
+   * this project* — and folding it into `missing` claims a gap where there is
+   * none (`D-27`). An area that instead disappeared from the list would be one
+   * a person cannot ask about.
+   */
+  state: 'strong' | 'forming' | 'thin' | 'missing' | 'notApplicable'
   detail: string
 }
 

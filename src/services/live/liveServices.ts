@@ -20,6 +20,7 @@ import type {
   ExtractionCoverage,
   InterviewSession,
   ArchitectureGraph,
+  CoverageTopic,
   MemoryConnection,
   PreliminaryContext,
   Project,
@@ -652,19 +653,8 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       coverage: (raw.health.areas ?? []).map((a) => ({
         key: a.key,
         name: a.name,
-        state: (a.state === 'satisfied'
-          ? 'strong'
-          : a.state === 'partial'
-            ? 'forming'
-            : a.proposed > 0
-              ? 'thin'
-              : 'missing') as never,
-        detail:
-          a.state === 'satisfied'
-            ? `${a.confirmed} confirmed — enough for now`
-            : a.proposed > 0
-              ? `${a.confirmed} of ${a.required} confirmed · ${a.proposed} awaiting review`
-              : `${a.confirmed} of ${a.required} confirmed`,
+        state: coverageState(a),
+        detail: coverageDetail(a),
       })),
       blockingDecisionIds: [],
       // Warnings only. The capability gaps that used to be flattened into this
@@ -705,6 +695,59 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
     preliminary: toPreliminary(raw.preliminary),
     architecture: toArchitecture(raw.architecture),
   }
+}
+
+/** One area as KAE-Memory reports it, before Studio's vocabulary is applied. */
+interface WireArea {
+  state: string
+  confirmed: number
+  proposed: number
+  required: number
+}
+
+/**
+ * KAE-Memory's coverage state, in Studio's words (`D-27`).
+ *
+ * This read `a.state === 'satisfied'`, and **`satisfied` is not one of Memory's
+ * states** — its `AreaState` is `missing`, `partial`, `sufficient`,
+ * `not_applicable`. The comparison had never once been true, so a fully covered
+ * area fell through to `missing` on the panel a person reads to learn what KAE
+ * understands about their project.
+ *
+ * The same word, in the same mistake, was fixed in Studio's backend twenty
+ * lines from a comment recording the lesson. A fix that does not check for
+ * siblings is half a fix.
+ *
+ * Exhaustive over Memory's vocabulary on purpose: an unknown state returns
+ * `missing` **only** because there is nothing else honest to say about a word
+ * this build does not know, and the guard beside it asserts that every state
+ * Memory actually has is named here.
+ */
+function coverageState(area: WireArea): CoverageTopic['state'] {
+  switch (area.state) {
+    case 'sufficient':
+      return 'strong'
+    case 'partial':
+      return 'forming'
+    case 'not_applicable':
+      // Not a degree of coverage. Memory means this area does not apply here,
+      // and `missing` would claim a gap where there is none.
+      return 'notApplicable'
+    case 'missing':
+      return area.proposed > 0 ? 'thin' : 'missing'
+    default:
+      return area.proposed > 0 ? 'thin' : 'missing'
+  }
+}
+
+/** The counts behind the colour. A state alone cannot be acted on. */
+function coverageDetail(area: WireArea): string {
+  if (area.state === 'sufficient') return `${area.confirmed} confirmed — enough for now`
+  if (area.state === 'not_applicable') return 'Not applicable to this project.'
+  if (area.proposed > 0) {
+    return `${area.confirmed} of ${area.required} confirmed · ${area.proposed} awaiting review`
+  }
+  return `${area.confirmed} of ${area.required} confirmed`
 }
 
 /**
