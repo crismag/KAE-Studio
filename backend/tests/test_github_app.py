@@ -305,6 +305,10 @@ class TestConfigurationMistakes:
         running to say so.
         """
 
+        # `api` imports the interviewer, which imports the private sibling
+        # `cris-cie-slim`. CI installs without it by decision (`AUD-033`), so
+        # this skips there rather than failing — stated, not silent.
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
         from kae_studio.api import _source_client
 
         settings = Settings.from_environment(
@@ -321,6 +325,7 @@ class TestConfigurationMistakes:
         assert _source_client(settings) is None
 
     def test_nothing_configured_builds_no_client(self) -> None:
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
         from kae_studio.api import _source_client
 
         settings = Settings.from_environment(
