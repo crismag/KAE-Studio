@@ -1,4 +1,18 @@
 /**
+ * *Says no repository is connected when only a document was given* was here,
+ * and is **deleted rather than rewritten** (`D-80`).
+ *
+ * It asserted an empty state that the single list no longer reaches: a
+ * project holding a pasted brief now has a source, and showing "no repository
+ * connected yet" over a list containing one would be the contradiction this
+ * page keeps being fixed for. What the test protected — that a document is
+ * never mistaken for a repository — is asserted above, by the kind badge on
+ * every row, which is a stronger claim than absence from a list.
+ *
+ * Whether the *project* has a repository is Setup's question, and
+ * `projectSetup.test.tsx` holds it.
+ */
+/**
  * Sources — two-thirds built, and invisible.
  *
  * `ProjectSources` rendered in exactly one place: partway down `/deliverables`,
@@ -281,43 +295,51 @@ describe('when there is nothing connected', () => {
 })
 
 describe('one Source abstraction, not two pages', () => {
-  it('offers repositories, text, files and activity in one place', async () => {
-    // `§7`: repository, document, pasted note and the rest are Project Sources,
-    // not unrelated fields. Split across two routes, "give KAE something to
-    // read" meant two navigation items depending on where the material lived.
+  it('is one list a project adds to, not four tabs', async () => {
+    /**
+     * `§7`: repository, document and pasted note are Project Sources, not
+     * unrelated fields — and `D-80` finished the thought. Tabs split the list
+     * by kind, which asked a person to know where a thing was filed before they
+     * could see whether they had added it.
+     */
     renderSources((services) => withPinnedSource(services))
 
-    expect(await screen.findByRole('tab', { name: /repositories/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /^text$/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /^files$/i })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /activity/i })).toBeInTheDocument()
+    expect(await screen.findByText(/what this project reads from/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add a source/i })).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
   it('takes pasted text without leaving the room', async () => {
     const user = userEvent.setup()
     renderSources((services) => withPinnedSource(services))
 
-    await user.click(await screen.findByRole('tab', { name: /^text$/i }))
+    await user.click(await screen.findByRole('button', { name: /add a source/i }))
+    await user.click(screen.getByRole('button', { name: /paste a document/i }))
 
     expect(await screen.findByLabelText(/what is this/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /read this/i })).toBeInTheDocument()
   })
 
   it('still states the file gap rather than offering a drop zone', async () => {
+    /**
+     * The claim survives `D-80`; where it is said changed. It used to be a
+     * panel on a Files tab, announced whether or not anybody wanted a file.
+     * Now the option is in the menu and says what it needs when reached for —
+     * `D-78`'s rule, and still never a drop zone that would accept something
+     * KAE cannot decode.
+     */
     const user = userEvent.setup()
     renderSources((services) => withPinnedSource(services))
 
-    await user.click(await screen.findByRole('tab', { name: /^files$/i }))
+    await user.click(await screen.findByRole('button', { name: /add a source/i }))
 
-    expect(await screen.findByText(/KAE cannot read files yet/i)).toBeInTheDocument()
-    expect(document.querySelector('input[type="file"]')).toBeNull()
+    expect(screen.getByText(/PDF and DOCX are not decoded yet/i)).toBeInTheDocument()
+    expect(screen.queryByText(/drop/i)).not.toBeInTheDocument()
   })
 
   it('keeps the run history reachable', async () => {
-    const user = userEvent.setup()
+    // Inline now rather than behind a tab, for the same reason as the list.
     renderSources((services) => withPinnedSource(services))
-
-    await user.click(await screen.findByRole('tab', { name: /activity/i }))
 
     // The merge must not lose what /ingestion made visible: a person who starts
     // a read still has to be able to watch it, and see why it failed.
@@ -395,30 +417,29 @@ describe('sources of different kinds are not shown as one another', () => {
     snapshot: null,
   }
 
-  it('keeps a pasted document out of the repository list', async () => {
+  it('never lets one kind pass for another', async () => {
+    /**
+     * `D-24`'s protection, kept through `D-80`'s change of shape.
+     *
+     * It used to be enforced by **exclusion** — a pasted brief was kept out of a
+     * list headed *Repositories*, because its surroundings would have labelled
+     * it one. The owner's model is a single accumulating list, so exclusion is
+     * no longer available and would hide the thing they came to see.
+     *
+     * The claim is the same and the mechanism is different: every row says what
+     * kind it is, so nothing is labelled by its neighbours.
+     */
     renderSources((services) =>
       withAcquisition(services, {
         listSources: async () => ({ sources: [PINNED, PASTED], unavailable: '' }),
       }),
     )
 
-    // The repository appears twice — once in the list, once in the detail
-    // panel beside it — so its presence is asserted through the list rather
-    // than a bare text lookup.
     expect((await screen.findAllByText(PINNED.location)).length).toBeGreaterThan(0)
-    expect(screen.queryByText('Project brief')).not.toBeInTheDocument()
-  })
-
-  it('says no repository is connected when only a document was given', async () => {
-    // The reading that matters. A project with a pasted brief and no repository
-    // has no repository, and a list that counted the brief would say otherwise.
-    renderSources((services) =>
-      withAcquisition(services, {
-        listSources: async () => ({ sources: [PASTED], unavailable: '' }),
-      }),
-    )
-
-    expect(await screen.findByText(/No repository connected yet/i)).toBeInTheDocument()
+    // Present now, and unmistakable.
+    expect(screen.getByText('Project brief')).toBeInTheDocument()
+    expect(screen.getByText('Pasted')).toBeInTheDocument()
+    expect(screen.getByText('GitHub')).toBeInTheDocument()
   })
 })
 

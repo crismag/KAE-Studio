@@ -43,6 +43,8 @@ export type DeploymentStatus = {
    * states a prerequisite instead of linking somewhere that 404s (`D-79`).
    */
   githubAppSlug?: string
+  /** How many directories this deployment may read as sources (`D-67`). */
+  localSources?: number
 }
 
 type State =
@@ -80,6 +82,7 @@ export function useDeploymentStatus(): State {
             interviewProvider: typeof provider.name === 'string' ? provider.name : undefined,
             memoryUrl: typeof raw.memory_url === 'string' ? raw.memory_url : undefined,
             artifactsConfigured: raw.artifacts === 'configured',
+            localSources: typeof raw.local_sources === 'number' ? raw.local_sources : undefined,
             githubAppSlug:
               typeof raw.github_app_slug === 'string' && raw.github_app_slug
                 ? raw.github_app_slug

@@ -640,7 +640,7 @@ export interface ProjectSource {
    * exists nowhere in the estate; URL needs outbound egress somebody has to
    * sanction.
    */
-  kind: 'github' | 's3' | 'upload' | 'paste'
+  kind: 'github' | 'local' | 's3' | 'upload' | 'paste'
   connectionId: string
   location: string
   reference: string

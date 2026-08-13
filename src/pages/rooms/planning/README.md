@@ -37,7 +37,7 @@ Room does unreservedly well.
 
 | Port         | For                                                      |
 | ------------ | -------------------------------------------------------- |
-| `projection` | `health` — what the project is fit for; blockers; gaps    |
+| `projection` | `health` — what the project is fit for; blockers; gaps   |
 | `artifacts`  | profiles, plans, generation runs, previews, publications |
 | `setup`      | the destination a package would go to                    |
 

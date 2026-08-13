@@ -42,7 +42,7 @@ plain-words reading of a run's error code, used by nothing else.
 
 ## Contextual toolbelt
 
-`§9`: *"actions specific to a task move into the current Room."* This Room's
+`§9`: _"actions specific to a task move into the current Room."_ This Room's
 belt is its four intake modes — **Repositories · Text · Files · Activity** — plus
 **Manage connections**, which leaves for Settings rather than configuring here
 (`§6`: workflow pages select configured resources).

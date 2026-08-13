@@ -1739,12 +1739,18 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
           private: boolean
           description: string
           updated_at: string
+          kind?: string
         }[]
         truncated: boolean
         unavailable_reason: string
       }>(`/api/repositories${query ? `?q=${encodeURIComponent(query)}` : ''}`)
       return {
         repositories: (body.repositories ?? []).map((repo) => ({
+          // Carried, not dropped. `D-68` put `kind` on every entry so a reader
+          // could tell `owner/name` from an absolute path — and the adapter
+          // discarded it, so the picker showed both with no way to tell which
+          // was which. Nothing consumed it, which is why nobody noticed.
+          kind: repo.kind === 'local' ? ('local' as const) : ('github' as const),
           fullName: repo.full_name,
           defaultBranch: repo.default_branch,
           private: repo.private,

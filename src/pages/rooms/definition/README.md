@@ -33,8 +33,8 @@ exists.
 
 ## Data it consumes
 
-| Port         | For                                                      |
-| ------------ | -------------------------------------------------------- |
+| Port         | For                                                         |
+| ------------ | ----------------------------------------------------------- |
 | `projection` | `definition` sections, `unavailable` reasons, `preliminary` |
 
 ## Contextual toolbelt
@@ -70,7 +70,7 @@ None. What is here changes when a conversation or a review changes it.
 
 `RequirementsSubflow.tsx` and its grouping test. `/requirements` is registered
 `partOf: 'definition'` — a subflow with its own route, like `/dependencies` is
-to Architecture. The definition says what the project *is*; the subflow lists
+to Architecture. The definition says what the project _is_; the subflow lists
 the statements it is made of, grouped and filterable by lifecycle.
 
 `preliminaryReachesTheUser.test.tsx` moves with the panel although **half of it

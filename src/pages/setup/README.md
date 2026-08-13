@@ -30,10 +30,10 @@ than a wizard.
 
 ## Data it consumes
 
-| Port      | For                                                            |
-| --------- | -------------------------------------------------------------- |
-| `setup`   | configuration fields, publication targets, connections          |
-| `acquisition` | the repositories this deployment's credential can reach     |
+| Port          | For                                                     |
+| ------------- | ------------------------------------------------------- |
+| `setup`       | configuration fields, publication targets, connections  |
+| `acquisition` | the repositories this deployment's credential can reach |
 
 ## Contextual toolbelt
 

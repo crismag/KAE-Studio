@@ -25,10 +25,10 @@ review that found nothing — which are different sentences and both true.
 
 ## Data it consumes
 
-| Port         | For                                                        |
-| ------------ | ---------------------------------------------------------- |
+| Port         | For                                                           |
+| ------------ | ------------------------------------------------------------- |
 | `projection` | `findings` (proposals), `review` (computed), `contradictions` |
-| `memory`     | the confirm and reject gestures                            |
+| `memory`     | the confirm and reject gestures                               |
 
 ## Contextual toolbelt
 

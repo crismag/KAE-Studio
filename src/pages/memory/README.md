@@ -31,10 +31,10 @@ derived to trace — which is a fact about the project, not a failure to read it
 
 ## Data it consumes
 
-| Port         | For                                                    |
-| ------------ | ------------------------------------------------------ |
-| `projection` | the records, their lifecycle, the project's revision   |
-| `memory`     | `GET /knowledge/{id}/trace` — provenance, on demand    |
+| Port         | For                                                  |
+| ------------ | ---------------------------------------------------- |
+| `projection` | the records, their lifecycle, the project's revision |
+| `memory`     | `GET /knowledge/{id}/trace` — provenance, on demand  |
 
 ## Contextual toolbelt
 
@@ -49,7 +49,7 @@ rendered a heading, a badge reading `0`, and an empty list (`AUD-004`).
 
 **Agent activity is named and empty on purpose.** The panel states that the
 capability is not implemented rather than rendering an empty list, because an
-empty list reads as *nothing happened*. It lives here and was described by the
+empty list reads as _nothing happened_. It lives here and was described by the
 Settings contract for a while, which rendered no such panel (`D-61`).
 
 Nothing else. There is no editing here, and no confirming: this page is a
@@ -69,8 +69,8 @@ None. Nothing is completed here.
 ## Owns
 
 `MemoryPage.tsx`, and `RecordProvenance` within it — the on-demand trace reader,
-which nothing else uses. Its three panels — *Knowledge and its evidence*, *What
-Studio currently remembers* and *Agent activity* — are all this page's.
+which nothing else uses. Its three panels — _Knowledge and its evidence_, _What
+Studio currently remembers_ and _Agent activity_ — are all this page's.
 
 ## Does **not** own
 

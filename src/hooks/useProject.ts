@@ -461,13 +461,31 @@ export function useSources() {
  * appearing there would be labelled a repository by its surroundings, which is
  * a claim the list makes without saying a word.
  */
-export function useSourcesOfKind(kinds: ProjectSource['kind'][]) {
+/**
+ * Sources, optionally narrowed to some kinds.
+ *
+ * Every kind by default since `D-80`: the list a person keeps is *what this
+ * project reads from*, and filtering it by kind was the tab model the owner
+ * asked to remove.
+ */
+export function useSourcesOfKind(kinds?: ProjectSource['kind'][]) {
   const { acquisition, projectId } = useServices()
   return useQuery({
     queryKey: ['sources', projectId],
     queryFn: () => acquisition.listSources(projectId),
-    select: (listing) => listing.sources.filter((source) => kinds.includes(source.kind)),
+    select: (listing) =>
+      kinds ? listing.sources.filter((source) => kinds.includes(source.kind)) : listing.sources,
   })
+}
+
+/** Whether any connection this project can use has been granted. */
+export function useHasConnection() {
+  const { setup, projectId } = useServices()
+  const query = useQuery({
+    queryKey: ['memory-connections', projectId],
+    queryFn: () => setup.listConnections(projectId),
+  })
+  return (query.data ?? []).some((connection) => connection.state === 'granted')
 }
 
 /**

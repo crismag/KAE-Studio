@@ -26,10 +26,10 @@ nothing in it must still be legible here.
 
 ## Data it consumes
 
-| Port         | For                                                              |
-| ------------ | ---------------------------------------------------------------- |
+| Port         | For                                                                     |
+| ------------ | ----------------------------------------------------------------------- |
 | `projection` | journey, coverage, blockers, review findings, decisions, contradictions |
-| `registries` | the Room launchers and each Room's stated limit                  |
+| `registries` | the Room launchers and each Room's stated limit                         |
 
 ## Contextual toolbelt
 
@@ -72,8 +72,8 @@ than a piece of this page.
   though this page is where a person reads it, which is why `D-49` mattered.
 - **Closing anything.** Blockers are resolved where somebody takes
   responsibility for them, which is not here.
-- **Counting what it cannot see.** *"Nothing is waiting on you that KAE can
-  currently detect"* is a narrower claim than _all clear_, and it may only be
+- **Counting what it cannot see.** _"Nothing is waiting on you that KAE can
+  currently detect"_ is a narrower claim than _all clear_, and it may only be
   made when nothing on the page is waiting.
 
 ## Transitions out

@@ -25,7 +25,7 @@ drawn, and readable as a list.
 ## Entry conditions
 
 None. A project with no modules opens here and is told it has none — which is a
-different sentence from *"the graph could not be read"*, and the distinction is
+different sentence from _"the graph could not be read"_, and the distinction is
 the whole of `D-19`.
 
 ## Data it consumes
@@ -50,7 +50,7 @@ Nothing on this belt belongs in global navigation.
 
 ## Empty, loading and degraded states
 
-Loading · a project with no modules, said as *this project has none* · a graph
+Loading · a project with no modules, said as _this project has none_ · a graph
 KAE-Memory could not read, which is a fact about the deployment rather than the
 project · a module Memory left out of build order, shown at the end rather than
 dropped, because a module missing from this page is one a reader believes does

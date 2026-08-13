@@ -1100,6 +1100,7 @@ class MockAcquisition implements AcquisitionPort {
     // Fixture content, and it stays in the mock layer where it belongs.
     const all = [
       {
+        kind: 'github' as const,
         fullName: 'ministry/reporting-platform',
         defaultBranch: 'main',
         private: true,
@@ -1107,6 +1108,7 @@ class MockAcquisition implements AcquisitionPort {
         updatedAt: '2026-08-10T09:00:00Z',
       },
       {
+        kind: 'github' as const,
         fullName: 'ministry/reporting-docs',
         defaultBranch: 'main',
         private: false,
@@ -1114,6 +1116,7 @@ class MockAcquisition implements AcquisitionPort {
         updatedAt: '2026-08-04T11:20:00Z',
       },
       {
+        kind: 'github' as const,
         fullName: 'ministry/identity-service',
         defaultBranch: 'develop',
         private: true,

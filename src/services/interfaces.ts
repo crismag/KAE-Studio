@@ -405,6 +405,12 @@ export interface AcquisitionPort {
 /** What a credential can see, and why it can see nothing when it cannot. */
 export interface RepositoryListing {
   repositories: {
+    /**
+     * Where it lives. `fullName` is `owner/name` for GitHub and an absolute
+     * path for a folder, so without this a reader cannot tell them apart —
+     * which is why `D-68` put it on the wire in the first place.
+     */
+    kind: 'github' | 'local'
     fullName: string
     defaultBranch: string
     private: boolean

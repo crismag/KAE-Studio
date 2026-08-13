@@ -55,7 +55,7 @@
  */
 
 import { useState } from 'react'
-import { Activity, FileCode, FileText, FolderGit2, Lock, Search, Upload } from 'lucide-react'
+import { FileCode, Lock, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { PageLayout } from '@/components/project/PageLayout'
@@ -72,12 +72,14 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
-import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
-import { Activity as RunActivity, Coverage, PasteDocument, UploadIsNotBuilt } from './intake'
+import { Activity as RunActivity, Coverage, PasteDocument } from './intake'
+import { AddSource, type Branch } from './AddSource'
 import {
   useIngestFiles,
   useSampleFile,
   useSourceFiles,
+  useAvailableRepositories,
+  useHasConnection,
   useSourcesOfKind,
   useSourcesUnavailable,
 } from '@/hooks/useProject'
@@ -96,42 +98,16 @@ export function SourcesRoom() {
         </Button>
       }
     >
-      <Tabs defaultValue="repositories">
-        <TabList>
-          <Tab value="repositories">
-            <FolderGit2 className="mr-1.5 inline size-3.5" aria-hidden="true" />
-            Repositories
-          </Tab>
-          <Tab value="text">
-            <FileText className="mr-1.5 inline size-3.5" aria-hidden="true" />
-            Text
-          </Tab>
-          <Tab value="files">
-            <Upload className="mr-1.5 inline size-3.5" aria-hidden="true" />
-            Files
-          </Tab>
-          <Tab value="activity">
-            <Activity className="mr-1.5 inline size-3.5" aria-hidden="true" />
-            Activity
-          </Tab>
-        </TabList>
-
-        <TabPanel value="repositories">
-          <Repositories />
-        </TabPanel>
-        <TabPanel value="text">
-          <PasteDocument />
-        </TabPanel>
-        <TabPanel value="files">
-          <UploadIsNotBuilt />
-        </TabPanel>
-        <TabPanel value="activity">
-          <div className="space-y-5">
-            <Coverage />
-            <RunActivity />
-          </div>
-        </TabPanel>
-      </Tabs>
+      {/* One list, not four tabs (`D-80`). Splitting sources by kind asked a
+          person to know which tab a thing was in before they could see whether
+          they had added it — and the owner's model is an accumulating list. */}
+      <div className="space-y-5">
+        <Repositories />
+        <div className="space-y-5">
+          <Coverage />
+          <RunActivity />
+        </div>
+      </div>
     </PageLayout>
   )
 }
@@ -144,20 +120,31 @@ export function SourcesRoom() {
  * deliberately instead of arriving here by default — which is how a pasted
  * document would have been labelled a repository by its surroundings.
  */
-const REPOSITORY_KINDS: ProjectSource['kind'][] = ['github', 's3']
 
 function Repositories() {
   // Repositories, not every source. A pasted brief listed here would be
   // labelled a repository by its surroundings — a claim the list makes without
   // saying a word — and `§7`'s point is that one abstraction covers several
   // kinds, not that they all read the same (`D-24`).
-  const sources = useSourcesOfKind(REPOSITORY_KINDS)
+  // **Every kind**, not only repositories (`D-80`). The list a person keeps is
+  // the list of what this project reads from; splitting it by kind was the tab
+  // model, and it asked them to know where a thing was filed before they could
+  // see whether they had added it.
+  const sources = useSourcesOfKind()
   // Whether the list above is complete. Sources became durable (`D-21`), so
   // reading them can fail, and the empty state below would otherwise announce
   // "no repository connected yet" about a request that did not finish — to a
   // person who connected one an hour ago.
   const unreadable = useSourcesUnavailable()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [branch, setBranch] = useState<Branch | null>(null)
+  // **Repositories, not roots.** `local_sources` on `/api/status` counts
+  // configured directories — one — and the menu said "1 available" over 29
+  // readable repositories. The listing knows the real number, and it is the
+  // number a person is choosing from.
+  const available = useAvailableRepositories()
+  const localRoots = (available.data?.repositories ?? []).filter((r) => r.kind === 'local').length
+  const connected = useHasConnection()
 
   return (
     <>
@@ -195,8 +182,15 @@ function Repositories() {
           const chosen = rows.find((s) => s.sourceId === selectedId) ?? rows[0]
           return (
             <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
-              <SourceList sources={rows} selectedId={chosen?.sourceId} onSelect={setSelectedId} />
-              {chosen ? <SourceDetail source={chosen} /> : null}
+              <div className="space-y-3">
+                <SourceList sources={rows} selectedId={chosen?.sourceId} onSelect={setSelectedId} />
+                <AddSource localRoots={localRoots} connected={connected} onChoose={setBranch} />
+              </div>
+              {branch === 'paste' ? (
+                <PasteDocument />
+              ) : chosen ? (
+                <SourceDetail source={chosen} />
+              ) : null}
             </div>
           )
         }}
@@ -212,6 +206,28 @@ function Repositories() {
  * understood my project*, and the next screen then disappoints — which is the
  * constraint the original component was built around and is kept here.
  */
+
+/**
+ * What a person calls each kind, and what they recognise a source by.
+ *
+ * `location` is `owner/name` for GitHub and an absolute path for a folder, so
+ * showing it raw made the picker read as developer output (`D-78`). The name
+ * leads; the path is still there, one line down.
+ */
+const KIND: Record<string, string> = {
+  github: 'GitHub',
+  local: 'Folder',
+  paste: 'Pasted',
+  upload: 'File',
+  s3: 'S3',
+}
+
+function label(source: ProjectSource): string {
+  if (source.kind !== 'local') return source.location
+  const name = source.location.split('/').filter(Boolean).pop()
+  return name || source.location
+}
+
 const STATE: Record<
   SourceState,
   {
@@ -249,7 +265,7 @@ function SourceList({
   return (
     <Panel className="h-fit">
       <PanelHeader>
-        <PanelTitle>Repositories</PanelTitle>
+        <PanelTitle>What this project reads from</PanelTitle>
         <Badge tone="neutral">{sources.length}</Badge>
       </PanelHeader>
       <PanelBody className="space-y-1.5">
@@ -272,7 +288,10 @@ function SourceList({
                   : 'border-line bg-surface hover:bg-surface-sunken'
               }`}
             >
-              <p className="truncate text-[12.5px] font-medium text-ink">{source.location}</p>
+              <p className="flex items-center gap-1.5">
+                <Badge tone="neutral">{KIND[source.kind] ?? source.kind}</Badge>
+                <span className="truncate text-[12.5px] font-medium text-ink">{label(source)}</span>
+              </p>
               <p className="mt-1 flex items-center gap-1.5">
                 <Badge tone={inaccessible ? 'attention' : state.tone}>
                   {inaccessible ? 'Unreachable' : state.label}
