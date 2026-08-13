@@ -15,7 +15,10 @@ and the process exits non-zero if any failed.
 gated anything — which is why nobody noticed that no test in the estate
 exercised the artifact chain through the wiring the deployment actually uses.
 
-    STUDIO_PASSWORD=... python e2e/acceptance/journey.py <scenario>
+    STUDIO_API=https://host/studio python e2e/acceptance/journey.py <scenario>
+
+`STUDIO_PASSWORD` is needed only where the deployment reports
+`authentication: required`; the harness asks before signing in (`D-64`).
 
 Scenarios: weak-answer, established, lifecycle, continuity.
 """
@@ -81,7 +84,38 @@ def call(path: str, body: object | None = None, method: str = "") -> object:
         raise RuntimeError(f"{error.code} {path}: {detail}") from None
 
 
+def authentication_required() -> bool:
+    """Whether this deployment wants a password at all.
+
+    Asked rather than assumed. The harness exited before doing anything if
+    `STUDIO_PASSWORD` was unset and then signed in unconditionally, so it could
+    not run against a deployment with `STUDIO_NO_AUTH` on — which is the one it
+    is pointed at, by decision (`T0.4`). `/api/status` says which it is, and
+    every route this harness uses is open when authentication is disabled
+    (`D-64`).
+    """
+
+    status = call("/api/status")
+    # Skipped only where the deployment says so **explicitly**. Anything else —
+    # an older status shape, a field renamed, a proxy returning something
+    # unexpected — signs in, because guessing wrong in that direction produces a
+    # confusing `401` three calls later instead of a clear message now.
+    return not (isinstance(status, dict) and status.get("authentication") == "disabled")
+
+
 def sign_in() -> None:
+    """Sign in where the deployment requires it, and nowhere else.
+
+    Deliberately not a `401` swallowed: that would pass on a deployment which
+    *does* require authentication and rejects the password it was given, which
+    is the case the check exists to catch.
+    """
+
+    if not authentication_required():
+        print("  authentication is disabled on this deployment; not signing in")
+        return
+    if not PASSWORD:
+        raise SystemExit("this deployment requires authentication: set STUDIO_PASSWORD")
     call("/api/session", {"password": PASSWORD})
 
 
@@ -309,8 +343,9 @@ SCENARIOS = {
 
 
 if __name__ == "__main__":
-    if not PASSWORD:
-        raise SystemExit("set STUDIO_PASSWORD")
+    # The password check moved into `sign_in`, where the deployment can be asked
+    # whether it wants one. Here it refused to start against a host that needs
+    # no password at all (`D-64`).
     chosen = sys.argv[1:] or list(SCENARIOS)
     sign_in()
     for name in chosen:
