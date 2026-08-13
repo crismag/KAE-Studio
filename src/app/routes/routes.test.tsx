@@ -10,7 +10,7 @@ import { SURFACES } from '@/app/registries/rooms'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices, resetPrototypeState } from '@/services/mock/mockServices'
 import { Modules } from './Modules'
-import { Reviews } from './Reviews'
+import { Reviews } from '@/pages/rooms/review/ReviewsRoom'
 import { Requirements } from './Requirements'
 
 function renderRoute(ui: ReactElement) {
@@ -125,7 +125,7 @@ describe('a Room limit does not deny a shipped capability', () => {
   it('does not claim contradictions are uncomputed while the review panel ships', () => {
     // Read from source rather than imported, so this fails on the registry's
     // words rather than on a component's existence alone.
-    const panel = readFileSync('src/components/project/QualityReview.tsx', 'utf8')
+    const panel = readFileSync('src/pages/rooms/review/QualityReview.tsx', 'utf8')
     expect(panel).toContain('export function QualityReview(')
 
     expect(reviews.limit ?? '').not.toMatch(/contradictions?[^.]*not (?:be )?computed/i)

@@ -8,7 +8,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { QualityReview } from '@/components/project/QualityReview'
+import { QualityReview } from './QualityReview'
 import { PageLayout } from '@/components/project/PageLayout'
 import {
   Badge,
