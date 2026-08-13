@@ -68,11 +68,20 @@ describe('a blocker is named, not counted', () => {
 })
 
 describe('the consequence arrives before the package screen does', () => {
-  it('says a critical blocker stops generation', () => {
+  it('says what a critical blocker actually does', () => {
+    // `D-32`. The first version of this asserted that KAE "will not generate a
+    // development package", and **the test passed while the claim was false** —
+    // it checked that the component said a sentence, not that the sentence was
+    // true of the system.
+    //
+    // `readiness_service` computes `implementation_eligible`,
+    // `assembly_service` carries it into the blueprint, and nothing refuses.
+    // A blocker marks the result; it does not withhold it.
     render(<Blockers blockers={[CRITICAL]} />)
 
     const notice = screen.getByRole('alert')
-    expect(notice).toHaveTextContent(/will not generate a development package/i)
+    expect(notice).toHaveTextContent(/marked not ready for implementation/i)
+    expect(notice).not.toHaveTextContent(/will not generate/i)
   })
 
   it('does not claim generation is stopped by a major one', () => {

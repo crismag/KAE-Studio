@@ -44,13 +44,20 @@ export function Blockers({ blockers }: { blockers: ProjectBlocker[] }) {
       </PanelHeader>
       <PanelBody className="space-y-4">
         {critical.length > 0 && (
-          // The consequence, before the list. A person reading a blocker
-          // should not have to discover at the package screen that it stopped
-          // them — which is where they used to find out.
+          // The consequence, before the list, and **stated accurately** — the
+          // first version of this said KAE "will not generate a development
+          // package while it stands", which is not true (`D-32`).
+          //
+          // `readiness_service` computes `implementation_eligible = … and not
+          // blocked`, `assembly_service` passes that flag into the blueprint,
+          // and **nothing refuses**. A critical blocker marks the result; it
+          // does not withhold it. Telling somebody they are stopped when they
+          // are not is worse than the defects that sentence was written to
+          // replace, because they will not try what the product allows.
           <p role="alert" className="text-[12.5px] leading-relaxed text-blocking">
-            {critical.length === 1 ? 'A critical blocker is' : 'Critical blockers are'} standing.
-            KAE will not generate a development package while{' '}
-            {critical.length === 1 ? 'it stands' : 'they stand'}.
+            {critical.length === 1 ? 'A critical blocker is' : 'Critical blockers are'} standing. A
+            development package generated now will be marked{' '}
+            <strong>not ready for implementation</strong>.
           </p>
         )}
 
