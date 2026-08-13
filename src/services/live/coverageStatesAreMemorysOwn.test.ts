@@ -42,31 +42,39 @@ function area(state: string, counts: Partial<{ confirmed: number; proposed: numb
 }
 
 function respond(areas: unknown[]) {
+  return respondWith({ health: { percentage: 0, phase: 'discovering', areas } })
+}
+
+/** The projection payload, with one section replaced. */
+function respondWith(over: Record<string, unknown>) {
   return vi.spyOn(globalThis, 'fetch').mockResolvedValue(
     new Response(
       JSON.stringify({
-        project: { id: 'p1', name: 'Test', phase: 'active', createdAt: '', memoryRevision: 1 },
-        confirmed: [],
-        proposed: [],
-        rejected: [],
-        health: { percentage: 0, phase: 'discovering', areas },
-        definition: {
-          problem: { value: '' },
-          value: { value: '' },
-          stakeholders: [],
-          inScope: [],
-          outOfScope: [],
-          workflows: [],
-          assumptions: [],
-          constraints: [],
-          mappingVersion: 1,
+        ...{
+          project: { id: 'p1', name: 'Test', phase: 'active', createdAt: '', memoryRevision: 1 },
+          confirmed: [],
+          proposed: [],
+          rejected: [],
+          health: { percentage: 0, phase: 'discovering', areas: [] },
+          definition: {
+            problem: { value: '' },
+            value: { value: '' },
+            stakeholders: [],
+            inScope: [],
+            outOfScope: [],
+            workflows: [],
+            assumptions: [],
+            constraints: [],
+            mappingVersion: 1,
+          },
+          openQuestions: [],
+          blockers: [],
+          contradictions: { count: 0, listable: false, reason: '' },
+          preliminary: { warnings: [] },
+          modules: { available: false, gap: { capability: 'modules', reason: '' } },
+          unavailable: [],
         },
-        openQuestions: [],
-        blockers: [],
-        contradictions: { count: 0, listable: false, reason: '' },
-        preliminary: { warnings: [] },
-        modules: { available: false, gap: { capability: 'modules', reason: '' } },
-        unavailable: [],
+        ...over,
       }),
       { status: 200 },
     ),
@@ -145,5 +153,61 @@ describe('the states that were already right', () => {
   it('keeps the counts beside the state', async () => {
     // A state alone colours a row; the counts are what a person acts on.
     expect((await coverage('partial', { confirmed: 1 })).detail).toBe('1 of 2 confirmed')
+  })
+})
+
+/**
+ * `D-29` — blockers survive the mapping they used to die in.
+ *
+ * Typed `unknown[]` and mapped nowhere, while a critical one already stopped
+ * generation. The page half is asserted in `blockersReachAPerson.test.tsx`, and
+ * those tests build blockers directly — so they pass with an adapter that drops
+ * the field entirely, which is the failure `RFA-2` exists for.
+ */
+describe('blockers reach the projection', () => {
+  const WIRE = {
+    id: 'BLK-1',
+    project_id: 'p1',
+    summary: 'Nobody has confirmed who may approve.',
+    severity: 'critical',
+    status: 'open',
+    area_key: 'approval',
+    owner: 'Church leadership',
+    resolution_note: null,
+  }
+
+  async function blockers(entries: unknown[]) {
+    respondWith({ blockers: entries })
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+    return projection.blockers
+  }
+
+  it('carries what the blocker actually says', async () => {
+    const [mapped] = await blockers([WIRE])
+
+    expect(mapped.summary).toBe(WIRE.summary)
+    expect(mapped.severity).toBe('critical')
+    expect(mapped.owner).toBe('Church leadership')
+  })
+
+  it('carries a resolved one with how it was closed', async () => {
+    const [mapped] = await blockers([
+      { ...WIRE, status: 'resolved', resolution_note: 'Decided at the regional meeting.' },
+    ])
+
+    expect(mapped.status).toBe('resolved')
+    expect(mapped.resolutionNote).toBe('Decided at the regional meeting.')
+  })
+
+  it('leaves a missing severity empty rather than guessing downwards', async () => {
+    // A blocker whose grade did not arrive is not a minor one, and guessing is
+    // the direction that costs a person the thing they needed to see.
+    const [mapped] = await blockers([{ ...WIRE, severity: undefined }])
+
+    expect(mapped.severity).toBe('')
+  })
+
+  it('reports no blockers as no blockers', async () => {
+    expect(await blockers([])).toEqual([])
   })
 })

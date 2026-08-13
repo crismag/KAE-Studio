@@ -37,6 +37,7 @@
 import { ArrowRight, CircleDot, Clock, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { Blockers } from '@/components/project/Blockers'
 import { NextAction } from '@/components/project/NextAction'
 import { PageLayout } from '@/components/project/PageLayout'
 import { floorAction } from '@/components/project/nextActionFloor'
@@ -81,6 +82,10 @@ export function Dashboard() {
             <Journey projection={data} />
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
               <div className="space-y-5">
+                {/* Above "Needs you" deliberately. A blocker is a gap
+                    somebody owns and a critical one already stops generation,
+                    so it outranks a queue of things to look at (`D-29`). */}
+                <Blockers blockers={data.blockers} />
                 <NeedsYou projection={data} />
                 <Rooms />
               </div>

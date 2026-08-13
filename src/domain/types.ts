@@ -797,6 +797,14 @@ export interface ProjectProjection {
    */
   preliminary: PreliminaryContext
   /**
+   * Gaps somebody owns and must close (`D-29`).
+   *
+   * Both open and resolved, because *"what was blocking us, and who closed
+   * it?"* is a question the product should be able to answer. A surface
+   * decides which to show; the projection does not decide it for them.
+   */
+  blockers: ProjectBlocker[]
+  /**
    * The architecture as KAE-Memory holds it: modules, the edges between them,
    * and the order they can be built in.
    *
@@ -820,6 +828,34 @@ export interface SourceListing {
   sources: ProjectSource[]
   /** Empty when the record was read. Non-empty is the reason it was not. */
   unavailable: string
+}
+
+/**
+ * Something a person owns and must close (`D-29`).
+ *
+ * KAE-Memory keeps blockers deliberately outside the knowledge lifecycle: *"an
+ * `unknown` knowledge item is a gap in what we know; a blocker is a gap someone
+ * owns and must close."* `rejected` means *this was wrong*; `resolved` means
+ * *this was dealt with*, and neither the knowledge lifecycle nor a readiness
+ * percentage expresses the difference.
+ *
+ * A `critical` one already stops generation. Until this type existed, the only
+ * place a person met a blocker was that refusal — at the moment they tried to
+ * produce a package, with no earlier sign that anything stood in the way.
+ */
+export interface ProjectBlocker {
+  id: string
+  summary: string
+  /** `critical` · `major` · `minor`. Only `critical` gates generation. */
+  severity: string
+  /** `open` · `resolved`. A resolved one is kept, not dropped. */
+  status: string
+  /** The discovery area it sits in, when it sits in one. */
+  areaKey: string | null
+  /** Who owns closing it. `null` when nobody has been named. */
+  owner: string | null
+  /** How it was closed, in the words of whoever closed it. */
+  resolutionNote: string | null
 }
 
 /* ------------------------------------------------------------- architecture */

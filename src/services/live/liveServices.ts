@@ -23,6 +23,7 @@ import type {
   CoverageTopic,
   MemoryConnection,
   PreliminaryContext,
+  ProjectBlocker,
   Project,
   PublicationTarget,
   SetupGap,
@@ -694,7 +695,39 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
         },
     preliminary: toPreliminary(raw.preliminary),
     architecture: toArchitecture(raw.architecture),
+    blockers: toBlockers(raw.blockers),
   }
+}
+
+/**
+ * Gaps somebody owns and must close (`D-29`).
+ *
+ * These were typed `unknown[]` and mapped nowhere, while a `critical` one
+ * already stopped generation — so the only place a person met a blocker was a
+ * refusal at the moment they tried to produce a package.
+ *
+ * Resolved ones are carried. *"This was dealt with"* is a different fact from
+ * *"this was wrong"*, which is why Memory keeps them, and a mapper that dropped
+ * them would make *"what was blocking us, and who closed it?"* unanswerable
+ * from the product.
+ */
+function toBlockers(raw: unknown[]): ProjectBlocker[] {
+  return raw
+    .filter(
+      (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
+    )
+    .map((entry) => ({
+      id: typeof entry.id === 'string' ? entry.id : '',
+      summary: typeof entry.summary === 'string' ? entry.summary : '',
+      // Never defaulted to a grade. A blocker whose severity did not arrive is
+      // not a minor one, and guessing downwards is the direction that costs a
+      // person the thing they needed to see.
+      severity: typeof entry.severity === 'string' ? entry.severity : '',
+      status: typeof entry.status === 'string' ? entry.status : '',
+      areaKey: typeof entry.area_key === 'string' ? entry.area_key : null,
+      owner: typeof entry.owner === 'string' ? entry.owner : null,
+      resolutionNote: typeof entry.resolution_note === 'string' ? entry.resolution_note : null,
+    }))
 }
 
 /** One area as KAE-Memory reports it, before Studio's vocabulary is applied. */

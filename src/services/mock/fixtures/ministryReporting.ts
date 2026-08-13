@@ -17,6 +17,7 @@ import type {
   InterviewSession,
   OpenDecision,
   PreliminaryContext,
+  ProjectBlocker,
   Project,
   ProjectDefinition,
   ProjectHealth,
@@ -1633,3 +1634,36 @@ export const architecture: ArchitectureGraph = {
     'Build order follows depends_on only. A module with no dependencies may still ' +
     'need knowledge that is not yet confirmed.',
 }
+
+/* --------------------------------------------------------------- blockers */
+
+/**
+ * Gaps somebody owns and must close (`D-29`).
+ *
+ * One critical and open, because that is the case with teeth — a critical
+ * blocker already stops generation, and a fixture without one would exercise
+ * the panel only in the state that costs nothing to get wrong.
+ *
+ * One resolved, because *"this was dealt with"* is a different fact from
+ * *"this was wrong"* and the surface has to be able to hold both.
+ */
+export const blockers: ProjectBlocker[] = [
+  {
+    id: 'BLK-01',
+    summary: 'Nobody has confirmed which regional officer signs off for the eastern district.',
+    severity: 'critical',
+    status: 'open',
+    areaKey: 'approval',
+    owner: 'Church leadership',
+    resolutionNote: null,
+  },
+  {
+    id: 'BLK-02',
+    summary: 'The reporting period boundary was ambiguous at month end.',
+    severity: 'major',
+    status: 'resolved',
+    areaKey: 'reporting',
+    owner: 'Administrator',
+    resolutionNote: 'Periods close at 23:59 on the last day of the calendar month.',
+  },
+]
