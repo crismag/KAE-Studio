@@ -192,7 +192,17 @@ export const SURFACES: SurfaceDefinition[] = [
     kind: 'room',
     purpose: 'Accept or refuse what KAE has proposed',
     readiness: 'partial',
-    limit: 'Only agent proposals populate. Contradictions and gaps are not computed.',
+    // This said *"contradictions and gaps are not computed"*, which stopped
+    // being true when `D-30` connected KAE-Memory's review — and `D-38` puts
+    // every limit on the Dashboard, so the product was telling people it could
+    // not do something it does (`D-49`).
+    //
+    // What remains uncomputed is narrower and different: open decisions live on
+    // the workspace by choice, a *requirement-level* gap is nobody's
+    // comparison, and verification needs test links KAE does not record.
+    limit:
+      'Requirement-level gaps and test verification are not computed. Area coverage, ' +
+      'contradictions, duplicates and open blockers arrive from KAE-Memory’s review.',
   },
   {
     id: 'project-settings',
