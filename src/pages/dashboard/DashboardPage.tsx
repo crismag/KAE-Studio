@@ -37,7 +37,7 @@
 import { ArrowRight, CircleDot, Clock, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { Blockers } from '@/components/project/Blockers'
+import { Blockers } from './Blockers'
 import { openBlockers } from '@/components/project/openBlockers'
 import { NextAction } from '@/components/project/NextAction'
 import { PageLayout } from '@/components/project/PageLayout'

@@ -27,7 +27,7 @@
 import { TriangleAlert } from 'lucide-react'
 
 import { Badge, Panel, PanelBody, PanelHeader, PanelTitle } from '@/components/ui/primitives'
-import { openBlockers } from './openBlockers'
+import { openBlockers } from '@/components/project/openBlockers'
 import type { ProjectBlocker } from '@/domain/types'
 
 export function Blockers({ blockers }: { blockers: ProjectBlocker[] }) {

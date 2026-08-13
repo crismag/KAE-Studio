@@ -24,7 +24,7 @@
 import type { ReactElement } from 'react'
 
 import { Architecture } from '@/pages/rooms/architecture/ArchitectureRoom'
-import { Dashboard } from '@/app/routes/Dashboard'
+import { Dashboard } from '@/pages/dashboard/DashboardPage'
 import { Deliverables } from '@/pages/rooms/planning/DeliverablesSubflow'
 import { Dependencies } from '@/pages/rooms/architecture/DependenciesSubflow'
 import { Memory } from '@/app/routes/Memory'

@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { Dashboard } from './Dashboard'
+import { Dashboard } from './DashboardPage'
 import { SURFACES } from '@/app/registries/rooms'
 import type { ProjectProjection } from '@/domain/types'
 import type { StudioServices } from '@/services/interfaces'
