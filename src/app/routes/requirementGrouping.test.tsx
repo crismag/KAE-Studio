@@ -26,12 +26,17 @@ import { Requirements } from './Requirements'
 import type { ProjectProjection, Requirement } from '@/domain/types'
 import type { StudioServices } from '@/services/interfaces'
 
-function requirement(id: string, statement: string, relatedGroup: number | null): Requirement {
+function requirement(
+  id: string,
+  statement: string,
+  relatedGroup: number | null,
+  status: Requirement['status'] = 'proposed',
+): Requirement {
   return {
     id,
     category: 'functional',
     statement,
-    status: 'proposed',
+    status,
     satisfies: [],
     verifiedBy: [],
     updatedAt: '2026-08-12T09:00:00Z',
@@ -162,5 +167,56 @@ describe('when nothing is grouped', () => {
 
     await screen.findByText(/An invoice must be sent/)
     expect(screen.queryByText(/related statements/)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * `D-36` — the filter `D-34`'s commit message said had been added.
+ *
+ * `D-34` made superseded statements reach the projection and claimed, in its
+ * commit message, that they were *"rendered inline with its badge and a filter
+ * tab, beside rejected."* The type union and the count were added; the button
+ * list was not, so the count was computed on every render and shown nowhere.
+ *
+ * ## What is not asserted here, and why
+ *
+ * There is no test that `contested` stays absent. `contested` is deliberately
+ * omitted — its count is structurally always zero, and `AUD-022` calls a
+ * control that can never return a row indistinguishable from the working ones
+ * beside it. I wrote that assertion, **could not make it fail by adding the
+ * control back**, and removed it rather than keep a guard whose shape nobody
+ * has seen. A check that cannot fail is decoration.
+ */
+describe('a superseded statement can be looked at', () => {
+  function withStatuses(statuses: Requirement['status'][]) {
+    return statuses.map((status, index) =>
+      requirement(`r-${index}`, `A statement that is ${status}.`, null, status),
+    )
+  }
+
+  it('offers a filter for them, carrying how many there are', async () => {
+    renderRequirements(withStatuses(['superseded', 'superseded', 'confirmed']))
+
+    // The count as well as the control. A tab whose number is wrong sends
+    // somebody looking for rows that are not there, or past rows that are —
+    // and `findByRole` alone matches "superseded 0" just as happily.
+    expect(await screen.findByRole('button', { name: /superseded 2/i })).toBeInTheDocument()
+  })
+
+  it('offers it even when this project has none', async () => {
+    // `rejected` gets its control on a project with nothing rejected, and the
+    // two are siblings in the same contract clause. A control that appears and
+    // disappears teaches somebody the page is inconsistent.
+    renderRequirements(withStatuses(['confirmed']))
+
+    expect(await screen.findByRole('button', { name: /superseded/i })).toBeInTheDocument()
+  })
+
+  it('shows a superseded statement without filtering', async () => {
+    // The half that did ship, asserted so the tab cannot be mistaken for the
+    // whole fix.
+    renderRequirements(withStatuses(['superseded']))
+
+    expect(await screen.findByText(/a statement that is superseded/i)).toBeInTheDocument()
   })
 })

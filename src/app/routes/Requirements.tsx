@@ -445,7 +445,11 @@ export function Requirements() {
               indistinguishable from the working ones beside it that can never
               return a row (AUD-022). It returns when a statement can actually
               hold that state. */}
-          {(['all', 'confirmed', 'proposed', 'rejected'] as const).map((key) => (
+          {/* `superseded` is here and `contested` is not, and the difference is
+              whether the state can hold a row. Superseded statements reach the
+              projection since `D-34`; a contested one cannot exist, because the
+              adapter has no lifecycle that maps to it. */}
+          {(['all', 'confirmed', 'proposed', 'rejected', 'superseded'] as const).map((key) => (
             <Button
               key={key}
               variant={filter === key ? 'subtle' : 'ghost'}
