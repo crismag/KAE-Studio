@@ -22,6 +22,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
+import { ActionFailed } from './ActionFailed'
 import { CapabilityNote } from './CapabilityNote'
 
 function renderNote(props: React.ComponentProps<typeof CapabilityNote>) {
@@ -88,5 +89,50 @@ describe('a note offers one exact action, or none at all', () => {
 
     expect(screen.getByText(reason)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /grant it/i })).toBeInTheDocument()
+  })
+})
+
+/**
+ * `§17` — *"screen-reader announcements for meaningful workflow state
+ * changes"*, and a failed action is the most meaningful one.
+ *
+ * Most of `§17` already held: reduced motion is handled globally, colour is
+ * never the only signal, the architecture diagram has a text alternative and
+ * links to it. **One failure announced nothing** — the turn that did not send,
+ * on the surface this product exists for.
+ *
+ * It read *"That message did not go through… Nothing was recorded, so sending
+ * it again is safe"*: what happened, what it cost, exactly what to do, and
+ * inaudible. `§16` was satisfied and `§17` was not, which is why the package
+ * lists them separately.
+ *
+ * **The count was corrected before it landed.** A scan said nine such sites; on
+ * reading the components, seven render a `Refusal` that has carried
+ * `role="alert"` all along. A scan is evidence of where to look.
+ */
+describe('a failed action is announced', () => {
+  it('is assertive, not polite', () => {
+    // The person is waiting on this. A polite region can be swallowed by
+    // whatever else is speaking.
+    render(<ActionFailed>That message did not go through.</ActionFailed>)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/did not go through/i)
+  })
+
+  it('carries the recovery the sentence names', () => {
+    // `§16` and `§17` together: the announcement is worth nothing if it says
+    // only that something broke.
+    render(<ActionFailed>Nothing was recorded, so sending it again is safe.</ActionFailed>)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/sending it again is safe/i)
+  })
+
+  it('does not announce a condition of the page', () => {
+    // `CapabilityNote` stays quiet: a section that could not be read is not the
+    // outcome of a gesture, and announcing every degraded panel on load would
+    // make the assertive channel useless for the case it exists for.
+    renderNote({ reason: 'KAE-Memory returned 503.' })
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

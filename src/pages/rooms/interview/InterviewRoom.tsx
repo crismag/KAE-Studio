@@ -51,6 +51,7 @@ import {
   useProjection,
   useSendMessage,
 } from '@/hooks/useProject'
+import { ActionFailed } from '@/components/project/ActionFailed'
 import { blockedBy } from './blockedBy'
 import type {
   ConversationMessage,
@@ -975,10 +976,14 @@ export function InterviewRoom() {
             )}
 
             {!sendMessage.isPending && sendMessage.isError && (
-              <p className="border-l-2 border-blocking-line pl-3 text-[12.5px] leading-relaxed text-ink-muted">
+              // Announced, which it was not (`§17`, `D-42`). The sentence says
+              // what happened, what it cost and exactly what to do — and
+              // somebody using a screen reader was told none of it, on the one
+              // action this room exists for.
+              <ActionFailed className="border-l-2 border-blocking-line pl-3">
                 That message did not go through: {(sendMessage.error as Error).message}. Nothing was
                 recorded, so sending it again is safe.
-              </p>
+              </ActionFailed>
             )}
           </div>
         </div>
