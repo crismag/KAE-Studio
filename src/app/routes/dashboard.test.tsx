@@ -87,6 +87,11 @@ describe('what needs you', () => {
       openDecisions: [],
       contradictions: { count: 0, listable: true, reason: '' },
       extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+      // Cleared as well, since `D-38`. The prototype project has a critical
+      // blocker, so leaving these would make "nothing is waiting" false — and
+      // this test asserted that sentence against exactly that project.
+      blockers: [],
+      review: { available: true, reason: '', findings: [] },
     }))
 
     expect(
@@ -104,6 +109,8 @@ describe('what needs you', () => {
       openDecisions: [],
       contradictions: { count: 0, listable: true, reason: '' },
       extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+      blockers: [],
+      review: { available: true, reason: '', findings: [] },
     }))
 
     expect(await screen.findByText(/that KAE can currently detect/i)).toBeInTheDocument()
@@ -246,5 +253,117 @@ describe('when the project cannot be read', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not be read/i)
     expect(screen.queryByText(/current journey/i)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * `D-38` — the panel cannot say nothing is waiting beneath something waiting.
+ *
+ * `NeedsYou` counts proposals, decisions, contradictions and unread content.
+ * Blockers and the review findings `D-30` connected arrived later and were not
+ * added, so a project whose only outstanding item was a critical blocker read
+ * *"nothing is waiting on you"* three inches beneath that blocker.
+ *
+ * The sentence had been written carefully — *"deliberately not 'all clear':
+ * nothing is waiting **that KAE can see**"* — and the hedge made it worse,
+ * blaming KAE's perception for a gap KAE was displaying.
+ */
+describe('nothing is waiting only when nothing is', () => {
+  const CRITICAL_BLOCKER = {
+    id: 'BLK-9',
+    summary: 'Nobody has confirmed who may approve.',
+    severity: 'critical',
+    status: 'open',
+    areaKey: 'approval',
+    owner: 'Church leadership',
+    resolutionNote: null,
+  }
+
+  function quietExcept(over: Record<string, unknown>) {
+    return (base: ProjectProjection) =>
+      ({
+        ...base,
+        findings: [],
+        openDecisions: [],
+        contradictions: { count: 0, listable: true, reason: '' },
+        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        blockers: [],
+        review: { available: true, reason: '', findings: [] },
+        ...over,
+      }) as ProjectProjection
+  }
+
+  it('does not claim nothing is waiting when a blocker is', async () => {
+    renderDashboard(quietExcept({ blockers: [CRITICAL_BLOCKER] }))
+
+    await screen.findByText(/needs you/i)
+    expect(screen.queryByText(/nothing is waiting on you/i)).not.toBeInTheDocument()
+  })
+
+  it('points at what holds it rather than restating it', async () => {
+    // `§13`, and `D-37` was two lists of one thing on one page coming to
+    // disagree. The blocker is named once, by the panel that owns it.
+    renderDashboard(quietExcept({ blockers: [CRITICAL_BLOCKER] }))
+
+    expect(await screen.findByText(/is waiting on somebody/i)).toBeInTheDocument()
+    expect(screen.getAllByText(CRITICAL_BLOCKER.summary)).toHaveLength(1)
+  })
+
+  it('counts a critical review finding too', async () => {
+    renderDashboard(
+      quietExcept({
+        review: {
+          available: true,
+          reason: '',
+          findings: [
+            {
+              kind: 'missing_area',
+              severity: 'critical',
+              summary: 'An area has nothing in it.',
+              recommendedAction: 'Discuss it.',
+              areaKey: 'approval',
+              subjectKey: '',
+              knowledgeItemIds: [],
+            },
+          ],
+        },
+      }),
+    )
+
+    await screen.findByText(/needs you/i)
+    expect(screen.queryByText(/nothing is waiting on you/i)).not.toBeInTheDocument()
+  })
+
+  it('ignores a minor review finding', async () => {
+    // Every project of any size has minor findings. A "needs you" panel that is
+    // never empty is one nobody reads, which would destroy the signal this
+    // exists to protect.
+    renderDashboard(
+      quietExcept({
+        review: {
+          available: true,
+          reason: '',
+          findings: [
+            {
+              kind: 'duplicate_knowledge',
+              severity: 'minor',
+              summary: 'Two statements say the same thing.',
+              recommendedAction: 'Supersede one.',
+              areaKey: null,
+              subjectKey: '',
+              knowledgeItemIds: [],
+            },
+          ],
+        },
+      }),
+    )
+
+    expect(await screen.findByText(/nothing is waiting on you/i)).toBeInTheDocument()
+  })
+
+  it('does not count a blocker somebody closed', async () => {
+    renderDashboard(quietExcept({ blockers: [{ ...CRITICAL_BLOCKER, status: 'resolved' }] }))
+
+    expect(await screen.findByText(/nothing is waiting on you/i)).toBeInTheDocument()
   })
 })

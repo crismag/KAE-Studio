@@ -38,6 +38,7 @@ import { ArrowRight, CircleDot, Clock, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Blockers } from '@/components/project/Blockers'
+import { openBlockers } from '@/components/project/openBlockers'
 import { NextAction } from '@/components/project/NextAction'
 import { PageLayout } from '@/components/project/PageLayout'
 import { floorAction } from '@/components/project/nextActionFloor'
@@ -184,6 +185,13 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
   const decisions = projection.openDecisions.filter((decision) => !decision.deferred).length
   const contradictions = projection.contradictions.count
   const lost = projection.extractionCoverage && !projection.extractionCoverage.complete
+  // What is outstanding on this page but held by another panel. Only critical
+  // review findings: every project of any size has minor ones, and a "needs
+  // you" panel that is never empty is one nobody reads — which would destroy
+  // the signal this exists to protect.
+  const elsewhere =
+    openBlockers(projection.blockers).length +
+    projection.review.findings.filter((finding) => finding.severity === 'critical').length
 
   const items = [
     proposed > 0 && {
@@ -219,9 +227,27 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
           // Deliberately not "all clear". Nothing is waiting *that KAE can
           // see*, which is a narrower claim and the only one that is true —
           // three of the five review groups are not computed at all.
-          <p className="text-[12.5px] text-ink-muted">
-            Nothing is waiting on you that KAE can currently detect.
-          </p>
+          //
+          // And not even that when something else on this page is waiting.
+          // `NeedsYou` counts proposals, decisions, contradictions and unread
+          // content; blockers and review findings arrived later and were not
+          // added, so a project whose only outstanding item was a critical
+          // blocker read "nothing is waiting on you" three inches beneath the
+          // blocker (`D-38`). The careful hedge made it worse: it blamed KAE's
+          // perception for a gap KAE was displaying.
+          //
+          // Pointed at rather than repeated — `§13`, and `D-37` was two lists
+          // of one thing on one page coming to disagree.
+          elsewhere > 0 ? (
+            <p className="text-[12.5px] text-ink-muted">
+              Nothing here needs a decision from you. The {elsewhere === 1 ? 'item' : 'items'} above{' '}
+              {elsewhere === 1 ? 'is' : 'are'} waiting on somebody.
+            </p>
+          ) : (
+            <p className="text-[12.5px] text-ink-muted">
+              Nothing is waiting on you that KAE can currently detect.
+            </p>
+          )
         ) : (
           <ul className="space-y-2">
             {items.map((item) => (
