@@ -36,7 +36,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { useRuns } from './useProject'
+import { stillWorking, useRuns } from './useProject'
 import type { StudioServices } from '@/services/interfaces'
 import type { AgentRunRecord } from '@/domain/types'
 
@@ -133,10 +133,13 @@ describe('when work finishes', () => {
     expect(projectionInvalidated(invalidate)).toBe(false)
   })
 
-  it('treats a failed run as finished too', async () => {
-    // A run that failed changed nothing, but the panel stops polling either
-    // way — and a page that refreshes after a failure shows the same project,
-    // which costs one request and keeps the rule simple.
+  it('keeps watching a failed run, because a retry is coming', async () => {
+    // **This test asserted the opposite one tick ago**, with the comment "a run
+    // that failed changed nothing, but the panel stops polling either way". I
+    // wrote the existing behaviour down without checking it against
+    // KAE-Memory, which is explicit: `TERMINAL_STATUSES` is
+    // `{succeeded, cancelled, abandoned}` and *"a failed run may be retried"*.
+    // The worker abandons only once the retry budget is exhausted (`D-44`).
     let rows = [run('running')]
     const { wrapper, invalidate } = harness(withRuns(() => rows))
     const { result, rerender } = renderHook(() => useRuns(), { wrapper })
@@ -146,6 +149,51 @@ describe('when work finishes', () => {
     await result.current.refetch()
     rerender()
 
-    await waitFor(() => expect(projectionInvalidated(invalidate)).toBe(true))
+    expect(projectionInvalidated(invalidate)).toBe(false)
+  })
+})
+
+/**
+ * `D-44` — *working* is derived from KAE-Memory's whole vocabulary.
+ *
+ * `RunStatus` has seven members and the predicate named two. It called a failed
+ * run finished while a retry was pending, and an interrupted one finished while
+ * it waited to resume — so polling stopped, and when the work actually
+ * completed nothing was watching.
+ *
+ * Driven off the full enumeration, so an eighth status cannot arrive and be
+ * declared done.
+ */
+describe('what counts as still working', () => {
+  /** `RunStatus` in `kae_memory/domain/execution.py`, verbatim. */
+  const MEMORY_RUN_STATUSES = [
+    'pending',
+    'running',
+    'interrupted',
+    'succeeded',
+    'failed',
+    'cancelled',
+    'abandoned',
+  ] as const
+
+  /** `TERMINAL_STATUSES` in the same file. */
+  const TERMINAL = ['succeeded', 'cancelled', 'abandoned']
+
+  it.each(MEMORY_RUN_STATUSES)('agrees with Memory about %s', (status) => {
+    expect(stillWorking([{ status }])).toBe(!TERMINAL.includes(status))
+  })
+
+  it('keeps watching a status it has never heard of', () => {
+    // Waiting on finished work costs a poll. Declaring unfinished work done
+    // costs the person the result.
+    expect(stillWorking([{ status: 'quarantined' }])).toBe(true)
+  })
+
+  it('reports nothing working when every run is terminal', () => {
+    expect(stillWorking(TERMINAL.map((status) => ({ status })))).toBe(false)
+  })
+
+  it('reports working when any single run is', () => {
+    expect(stillWorking([{ status: 'succeeded' }, { status: 'interrupted' }])).toBe(true)
   })
 })

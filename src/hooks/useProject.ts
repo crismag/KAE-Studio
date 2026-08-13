@@ -680,6 +680,34 @@ export function useExtractionCoverage() {
  * a browser busy describing a project nothing is happening to; one that never
  * polled would show a person a pending run and never change it.
  */
+/**
+ * Statuses KAE-Memory will never reopen (`D-44`).
+ *
+ * Its `TERMINAL_STATUSES`, named here because the two repositories share no
+ * code. Memory is explicit that `failed` and `interrupted` are **not** among
+ * them: *"a failed run may be retried and an interrupted run may be resumed,
+ * both by moving back to `RUNNING`."* The worker abandons a run only once its
+ * retry budget is exhausted.
+ */
+const FINISHED_WITH = new Set(['succeeded', 'cancelled', 'abandoned'])
+
+/**
+ * Whether anything here is still going.
+ *
+ * Derived as **not terminal** rather than as `pending || running`, which was
+ * a partial reading of a seven-member vocabulary: it called a failed run
+ * finished while a retry was pending, and an interrupted one finished while it
+ * waited to resume. Polling stopped, and when the work actually completed
+ * nothing was watching.
+ *
+ * A status this build has not heard of keeps the panel watching. Waiting on
+ * work that has finished costs a poll; declaring finished work that has not
+ * costs the person the result.
+ */
+export function stillWorking(runs: { status: string }[]): boolean {
+  return runs.some((run) => !FINISHED_WITH.has(run.status))
+}
+
 export function useRuns() {
   const { ingestion, projectId } = useServices()
   const queryClient = useQueryClient()
@@ -693,14 +721,11 @@ export function useRuns() {
     refetchInterval: (query) => {
       const rows = query.state.data
       if (!rows) return false
-      const working = rows.some((run) => run.status === 'pending' || run.status === 'running')
-      return working ? 4000 : false
+      return stillWorking(rows) ? 4000 : false
     },
   })
 
-  const working = (query.data ?? []).some(
-    (run) => run.status === 'pending' || run.status === 'running',
-  )
+  const working = stillWorking(query.data ?? [])
 
   useEffect(() => {
     // **Extraction is the one thing that changes a project without anybody
