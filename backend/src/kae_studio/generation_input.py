@@ -30,14 +30,33 @@ from __future__ import annotations
 from typing import Any
 
 #: Memory lifecycle → what a generator may claim. Absent means `proposed`.
+#: Lifecycle → the package's confidence vocabulary.
+#:
+#: **Only what a package may contain.** `superseded` and `rejected` used to map
+#: to `proposed`, so a statement somebody decided against would have entered a
+#: development package as a candidate awaiting agreement — handed to whoever
+#: builds from it (`D-35`).
+#:
+#: Memory's blueprint assembles from `VALIDATED` only, so neither can currently
+#: arrive and no package has been mislabelled. `D-34` put `superseded` into
+#: circulation across Studio, which shortens the distance between this map and a
+#: real value, and KAE-Artifacts states the cost of being wrong here better than
+#: I can: *"an assumption rendered as a fact is the single most damaging thing a
+#: generator can do: the reader has no way to tell, and acts on it."*
 _CONFIDENCE = {
     "validated": "confirmed",
     "confirmed": "confirmed",
     "accepted": "confirmed",
     "proposed": "proposed",
-    "superseded": "proposed",
-    "rejected": "proposed",
 }
+
+#: Lifecycles a package must never carry, whatever label they were given.
+#:
+#: These used to map to `proposed`, so a statement somebody decided against
+#: would have entered a development package as a candidate awaiting agreement.
+#: Not the same as an unknown state — an unknown one is still mapped to the
+#: weaker claim, because that says only that nobody has agreed to it.
+_NEVER_IN_A_PACKAGE = frozenset({"rejected", "superseded", "retracted"})
 
 
 class ContextNotUsable(ValueError):
@@ -69,6 +88,10 @@ def to_generation_input(context: dict[str, Any], project_name: str = "") -> dict
         )
 
     statements: list[dict[str, Any]] = []
+    #: Statements left out because the package has no honest label for them.
+    #: Counted rather than dropped in silence: the spec requires a package be
+    #: *"explicit about maturity and missing information"* (`D-35`).
+    unrepresentable = 0
     for section in context.get("sections", []):
         area = str(section.get("area", ""))
         for statement in section.get("statements", []):
@@ -76,6 +99,22 @@ def to_generation_input(context: dict[str, Any], project_name: str = "") -> dict
             if not text:
                 continue
             lifecycle = str(statement.get("lifecycle", "proposed")).lower()
+            if lifecycle in _NEVER_IN_A_PACKAGE:
+                # Excluded, not relabelled. A statement somebody decided
+                # against, presented as a candidate, is a discarded rule in
+                # whoever builds from this.
+                #
+                # **Only the decided states.** An *unrecognised* lifecycle still
+                # falls to the weaker claim below, which is a deliberate earlier
+                # decision and a good one: we do not know what it is, and
+                # "nobody has agreed to this" is the weakest thing sayable. Here
+                # we do know, and what we know is that it does not belong.
+                #
+                # Excluded rather than raised: one odd statement should not cost
+                # somebody a package, and `ContextNotUsable` is for input that
+                # cannot be trusted at all.
+                unrepresentable += 1
+                continue
             statements.append(
                 {
                     "text": text,
@@ -103,7 +142,7 @@ def to_generation_input(context: dict[str, Any], project_name: str = "") -> dict
         "subject_id": project_id,
         "subject_name": project_name or project_id,
         "input_revision": f"memory:{revision}",
-        "summary": _summary(manifest),
+        "summary": _summary(manifest, unrepresentable),
         "statements": statements,
         "open_questions": open_questions,
         # The content hash is Memory's own fingerprint of what it assembled.
@@ -114,7 +153,7 @@ def to_generation_input(context: dict[str, Any], project_name: str = "") -> dict
     }
 
 
-def _summary(manifest: dict[str, Any]) -> str:
+def _summary(manifest: dict[str, Any], unrepresentable: int = 0) -> str:
     """A factual line about the assembly, not a description of the product.
 
     Memory does not return a prose summary, and inventing one here would put
@@ -127,10 +166,21 @@ def _summary(manifest: dict[str, Any]) -> str:
     confirmed = state.get("confirmed", 0) if isinstance(state, dict) else 0
     total = manifest.get("statement_count", 0)
     purpose = manifest.get("purpose", "implementation")
-    return (
+    line = (
         f"Assembled from KAE-Memory for {purpose}: {total} statement(s), "
         f"{confirmed} confirmed."
     )
+    if unrepresentable:
+        # Said in the package, not only in a log. A reader deciding what to
+        # build from this needs to know something was left out, and by how
+        # much — `DEVELOPMENT_PACKAGE_SPEC` requires a package be explicit
+        # about missing information (`D-35`).
+        line += (
+            f" {unrepresentable} statement(s) were left out: their lifecycle has no "
+            f"honest label in a package, so including them would have described "
+            f"settled or discarded material as a proposal."
+        )
+    return line
 
 
 __all__ = ["ContextNotUsable", "to_generation_input"]

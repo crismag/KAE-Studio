@@ -505,3 +505,88 @@ class TestTheMapping:
         from kae_studio.generation_input import to_generation_input
 
         assert to_generation_input(CONTEXT)["input_revision"] == "memory:281"
+
+
+class TestWhatAPackageMayNotCarry:
+    """`D-35` — a decided statement is left out, not relabelled.
+
+    `DEVELOPMENT_PACKAGE_SPEC`: *"A consumer must be able to distinguish a
+    confirmed constraint from a proposal, assumption, recommendation,
+    contradiction, or unresolved question."*
+
+    `superseded` and `rejected` mapped to `proposed`, so a statement somebody
+    decided against would have entered a development package as a candidate
+    awaiting agreement — handed to whoever builds from it. Latent, because
+    Memory's blueprint assembles from `VALIDATED` only and none of them can
+    currently arrive; `D-34` shortened that distance by putting `superseded`
+    into circulation across Studio.
+
+    The sibling test above keeps the other half honest: an **unrecognised**
+    lifecycle still falls to the weaker claim, because that says only that
+    nobody has agreed to it. This is about the ones we can judge.
+    """
+
+    def _context(self, lifecycle: str) -> dict:
+        return {
+            **CONTEXT,
+            "sections": [
+                {
+                    "area": "a",
+                    "statements": [
+                        {
+                            "text": "A rule the project decided against.",
+                            "kind": "rule",
+                            "lifecycle": lifecycle,
+                            "knowledge_id": "k-1",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    @pytest.mark.parametrize("lifecycle", ["rejected", "superseded", "retracted"])
+    def test_a_decided_statement_never_reaches_the_package(self, lifecycle: str) -> None:
+        from kae_studio.generation_input import to_generation_input
+
+        result = to_generation_input(self._context(lifecycle), project_name="Task Inbox")
+
+        assert result["statements"] == []
+
+    @pytest.mark.parametrize("lifecycle", ["rejected", "superseded"])
+    def test_it_is_never_labelled_a_proposal(self, lifecycle: str) -> None:
+        """The specific harm. A discarded rule presented as a candidate is a
+        discarded rule in somebody's build."""
+
+        from kae_studio.generation_input import to_generation_input
+
+        result = to_generation_input(self._context(lifecycle), project_name="Task Inbox")
+
+        assert "proposed" not in [s["confidence"] for s in result["statements"]]
+
+    def test_the_package_says_what_it_left_out(self) -> None:
+        """Silence about a dropped statement is not being explicit about
+        missing information, which the spec requires."""
+
+        from kae_studio.generation_input import to_generation_input
+
+        result = to_generation_input(self._context("rejected"), project_name="Task Inbox")
+
+        assert "1 statement(s) were left out" in result["summary"]
+        assert "no honest label" in result["summary"]
+
+    def test_a_confirmed_statement_still_reaches_it(self) -> None:
+        # The other direction, and the one that keeps this from being a filter
+        # that quietly empties packages.
+        from kae_studio.generation_input import to_generation_input
+
+        result = to_generation_input(self._context("validated"), project_name="Task Inbox")
+
+        assert [s["confidence"] for s in result["statements"]] == ["confirmed"]
+
+    def test_a_package_with_nothing_dropped_says_nothing(self) -> None:
+        # A standing notice on every package is one nobody reads.
+        from kae_studio.generation_input import to_generation_input
+
+        result = to_generation_input(CONTEXT, project_name="Task Inbox")
+
+        assert "left out" not in result["summary"]
