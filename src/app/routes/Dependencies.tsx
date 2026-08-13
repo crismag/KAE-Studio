@@ -41,6 +41,20 @@ import {
 import { useProjection } from '@/hooks/useProject'
 import { layersFrom } from './buildOrderLayers'
 
+/**
+ * How each module status reads (`D-28`).
+ *
+ * `retired` was toned as `pending` — a module confirmed and then deliberately
+ * removed, coloured as one still waiting to be agreed. A status this build has
+ * not heard of gets the neutral tone rather than the nearest guess, and its own
+ * word still shows.
+ */
+const STATUS_TONE: Record<string, 'confirmed' | 'pending' | 'neutral'> = {
+  confirmed: 'confirmed',
+  proposed: 'pending',
+  retired: 'neutral',
+}
+
 export function Dependencies() {
   const { data: projection, isLoading } = useProjection()
   const [selectedKey, setSelectedKey] = useState<string>('')
@@ -139,7 +153,7 @@ export function Dependencies() {
                         <span className="text-[13.5px] font-medium text-ink">{module.name}</span>
                         {/* Where the module is in its own life, not how far
                             along its implementation is. */}
-                        <Badge tone={module.status === 'confirmed' ? 'confirmed' : 'pending'}>
+                        <Badge tone={STATUS_TONE[module.status] ?? 'neutral'}>
                           {module.status}
                         </Badge>
                       </div>

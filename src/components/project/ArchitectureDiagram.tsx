@@ -27,6 +27,37 @@ import { cn } from '@/lib/cn'
 import { layersFrom } from '@/app/routes/buildOrderLayers'
 import type { ArchitectureGraph } from '@/domain/types'
 
+/**
+ * How each module status is drawn (`D-28`).
+ *
+ * `retired` was drawn identically to `proposed`, under a caption saying a
+ * dashed outline means *"a module nobody has confirmed"* — so the one module a
+ * reader most needs to recognise, one that was confirmed and then deliberately
+ * removed, was described as a proposal.
+ *
+ * A status this build has not heard of falls to the `proposed` outline **and**
+ * shows its own word beside the box, so it is never silently drawn as
+ * something it is not.
+ */
+const OUTLINE: Record<string, string | undefined> = {
+  confirmed: undefined,
+  proposed: '3 2',
+  // Long dashes, distinct from a proposal's short ones at a glance.
+  retired: '8 4',
+}
+
+/**
+ * The dash pattern for a status, or `undefined` for a solid outline.
+ *
+ * A lookup with `??` cannot express this: `confirmed` maps to *no dashes*,
+ * which is `undefined`, which is indistinguishable from *not found* — so a
+ * confirmed module took the fallback and was drawn as a proposal. Membership is
+ * the question, not the value.
+ */
+function outlineFor(status: string): string | undefined {
+  return Object.hasOwn(OUTLINE, status) ? OUTLINE[status] : OUTLINE.proposed
+}
+
 const BOX_WIDTH = 148
 const BOX_HEIGHT = 46
 const GAP_X = 26
@@ -144,7 +175,7 @@ export function ArchitectureDiagram({
                 // Dashed for a module nobody has confirmed. The one visual
                 // variation here that carries meaning, and it carries the
                 // meaning Memory actually holds.
-                strokeDasharray={module.status === 'confirmed' ? undefined : '3 2'}
+                strokeDasharray={outlineFor(module.status)}
                 strokeWidth={selected ? 1.5 : 1}
               />
               <text
@@ -170,7 +201,9 @@ export function ArchitectureDiagram({
 
       <p className="mt-2 text-[11.5px] leading-relaxed text-ink-subtle">
         An arrow points from a module to what it depends on, and height is build order — nothing
-        else in this drawing means anything. A dashed outline is a module nobody has confirmed.
+        else in this drawing means anything. A short-dashed outline is a module nobody has
+        confirmed; a long-dashed one was confirmed and then retired, and is still shown in build
+        order because that is the order KAE-Memory gives.
       </p>
     </div>
   )

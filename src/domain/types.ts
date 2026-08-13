@@ -838,10 +838,17 @@ export interface ModuleSummary {
   name: string
   summary: string
   /**
-   * Where the module is in its own life — proposed, confirmed, retired.
+   * Where the module is in its own life.
    *
-   * Not progress. How far along an implementation is belongs to operational
-   * state, decays differently, and is settled by different evidence.
+   * `proposed` · `confirmed` · `retired`, which is KAE-Memory's whole
+   * `ModuleStatus`. Not progress: how far along an implementation is belongs to
+   * operational state, decays differently, and is settled by different
+   * evidence.
+   *
+   * Kept as a string rather than a union because Memory owns the vocabulary and
+   * a word this build has not heard of must arrive and be shown, not be refused
+   * at the boundary. What must **not** happen is a surface treating an unknown
+   * word as a known one — see `D-28`.
    */
   status: string
 }

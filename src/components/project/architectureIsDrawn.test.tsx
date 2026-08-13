@@ -149,3 +149,78 @@ describe('the drawing claims nothing Memory has not said', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+/**
+ * `D-28` — a retired module is not a module nobody has confirmed.
+ *
+ * Found by generalising `D-27`: instead of scanning for comparisons against
+ * words KAE-Memory never sends, scanning for **members of Memory's enums Studio
+ * never names**. `ModuleStatus` has three and this drawing branched on one, so
+ * a module that was confirmed and then deliberately removed was drawn exactly
+ * like a proposal — under a caption stating what the mark meant.
+ *
+ * Driven off Memory's whole vocabulary, so a fourth status cannot arrive and be
+ * quietly drawn as an existing one.
+ */
+describe('every module status KAE-Memory has is drawn as itself', () => {
+  /** `ModuleStatus` in `kae_memory/domain/modules.py`, verbatim. */
+  const MEMORY_MODULE_STATES = ['proposed', 'confirmed', 'retired'] as const
+
+  function drawWith(status: string) {
+    return draw({
+      available: true,
+      reason: '',
+      modules: [{ key: 'a', name: 'A', summary: '', status }],
+      edges: [],
+      buildOrder: ['a'],
+      note: '',
+    })
+  }
+
+  it('gives each status its own outline', () => {
+    const outlines = MEMORY_MODULE_STATES.map((status) => {
+      const { container } = drawWith(status)
+      return container.querySelector('rect')?.getAttribute('stroke-dasharray') ?? 'solid'
+    })
+
+    // Three states, three marks. Two sharing one is the defect.
+    expect(new Set(outlines).size).toBe(MEMORY_MODULE_STATES.length)
+  })
+
+  it('does not draw a retired module as an unconfirmed one', () => {
+    const { container: retired } = drawWith('retired')
+    const { container: proposed } = drawWith('proposed')
+
+    expect(retired.querySelector('rect')?.getAttribute('stroke-dasharray')).not.toBe(
+      proposed.querySelector('rect')?.getAttribute('stroke-dasharray'),
+    )
+  })
+
+  it('draws a confirmed module solid', () => {
+    // The regression the first version of this fix introduced: `confirmed` maps
+    // to *no dashes*, which is `undefined`, which a `??` lookup cannot tell
+    // apart from *not found* — so it took the fallback and was drawn dashed.
+    const { container } = drawWith('confirmed')
+
+    expect(container.querySelector('rect')?.getAttribute('stroke-dasharray')).toBeNull()
+  })
+
+  it('explains every mark it uses', () => {
+    // The caption claims to explain the variations. A mark it does not mention
+    // is a mark a reader has to guess at, which is worse than one that is not
+    // drawn.
+    const { container } = drawWith('retired')
+
+    expect(container.textContent).toMatch(/retired/i)
+    expect(container.textContent).toMatch(/nobody has confirmed/i)
+  })
+
+  it('keeps a retired module in the build order it was given', () => {
+    // KAE-Memory puts it there and this page renders Memory's order rather than
+    // recomputing one. Two orders that disagree is a question nobody can answer
+    // from a screen.
+    const { container } = drawWith('retired')
+
+    expect(container.querySelectorAll('rect')).toHaveLength(1)
+  })
+})
