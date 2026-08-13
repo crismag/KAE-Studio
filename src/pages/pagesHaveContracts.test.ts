@@ -162,3 +162,79 @@ describe('a contract does not claim another page’s panel', () => {
     expect(foreign).toEqual([])
   })
 })
+
+/**
+ * `D-62` — a component a contract owns is not imported from another page.
+ *
+ * Every `## Owns` section asserts some form of *nothing outside this Room uses
+ * any of them*, and until now that sentence was traced to nothing.
+ *
+ * This is a regression guard, not a fix: the claim holds everywhere today. It
+ * exists against the pressure `D-53` recorded — `GeneratePackage.tsx` stayed in
+ * `components/project/` because it was large, and *size is not reuse*. A
+ * component's folder is the only thing telling the next person not to import it
+ * into a page that should not have one, and nothing enforced that, which is how
+ * `D-49`, `D-60` and `D-61` each happened quietly.
+ *
+ * Two exemptions, both deliberate. The route registry, because a page nothing
+ * routes is not a page. And anything a contract marks `stays shared` beside its
+ * name — the Dashboard's `openBlockers` — because a shared helper declared as
+ * shared is a decision, and a guard should record it rather than forbid it.
+ */
+describe('a contract owns what nothing else imports', () => {
+  const paths = pageFolders()
+  const ROUTED = 'app/registries/routes.tsx'
+
+  function ownedBy(readme: string): string[] {
+    const start = readme.indexOf('## Owns')
+    if (start === -1) return []
+    const next = readme.indexOf('\n## ', start + '## Owns'.length)
+    const section = readme.slice(start, next === -1 ? undefined : next)
+    return (
+      [...section.matchAll(/`([A-Za-z][A-Za-z0-9]*)\.tsx?`/g)]
+        .map(([, name]) => name)
+        // Declared shared, with its reason, on the same line. A decision, not
+        // drift — and left legal rather than argued with.
+        .filter((name) => !new RegExp(`\`${name}\\.tsx?\`[^\\n]*stays shared`).test(section))
+    )
+  }
+
+  const sources = [...pathlib()].filter((file) => !file.includes('.test.'))
+
+  function pathlib(): string[] {
+    const found: string[] = []
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name)
+        if (entry.isDirectory()) walk(full)
+        else if (/\.tsx?$/.test(entry.name)) found.push(full)
+      }
+    }
+    walk(join(process.cwd(), 'src'))
+    return found
+  }
+
+  it('found contracts that claim ownership', () => {
+    expect(
+      paths.flatMap((p) => ownedBy(readFileSync(join(p, 'README.md'), 'utf8'))).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it.each(paths)('%s owns what only it imports', (path) => {
+    const owned = ownedBy(readFileSync(join(path, 'README.md'), 'utf8'))
+    const strangers: string[] = []
+
+    for (const name of owned) {
+      for (const file of sources) {
+        if (file.startsWith(path + '/')) continue
+        if (file.endsWith(ROUTED)) continue
+        const imports = new RegExp(`from '[^']*/${name}'|from '\\./${name}'`)
+        if (imports.test(readFileSync(file, 'utf8'))) {
+          strangers.push(`${name} imported by ${file.replace(process.cwd() + '/', '')}`)
+        }
+      }
+    }
+
+    expect(strangers).toEqual([])
+  })
+})
