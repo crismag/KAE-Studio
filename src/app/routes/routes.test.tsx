@@ -9,7 +9,7 @@ import type { ReactElement } from 'react'
 import { SURFACES } from '@/app/registries/rooms'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices, resetPrototypeState } from '@/services/mock/mockServices'
-import { Modules } from './Modules'
+import { Modules } from '@/pages/rooms/architecture/ModulesSubflow'
 import { Reviews } from '@/pages/rooms/review/ReviewsRoom'
 import { Requirements } from './Requirements'
 

@@ -7,9 +7,7 @@
 **Three routes, one Room.** `/dependencies` and `/modules` are registered
 `partOf: 'architecture'` — subflows with their own paths. `§13` puts a Room and
 its subflows in one folder and the directive says one route per commit, so this
-folder arrives over three commits. `/dependencies` is here; **`/modules` has not
-been colocated yet** (`D-52`). This contract describes the Room, not the
-directory's current contents.
+folder arrives over three commits, and all three are now here (`D-52`).
 
 ## Purpose
 
@@ -71,6 +69,11 @@ Room uses.
 `DependenciesSubflow.tsx` and `buildOrderLayers.ts`, which the diagram and the
 list both use — a Room folder is exactly where a thing shared by two routes of
 one Room belongs, and it moved when the second of them did rather than before.
+
+`ModulesSubflow.tsx`, the curation surface, which states its own gap: KAE has no
+module derivation, so there is nothing to curate. It uses `SeverityBadge`, which
+**stays shared** — the Interview Room and the Definition Room use it too, and a
+badge for a grade is not architecture-specific.
 
 ## Does **not** own
 

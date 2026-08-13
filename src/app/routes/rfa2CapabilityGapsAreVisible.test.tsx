@@ -27,7 +27,7 @@ import { ProjectDefinition } from '@/pages/rooms/definition/DefinitionRoom'
 import { CoverageSection } from '@/pages/rooms/interview/InterviewRoom'
 import { SectionsNotRead } from '@/components/project/SectionsNotRead'
 import { sectionsNotRead } from '@/components/project/sectionsNotRead'
-import { Modules } from './Modules'
+import { Modules } from '@/pages/rooms/architecture/ModulesSubflow'
 import type { ProjectProjection } from '@/domain/types'
 import type { StudioServices } from '@/services/interfaces'
 
