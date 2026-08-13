@@ -378,3 +378,44 @@ describe('every lifecycle state KAE-Memory has survives presentation', () => {
     expect(projection.findings.map((f) => f.id)).not.toContain('k-superseded')
   })
 })
+
+/**
+ * `D-37` — the ids a finding is about survive the mapping that dropped them.
+ */
+describe('a finding carries which statements it is about', () => {
+  it('keeps knowledge item ids', async () => {
+    respondWith({
+      review: {
+        available: true,
+        reason: '',
+        findings: [
+          {
+            kind: 'unresolved_contradiction',
+            severity: 'critical',
+            summary: 'Two knowledge items contradict each other.',
+            recommendedAction: 'Supersede one item.',
+            areaKey: null,
+            subjectKey: '',
+            knowledgeItemIds: ['k-1', 'k-2'],
+          },
+        ],
+      },
+    })
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+
+    expect(projection.review.findings[0].knowledgeItemIds).toEqual(['k-1', 'k-2'])
+  })
+
+  it('reads a finding with none as about no statement in particular', async () => {
+    respondWith({
+      review: {
+        available: true,
+        reason: '',
+        findings: [{ kind: 'missing_area', severity: 'major', summary: 'Empty.' }],
+      },
+    })
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+
+    expect(projection.review.findings[0].knowledgeItemIds).toEqual([])
+  })
+})

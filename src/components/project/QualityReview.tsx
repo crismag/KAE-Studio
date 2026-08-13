@@ -24,7 +24,7 @@
  * lies or writes something nobody asked for.
  */
 
-import { Badge, Panel, PanelBody, PanelHeader, PanelTitle } from '@/components/ui/primitives'
+import { Badge, Mono, Panel, PanelBody, PanelHeader, PanelTitle } from '@/components/ui/primitives'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import type { ProjectReview } from '@/domain/types'
 
@@ -95,6 +95,18 @@ export function QualityReview({ review }: { review: ProjectReview }) {
                 {finding.recommendedAction && (
                   <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
                     {finding.recommendedAction}
+                  </p>
+                )}
+                {/* Which statements this is about. A contradiction's action —
+                    "supersede one item" — names nothing without them, and an
+                    instruction a reader cannot locate is not advice (`D-37`). */}
+                {finding.knowledgeItemIds.length > 0 && (
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {finding.knowledgeItemIds.map((id) => (
+                      <Mono key={id} className="text-ink">
+                        {id}
+                      </Mono>
+                    ))}
                   </p>
                 )}
               </li>

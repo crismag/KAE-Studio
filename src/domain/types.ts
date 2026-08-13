@@ -876,6 +876,14 @@ export interface QualityFinding {
   areaKey: string | null
   /** What it is about where the area alone does not say — a blocker's id. */
   subjectKey: string
+  /**
+   * The statements this finding is about.
+   *
+   * A contradiction names the two that disagree; a duplicate names the pair.
+   * Without it the recommended action — *"supersede one item"* — names no
+   * subject, and an instruction nobody can locate is not advice (`D-37`).
+   */
+  knowledgeItemIds: string[]
 }
 
 export interface ProjectReview {

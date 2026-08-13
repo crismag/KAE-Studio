@@ -1694,6 +1694,9 @@ export const review: ProjectReview = {
       recommendedAction: 'Resolve the blocker, or record who owns closing it and by when.',
       areaKey: 'approval',
       subjectKey: 'BLK-01',
+      // A blocker is addressable in its own right, so the finding names it
+      // through `subjectKey` and touches no statements.
+      knowledgeItemIds: [],
     },
     {
       kind: 'missing_area',
@@ -1703,6 +1706,8 @@ export const review: ProjectReview = {
         'Discuss corrections in the workspace until at least one statement is confirmed.',
       areaKey: 'publication',
       subjectKey: '',
+      // An area with nothing in it is about no statement in particular.
+      knowledgeItemIds: [],
     },
     {
       kind: 'duplicate_knowledge',
@@ -1711,6 +1716,9 @@ export const review: ProjectReview = {
       recommendedAction: 'Supersede one of them, so the project holds a single wording.',
       areaKey: 'reporting',
       subjectKey: '',
+      // The pair. Without these the recommended action — supersede one of them
+      // — names nothing a reader could go and find (`D-37`).
+      knowledgeItemIds: ['FR-RPT-002', 'FR-RPT-009'],
     },
   ],
 }

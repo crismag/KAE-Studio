@@ -242,11 +242,26 @@ export function Reviews() {
           // Contradictions are a special case: Memory *counts* them and will
           // not list them, so the honest report is the number plus the reason
           // the list is missing — not silence, and not a zero.
+          // When this group cannot list them itself, it now points at the
+          // review panel above rather than saying they cannot be listed at all.
+          // That sentence was true of the readiness endpoint and stopped being
+          // true of the product when `D-30` connected `GET /review`, which
+          // emits one finding per contradicting pair — so the page denied that
+          // a thing could be shown directly above a panel showing it (`D-37`).
+          //
+          // The `listable` branch is kept: where the group *can* list them it
+          // still does, and replacing that with the note suppressed the
+          // findings the prototype path supplies.
+          //
+          // The count stays either way — readiness is the authoritative total
+          // and may exceed what the review enumerates — and the findings are
+          // not repeated here, per `§13`.
           const uncomputable =
             group.kind === 'contradiction'
               ? projection.contradictions.listable
                 ? undefined
-                : `${projection.contradictions.count} recorded. ${projection.contradictions.reason}`
+                : `${projection.contradictions.count} recorded. Each one the review could ` +
+                  `identify is listed above, with the two statements it is about.`
               : NOT_COMPUTED[group.kind]
           return (
             <Panel key={group.kind}>

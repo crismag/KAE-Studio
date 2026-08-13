@@ -245,6 +245,15 @@ def _review(pair: tuple[Any, str | None]) -> dict[str, Any]:
                 "recommendedAction": finding.get("recommended_action", ""),
                 "areaKey": finding.get("area_key"),
                 "subjectKey": finding.get("subject_key", ""),
+                # Which statements the finding is about. Dropped in `D-30`, so
+                # a contradiction arrived as "two knowledge items contradict
+                # each other" with a recommended action to supersede one of
+                # them and no way to tell which (`D-37`).
+                "knowledgeItemIds": [
+                    str(identifier)
+                    for identifier in finding.get("knowledge_item_ids", [])
+                    if str(identifier)
+                ],
             }
             for finding in payload.get("findings", [])
             if isinstance(finding, dict)

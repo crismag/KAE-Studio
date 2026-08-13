@@ -104,3 +104,56 @@ describe('what it says when it has nothing', () => {
     expect(screen.getByText(/not whether the project is a good idea/i)).toBeInTheDocument()
   })
 })
+
+/**
+ * `D-37` — a finding names what it is about.
+ *
+ * Memory's contradiction finding carries `knowledge_item_ids`: *which* two
+ * statements disagree. `D-30`'s mapping dropped it, so the panel said *"Two
+ * knowledge items contradict each other"* with a recommended action to
+ * *"supersede one item"* and no way to tell which.
+ *
+ * `D-30`'s own rule was that the recommended action must survive verbatim
+ * because a paraphrase is advice nobody can follow. Carrying the sentence and
+ * dropping its subject reaches the same place by another road.
+ */
+describe('a finding names the statements it is about', () => {
+  const CONTRADICTION = {
+    kind: 'unresolved_contradiction',
+    severity: 'critical',
+    summary: 'Two knowledge items contradict each other.',
+    recommendedAction: 'Supersede one item, or resolve the contradiction with a note.',
+    areaKey: null,
+    subjectKey: '',
+    knowledgeItemIds: ['FR-PUB-002', 'BR-APR-002'],
+  }
+
+  it('shows both statements a contradiction is between', () => {
+    render(<QualityReview review={{ ...EMPTY, findings: [CONTRADICTION] }} />)
+
+    expect(screen.getByText('FR-PUB-002')).toBeInTheDocument()
+    expect(screen.getByText('BR-APR-002')).toBeInTheDocument()
+  })
+
+  it('keeps the instruction beside the subject it names', () => {
+    // Either alone is useless: an instruction with no subject cannot be
+    // followed, and two identifiers with no instruction say nothing about what
+    // to do with them.
+    render(<QualityReview review={{ ...EMPTY, findings: [CONTRADICTION] }} />)
+
+    expect(screen.getByText(CONTRADICTION.recommendedAction)).toBeInTheDocument()
+    expect(screen.getByText('FR-PUB-002')).toBeInTheDocument()
+  })
+
+  it('says nothing extra for a finding about no statement in particular', () => {
+    // A missing area is about the absence of statements, so a row of
+    // identifiers there would be an empty gesture.
+    const { container } = render(
+      <QualityReview
+        review={{ ...EMPTY, findings: [{ ...CONTRADICTION, knowledgeItemIds: [] }] }}
+      />,
+    )
+
+    expect(container.querySelectorAll('.font-mono')).toHaveLength(0)
+  })
+})

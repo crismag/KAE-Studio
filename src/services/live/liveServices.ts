@@ -756,6 +756,9 @@ function toReview(raw: BackendProjection['review']): ProjectReview {
         recommendedAction: text(entry, 'recommendedAction'),
         areaKey: typeof entry.areaKey === 'string' ? entry.areaKey : null,
         subjectKey: text(entry, 'subjectKey'),
+        knowledgeItemIds: Array.isArray(entry.knowledgeItemIds)
+          ? entry.knowledgeItemIds.filter((id): id is string => typeof id === 'string')
+          : [],
       })),
   }
 }
