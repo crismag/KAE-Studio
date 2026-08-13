@@ -11,7 +11,7 @@ import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices, resetPrototypeState } from '@/services/mock/mockServices'
 import { Modules } from '@/pages/rooms/architecture/ModulesSubflow'
 import { Reviews } from '@/pages/rooms/review/ReviewsRoom'
-import { Requirements } from './Requirements'
+import { Requirements } from '@/pages/rooms/definition/RequirementsSubflow'
 
 function renderRoute(ui: ReactElement) {
   const queryClient = new QueryClient({

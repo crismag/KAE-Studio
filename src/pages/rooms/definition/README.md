@@ -2,6 +2,9 @@
 
 **Route:** `/definition` · **Registry id:** `definition`
 
+`/requirements` is registered `partOf: 'definition'` and lives here too — a
+subflow with its own path, as `/dependencies` is to Architecture.
+
 `§8`'s Room: _"see what the project is, as it currently stands."_ The route keeps
 its path — a rename is a behaviour change, and `D-50` forbids combining one with
 a move.
@@ -65,6 +68,11 @@ None. What is here changes when a conversation or a review changes it.
 
 `DefinitionRoom.tsx` and `PreliminaryContextPanel.tsx`, which nothing else uses.
 
+`RequirementsSubflow.tsx` and its grouping test. `/requirements` is registered
+`partOf: 'definition'` — a subflow with its own route, like `/dependencies` is
+to Architecture. The definition says what the project *is*; the subflow lists
+the statements it is made of, grouped and filterable by lifecycle.
+
 `preliminaryReachesTheUser.test.tsx` moves with the panel although **half of it
 asserts the adapter** — `D-18` wrote it that way because `RFA-2` proved that a
 conservation check stopping one layer short of a person proves nothing. Splitting
@@ -90,8 +98,9 @@ from the half that explains why they belong together (`D-51`).
 
 ## Transitions out
 
-`/workspace` from any _Discuss this_ · `/reviews` for what is waiting on a
-decision · `/memory` for the evidence behind a statement.
+`/requirements` for the statements underneath the definition · `/workspace`
+from any _Discuss this_ · `/reviews` for what is waiting on a decision ·
+`/memory` for the evidence behind a statement.
 
 ## Tests
 

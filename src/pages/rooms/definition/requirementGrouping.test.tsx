@@ -22,7 +22,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { Requirements } from './Requirements'
+import { Requirements } from './RequirementsSubflow'
 import type { ProjectProjection, Requirement } from '@/domain/types'
 import type { StudioServices } from '@/services/interfaces'
 
