@@ -243,3 +243,38 @@ class TestTheJourneyAssertsWhatJ1Says:
         journey.sparse_idea()
 
         assert "provenance leads back to the source evidence" in journey._FAILURES
+
+
+class TestJ3MeasuresConfirmedReadiness:
+    """`J3`'s readiness clause is about **confirmed** readiness (`D-66`).
+
+    The first draft asserted `health.percentage` and failed a run that behaved
+    correctly: with nothing confirmed at all, the percentage had moved 0 -> 14,
+    because it counts *proposed* material and is labelled advisory for exactly
+    that reason (`RFA-1` asserts it moves). Asserting it would have reported the
+    system defective for doing its job.
+    """
+
+    def test_the_advisory_percentage_is_not_what_is_measured(self, journey: Any) -> None:
+        moved = {
+            "health": {
+                "percentage": 14,
+                "areas": [{"key": "a", "confirmed": 0}, {"key": "b", "confirmed": 0}],
+            }
+        }
+        still = {
+            "health": {
+                "percentage": 0,
+                "areas": [{"key": "a", "confirmed": 0}, {"key": "b", "confirmed": 0}],
+            }
+        }
+
+        # Different percentages, identical confirmed readiness.
+        assert journey._established(moved) == journey._established(still) == 0
+
+    def test_a_confirmation_does_move_it(self, journey: Any) -> None:
+        """A measure that never rises would pass by being blind."""
+
+        after = {"health": {"percentage": 0, "areas": [{"key": "a", "confirmed": 2}]}}
+
+        assert journey._established(after) == 2

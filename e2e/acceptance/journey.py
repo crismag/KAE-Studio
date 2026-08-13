@@ -20,7 +20,8 @@ exercised the artifact chain through the wiring the deployment actually uses.
 `STUDIO_PASSWORD` is needed only where the deployment reports
 `authentication: required`; the harness asks before signing in (`D-64`).
 
-Scenarios: sparse-idea, weak-answer, established, lifecycle, continuity.
+Scenarios: sparse-idea, weak-answer, does-not-know, established, lifecycle,
+continuity.
 """
 
 from __future__ import annotations
@@ -334,6 +335,19 @@ def continuity() -> None:
     print(f"  project: {project}")
 
 
+def _established(state: dict) -> int:
+    """How much is **confirmed**, per area. Never the advisory percentage.
+
+    The percentage counts proposed material and is labelled advisory precisely
+    because of that. A journey clause about confirmed readiness has to read the
+    confirmed counts or it is measuring the model's output rather than the
+    project's agreements.
+    """
+
+    areas = (state.get("health") or {}).get("areas") or []
+    return sum(int(area.get("confirmed") or 0) for area in areas)
+
+
 SPARSE = "I want an inbox where I can dump thoughts and have them turned into useful things."
 
 
@@ -405,9 +419,84 @@ def sparse_idea() -> None:
     print(f"  project: {project}")
 
 
+DONT_KNOW = (
+    "I don't know yet. Recommend something reasonable for a prototype, "
+    "but don't make it a permanent project decision."
+)
+
+
+def does_not_know() -> None:
+    """`J3` — the user does not know, and that must not become an answer.
+
+    `weak-answer` overlaps this and does not match it (`D-65`): `anything` is a
+    non-answer, while this is somebody explicitly deferring **and** asking for a
+    recommendation. The difference is the whole journey — KAE is invited to
+    decide, and must record the decision as its own.
+    """
+
+    header("J3 — deferring is not deciding")
+    project = new_project("Acceptance J3")
+    say(project, "A scheduling tool for a small veterinary practice.")
+    wait_for_candidates(project, 1)
+
+    before = projection(project)
+    settled_before = len(before.get("confirmed") or [])
+    established_before = _established(before)
+
+    say(project, DONT_KNOW)
+    after = projection(project)
+    health = after.get("health") or {}
+
+    # 1. The uncertainty is taken, not refused. A project that gained nothing
+    #    from the turn treated "I don't know" as noise.
+    must(bool(after.get("proposed") or after.get("openQuestions")),
+         "the uncertainty was not rejected")
+
+    # 2. Deferring is never confirming. Nobody pressed anything.
+    must(len(after.get("confirmed") or []) == settled_before,
+         "saying 'I don't know' confirmed nothing")
+
+    # 3. **Conditional by design.** `J3` allows KAE to continue conversationally
+    #    without recording anything; what it forbids is a faked state
+    #    transition. So an assumption is permitted, not required — and if one
+    #    exists it must be attributed to the model rather than to the person who
+    #    just said they did not know (`D-66`).
+    assumptions = [s for s in after.get("proposed") or [] if s.get("kind") == "assumption"]
+    if assumptions:
+        trace = call(f"/api/projects/{project}/knowledge/{assumptions[0]['id']}/trace")
+        produced_by = (trace or {}).get("produced_by") if isinstance(trace, dict) else None
+        print(f"  recommendation recorded, attributed to: {produced_by}")
+        must(bool(produced_by) and produced_by != "user",
+             "a recommendation is attributed to KAE, not to the user")
+        # 4. Revisitable: proposed, so it can still be rejected or corrected.
+        must(all(a.get("lifecycle") == "proposed" for a in assumptions),
+             "the recommendation stays revisitable")
+    else:
+        print("  no assumption was recorded — permitted, and nothing was faked")
+
+    # 5. **Confirmed** readiness, which is what `J3` names — not the advisory
+    #    percentage. The first draft asserted the percentage and failed on a run
+    #    that behaved correctly: with nothing confirmed at all, it had moved 0 →
+    #    14 because it counts *proposed* material, which is its stated job
+    #    (`RFA-1` asserts it moves). Confirmed readiness is the per-area
+    #    confirmed count, and that is what may not rise on a deferral (`D-66`).
+    must(_established(after) == established_before,
+         "deferring did not move confirmed readiness")
+    must(not health.get("implementationEligible"),
+         "deferring did not make the project fit to build from")
+
+    print("\n  What to judge (not asserted):")
+    print(f"   - advisory readiness moved {(before.get('health') or {}).get('percentage')}%"
+          f" -> {health.get('percentage')}% on proposed material, with nothing confirmed")
+    print("   - is the recommendation reasonable for a prototype, or filler?")
+    print("   - is it offered as KAE's, and easy to overturn?")
+    print(f"  project: {project}")
+
+
 SCENARIOS = {
     "sparse-idea": sparse_idea,
     "weak-answer": weak_answer,
+    "does-not-know": does_not_know,
     "established": established,
     "lifecycle": lifecycle,
     "continuity": continuity,
