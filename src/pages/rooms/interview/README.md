@@ -38,6 +38,20 @@ ask — which is the one surface that works before anything else does.
 (the _"why this?"_ translation of CIE's skill), and `ClassificationState` with
 `neverClassified`.
 
+## Contextual toolbelt
+
+`§9`. The belt is the composer and the gestures a turn makes available:
+**attach** (which links to `/ingestion` rather than opening a picker, because
+KAE cannot read files — an honest affordance over an unbuilt capability),
+**confirm**, **defer**, and **discuss this** from any area of the context panel.
+
+`§9`'s example also lists Voice, Transcript, Questions and Notes. **None
+exists**, and they are not stubbed here: `VC-04` has no audio anywhere in the
+estate, and a belt loop with nothing on it teaches somebody the Room is broken
+rather than young.
+
+Nothing here belongs in global navigation.
+
 ## Does **not** own
 
 - **Ranking the next action.** `ADR-0002`: CIE ranks, Memory stores, Studio

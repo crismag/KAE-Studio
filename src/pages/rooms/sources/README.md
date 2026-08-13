@@ -40,6 +40,20 @@ the same commit, which is what makes provenance point at something stable.
 (paste, the file gap, coverage, run activity) and `runVocabulary.ts` — the
 plain-words reading of a run's error code, used by nothing else.
 
+## Contextual toolbelt
+
+`§9`: *"actions specific to a task move into the current Room."* This Room's
+belt is its four intake modes — **Repositories · Text · Files · Activity** — plus
+**Manage connections**, which leaves for Settings rather than configuring here
+(`§6`: workflow pages select configured resources).
+
+**Files is present and refuses.** There is no bytes path anywhere in the estate,
+so the tab states the gap rather than accepting a drop it cannot honour — a belt
+that offers a tool it does not have is worse than a shorter belt.
+
+Nothing here belongs in global navigation. If any of these appears in the
+sidebar, the Room has stopped being a Room.
+
 ## Does **not** own
 
 - **Connection configuration.** `§6`: workflow selects, Settings configures.

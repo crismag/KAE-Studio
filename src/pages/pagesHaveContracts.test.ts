@@ -40,7 +40,32 @@ function pageFolders(): string[] {
   return found
 }
 
-const REQUIRED = ['Purpose', 'Owns', 'Does **not** own', 'Route:']
+/**
+ * The directive's Stage 5 contract, in full.
+ *
+ * It gives nine fields and warns that *"a page is not considered converted
+ * merely because its heading says `Room`."* This list checked **four** of them
+ * — the ones somebody needed the day a page claimed no boundary — and never
+ * grew to the template it was enforcing.
+ *
+ * `Contextual toolbelt` is the one both contracts were missing, and it is
+ * `§9`'s entire subject: *actions specific to a task move into the current
+ * Room*. It is the field that separates a Room from a page with a heading, so
+ * a contract without it is not describing a Room (`D-47`).
+ *
+ * Matched on the heading text rather than the exact markdown, so a contract may
+ * word its own sections — `Data it consumes` and `Data/projections` are the
+ * same promise — while still having to make every promise.
+ */
+const REQUIRED = [
+  'Purpose',
+  'Route:',
+  'Entry conditions',
+  'Contextual toolbelt',
+  'Exit conditions',
+  'Owns',
+  'Does **not** own',
+]
 
 describe('every page folder states its contract', () => {
   const folders = pageFolders()
