@@ -18,7 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { ProjectSetup } from './ProjectSetup'
+import { ProjectSetup } from './SetupPage'
 import type { SetupPort, StudioServices } from '@/services/interfaces'
 
 /**

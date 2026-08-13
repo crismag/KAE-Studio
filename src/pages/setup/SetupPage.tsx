@@ -39,7 +39,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Check, CircleDashed, ShieldCheck } from 'lucide-react'
 
 import { CapabilityNote } from '@/components/project/CapabilityNote'
-import { RepositoryPicker } from '@/components/project/RepositoryPicker'
+import { RepositoryPicker } from './RepositoryPicker'
 import { PageLayout } from '@/components/project/PageLayout'
 import { Field, FieldSet, Input, Select } from '@/components/ui/form'
 import {

@@ -28,8 +28,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { RepositoryPicker } from '@/components/project/RepositoryPicker'
-import { ProjectSettings } from './ProjectSettings'
+import { RepositoryPicker } from './RepositoryPicker'
+import { ProjectSettings } from '@/app/routes/ProjectSettings'
 import type { AcquisitionPort, StudioServices } from '@/services/interfaces'
 
 function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): StudioServices {
@@ -173,7 +173,7 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
     // product uses for human agreement, about a value nobody looked at.
     const user = userEvent.setup()
     const written: { field: string; state?: string; evidence?: string }[] = []
-    const { ProjectSetup } = await import('./ProjectSetup')
+    const { ProjectSetup } = await import('./SetupPage')
 
     const base = createMockServices()
     const services: StudioServices = {
@@ -225,7 +225,7 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
     // `confirmed` — the correction is about the branch that came along with it.
     const user = userEvent.setup()
     const written: { field: string; state?: string }[] = []
-    const { ProjectSetup } = await import('./ProjectSetup')
+    const { ProjectSetup } = await import('./SetupPage')
 
     const base = createMockServices()
     const queryClient = new QueryClient({
