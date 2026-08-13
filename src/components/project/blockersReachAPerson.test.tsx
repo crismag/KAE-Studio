@@ -15,7 +15,8 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { Blockers, openBlockers } from './Blockers'
+import { Blockers } from './Blockers'
+import { openBlockers } from './openBlockers'
 import { blockers as fixture } from '@/services/mock/fixtures/ministryReporting'
 import type { ProjectBlocker } from '@/domain/types'
 

@@ -27,15 +27,8 @@
 import { TriangleAlert } from 'lucide-react'
 
 import { Badge, Panel, PanelBody, PanelHeader, PanelTitle } from '@/components/ui/primitives'
+import { openBlockers } from './openBlockers'
 import type { ProjectBlocker } from '@/domain/types'
-
-/** Blockers still standing. Resolved ones are kept and shown separately. */
-export function openBlockers(blockers: ProjectBlocker[]): ProjectBlocker[] {
-  // `!== 'resolved'` rather than `=== 'open'`: a status this build has not
-  // heard of is still something nobody has closed, and treating an unknown
-  // word as resolved would hide the blocker that introduced it.
-  return blockers.filter((blocker) => blocker.status !== 'resolved')
-}
 
 export function Blockers({ blockers }: { blockers: ProjectBlocker[] }) {
   const standing = openBlockers(blockers)
