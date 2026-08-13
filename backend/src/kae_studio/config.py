@@ -49,6 +49,16 @@ class Settings:
     #: access are separate grants, and sharing one token would mean connecting a
     #: source silently granted a destination.
     github_source_token: str
+    #: A registered GitHub App, which is how somebody is *meant* to connect a
+    #: repository (`D-56`): they install KAE against the repositories they
+    #: choose, GitHub enforces the selection, and nothing long-lived sits here —
+    #: the key mints a JWT, the JWT mints a token that expires in an hour.
+    github_app_id: str
+    github_app_private_key: str
+    #: Which installation to read as. Optional: with one installation there is
+    #: nothing to choose, and asking somebody for an id they would have to find
+    #: in a URL is the kind of configuration an App exists to remove.
+    github_app_installation_id: str
     session_secret: str
     operator_password: str
     operator_name: str
@@ -152,6 +162,13 @@ class Settings:
             artifacts_base_url=env.get("KAE_ARTIFACTS_URL", "").strip().rstrip("/"),
             artifacts_token=env.get("KAE_ARTIFACTS_TOKEN", "").strip(),
             github_source_token=env.get("STUDIO_GITHUB_SOURCE_TOKEN", "").strip(),
+            github_app_id=env.get("STUDIO_GITHUB_APP_ID", "").strip(),
+            # Not stripped: a PEM's trailing newline is part of it, and a key
+            # that fails to parse for whitespace produces a 401 that reads as
+            # "GitHub refused these credentials" and sends somebody to check the
+            # wrong thing entirely.
+            github_app_private_key=env.get("STUDIO_GITHUB_APP_PRIVATE_KEY", ""),
+            github_app_installation_id=env.get("STUDIO_GITHUB_APP_INSTALLATION_ID", "").strip(),
             session_secret=secret,
             operator_password=env.get("STUDIO_PASSWORD", ""),
             authentication_required=authentication_required,
@@ -161,6 +178,20 @@ class Settings:
             port=int(env.get("STUDIO_PORT", "8100")),
             secure_cookies=secure_cookies,
         )
+
+    @property
+    def github_app(self) -> bool:
+        """Both halves, or neither. An id without a key authenticates nothing."""
+
+        return bool(self.github_app_id and self.github_app_private_key.strip())
+
+    @property
+    def github_credential(self) -> str:
+        """Which credential acquisition will actually use."""
+
+        if self.github_app:
+            return "app_installation"
+        return "personal_token" if self.github_source_token else "none"
 
     def describe(self) -> dict[str, object]:
         """What a status endpoint may say. **Never a secret.**
@@ -178,6 +209,12 @@ class Settings:
             # Whether, not what. An operator needs to know a source credential
             # exists; nobody needs it echoed back.
             "github_source": "configured" if self.github_source_token else "not configured",
+            "github_app": "configured" if self.github_app else "not configured",
+            # **Which** of the two is actually in use. Both configured is not an
+            # error and the App wins; a deployment that silently preferred one
+            # would be indistinguishable from one that ignored the other, and
+            # the person debugging it has no way to tell from the outside.
+            "github_credential": self.github_credential,
             # Stated at the status endpoint because the setup wizard offers a
             # Sources step, and a deployment where that step cannot lead
             # anywhere should say so somewhere an operator looks.

@@ -13,6 +13,10 @@ dependencies = [
   # than Studio growing its own.
   "cris-cie-slim",
   "anthropic>=0.40",
+  # The GitHub App chain — JWT, installation access token, refresh before
+  # expiry, installation listing — which `D-56` exists so that we do not write.
+  # `httpx`- and `pydantic`-based, so it adds a dependency and no runtime.
+  "githubkit[auth-app]>=0.16",
   "boto3>=1.34",
 ]
 

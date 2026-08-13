@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .acquisition import ANALYSIS_UNAVAILABLE, GitHubSourceClient, SourceKind, SourceReadError
+from .acquisition.github_app import AppUnavailable, GitHubApp
 from .acquisition.service import AcquisitionService, UnknownResource
 from .artifacts_client import ArtifactsClient, ArtifactsRefused, ArtifactsUnavailable
 from .config import Settings
@@ -236,6 +237,39 @@ class ReviewIn(BaseModel):
     expected_version: int = 0
 
 
+def _source_client(settings: Settings) -> GitHubSourceClient | None:
+    """The read client this deployment can build, or `None` with a stated gap.
+
+    `None` is a supported deployment and not a broken one — the routes report
+    `github_source: not configured` and the picker says so. A client built over
+    an empty credential would instead fail per request with a 401, which reads
+    like a revoked grant rather than a deployment nobody has finished.
+    """
+
+    if settings.github_app:
+        installation = settings.github_app_installation_id
+        app = GitHubApp(settings.github_app_id, settings.github_app_private_key)
+        if installation:
+            return app.source_client(int(installation))
+        # No installation named, so ask. One installation needs no choosing;
+        # several without a choice is ambiguous, and picking the first would
+        # silently read the wrong account's repositories.
+        try:
+            found = app.installations()
+        except AppUnavailable:
+            # Reported by the routes as an unusable credential rather than
+            # crashing startup: an App whose key GitHub refuses is a
+            # configuration mistake, and a process that will not boot is a
+            # worse way to learn about one.
+            return None
+        if len(found) == 1:
+            return app.source_client(found[0]["installation_id"])
+        return None
+    if settings.github_source_token:
+        return GitHubSourceClient(settings.github_source_token)
+    return None
+
+
 def create_app(settings: Settings) -> FastAPI:
     """Build the Studio backend."""
 
@@ -254,10 +288,12 @@ def create_app(settings: Settings) -> FastAPI:
         # Acquisition (STI-1). Read-only, and its own client: source access and
         # destination access are separate grants even when they name the same
         # repository, and one client would make them one credential.
-        source_token = settings.github_source_token
-        app.state.acquisition = AcquisitionService(
-            GitHubSourceClient(source_token) if source_token else None
-        )
+        # A GitHub App installation wins over a personal token where both are
+        # configured (`D-56`): it is scoped to repositories somebody chose in
+        # GitHub's own UI, and it leaves nothing long-lived on the host.
+        # `/api/status` reports which is in use, because a silent preference and
+        # an ignored setting look identical from outside.
+        app.state.acquisition = AcquisitionService(_source_client(settings))
         # Built once. Constructing an interviewer per request would rebuild a
         # Memory client on every turn for no gain.
         app.state.interviewer = Interviewer(

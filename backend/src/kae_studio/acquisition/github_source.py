@@ -66,24 +66,47 @@ class GitHubSourceClient:
 
     def __init__(
         self,
-        token: str,
+        credential: str | httpx.Auth,
         *,
         api_base: str = "https://api.github.com",
         timeout: float = 30.0,
         transport: httpx.BaseTransport | None = None,
+        installation: bool = False,
     ) -> None:
-        if not token.strip():
-            raise ValueError("a GitHub source client needs a token")
+        """A token, or an `httpx.Auth` that produces one per request.
+
+        A GitHub App's installation access token expires in an hour, so it
+        cannot be resolved once at construction: held in a static header it
+        would authorise everything for an hour after each restart and then start
+        failing as `not_authorized`, intermittently, looking exactly like a
+        grant somebody revoked. `githubkit`'s App strategy **is** an
+        `httpx.Auth` — it exchanges the JWT for an installation token, caches it
+        until expiry and renews it — so expiry becomes a property of the
+        credential rather than a schedule Studio keeps (`D-57`).
+        """
+
+        #: Whether this credential is a GitHub App installation. It changes one
+        #: endpoint and nothing else about what may be read.
+        self._installation = installation
+        auth: httpx.Auth | None = None
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": API_VERSION,
+            "User-Agent": "KAE-Studio",
+        }
+        if isinstance(credential, str):
+            token = credential.strip()
+            if not token:
+                raise ValueError("a GitHub source client needs a token")
+            headers["Authorization"] = f"Bearer {token}"
+        else:
+            auth = credential
         self._client = httpx.Client(
             base_url=api_base.rstrip("/"),
             timeout=timeout,
             transport=transport,
-            headers={
-                "Authorization": f"Bearer {token.strip()}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": API_VERSION,
-                "User-Agent": "KAE-Studio",
-            },
+            auth=auth,
+            headers=headers,
         )
 
     def close(self) -> None:
@@ -94,6 +117,19 @@ class GitHubSourceClient:
             response = self._client.get(path, **kwargs)
         except httpx.HTTPError as error:
             raise SourceReadError(502, f"could not reach GitHub: {type(error).__name__}") from None
+        except Exception as error:  # noqa: BLE001 - see below
+            # An `httpx.Auth` runs *inside* the request, and a GitHub App's
+            # flow makes a request of its own to exchange its JWT for an
+            # installation token. When that exchange is refused it raises the
+            # auth library's own exception, which is not an `httpx.HTTPError`
+            # and would leave here unconverted — past every route that handles
+            # `SourceReadError`, as a 500.
+            #
+            # 401 rather than 502: the credential is the problem, and 502 would
+            # send somebody to check whether GitHub is up.
+            raise SourceReadError(
+                401, f"this deployment's GitHub credential was refused ({type(error).__name__})"
+            ) from None
         if response.status_code == 200:
             return response.json()
         if response.status_code == 403 and response.headers.get("x-ratelimit-remaining") == "0":
@@ -145,11 +181,22 @@ class GitHubSourceClient:
         two.
         """
 
-        body = self._get(
-            "/user/repos",
-            params={"per_page": min(limit, 100), "sort": "updated", "affiliation": "owner,collaborator,organization_member"},
-        )
-        if not isinstance(body, list):  # pragma: no cover - GitHub returns a list
+        # **An installation cannot ask `/user/repos`.** That endpoint answers for
+        # a *user*, and an installation access token has no user behind it — it
+        # returns 403, which would render as "this credential can see no
+        # repositories" for a deployment whose whole point is that somebody
+        # chose which repositories it may see. The installation's own listing is
+        # a different path with a different envelope (`D-57`).
+        if self._installation:
+            body = self._get("/installation/repositories", params={"per_page": min(limit, 100)})
+            entries = body.get("repositories", []) if isinstance(body, dict) else []
+        else:
+            body = self._get(
+                "/user/repos",
+                params={"per_page": min(limit, 100), "sort": "updated", "affiliation": "owner,collaborator,organization_member"},
+            )
+            entries = body if isinstance(body, list) else []
+        if not entries:
             return [], False
 
         needle = query.strip().lower()
@@ -163,12 +210,12 @@ class GitHubSourceClient:
                 "description": str(entry.get("description") or ""),
                 "updated_at": str(entry.get("updated_at", "")),
             }
-            for entry in body
+            for entry in entries
             if isinstance(entry, dict) and entry.get("full_name")
         ]
         if needle:
             found = [r for r in found if needle in r["full_name"].lower()]
-        return found[:limit], len(body) >= min(limit, 100)
+        return found[:limit], len(entries) >= min(limit, 100)
 
     # -- pinning -----------------------------------------------------------
 
