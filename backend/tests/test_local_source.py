@@ -357,3 +357,87 @@ class TestTheServiceDispatchesByKind:
 
         assert found == []
         assert "Install the KAE GitHub App" in reason
+
+
+class TestTheListingRouteNoLongerSaysGitHub:
+    """`D-71` — a path called `github` that answers with filesystem paths.
+
+    Truthful when written, false once `D-68` merged the listings. The old path
+    stays until something proves nothing calls it: the deployed bundle does, and
+    the run rule is that no route is deleted before its replacement is verified.
+    """
+
+    def app(self, workspace: Path) -> object:
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+        from fastapi.testclient import TestClient
+
+        from kae_studio.api import create_app
+        from kae_studio.config import Settings
+
+        settings = Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "t",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+                "KAE_LOCAL_SOURCE_ROOTS": str(workspace),
+            }
+        )
+        client = TestClient(create_app(settings))
+        client.__enter__()
+        return client
+
+    def test_both_paths_answer_the_same_listing(self, workspace: Path) -> None:
+        client = self.app(workspace)
+        try:
+            new = client.get("/api/repositories").json()  # type: ignore[attr-defined]
+            old = client.get("/api/github/repositories").json()  # type: ignore[attr-defined]
+        finally:
+            client.__exit__(None, None, None)  # type: ignore[attr-defined]
+
+        assert new == old
+        assert [r["kind"] for r in new["repositories"]] == ["local"]
+
+    def test_a_deployment_with_no_credential_still_lists_its_directories(
+        self, workspace: Path
+    ) -> None:
+        """The whole of `ADR-0006`, at one endpoint."""
+
+        client = self.app(workspace)
+        try:
+            body = client.get("/api/repositories").json()  # type: ignore[attr-defined]
+        finally:
+            client.__exit__(None, None, None)  # type: ignore[attr-defined]
+
+        assert body["unavailable_reason"] == ""
+        assert [Path(r["full_name"]).name for r in body["repositories"]] == ["crm"]
+
+
+class TestADescriptionIsProseOrNothing:
+    def test_a_readme_that_opens_with_markup_is_read_past(
+        self, client: LocalSourceClient, workspace: Path
+    ) -> None:
+        """Two of 29 real repositories open `<div align="center">`.
+
+        Skipped rather than tag-stripped: stripping yields an empty string,
+        which renders as *this project has no description* — a different and
+        worse claim than reading on to the first line that is prose.
+        """
+
+        (workspace / "crm" / "README.md").write_text(
+            '<div align="center">\n\n![logo](logo.png)\n\n# CRM\n\nBooking and billing.\n'
+        )
+
+        found, _ = client.repositories()
+
+        assert found[0]["description"] == "CRM"
+
+    def test_a_readme_of_nothing_but_markup_describes_nothing(
+        self, client: LocalSourceClient, workspace: Path
+    ) -> None:
+        """Empty is honest here. Inventing a description would not be."""
+
+        (workspace / "crm" / "README.md").write_text('<div align="center">\n\n![x](y.png)\n')
+
+        found, _ = client.repositories()
+
+        assert found[0]["description"] == ""

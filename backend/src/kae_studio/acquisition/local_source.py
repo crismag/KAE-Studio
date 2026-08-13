@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 from .github_source import MAX_TREE_ENTRIES, SourceReadError
@@ -64,17 +65,20 @@ class LocalSourceUnavailable(RuntimeError):
     """No roots are configured, in a sentence an operator can act on."""
 
 
-def configured_roots(environ: dict[str, str] | None = None) -> tuple[Path, ...]:
-    """The directories this deployment may read, resolved.
+def resolve_roots(entries: Sequence[str]) -> tuple[Path, ...]:
+    """Turn configured strings into directories that exist.
 
-    Empty when unset, and the caller builds no client at all — the same shape as
-    a missing GitHub credential, and for the same reason: a provider that cannot
-    say what it may reach must not answer.
+    Takes what `Settings` already parsed rather than reading the environment
+    again. Two readers of one variable is how a deployment came to report
+    `local_sources: 1` at its status endpoint and list nothing from its picker
+    (`D-71`).
+
+    A path that is not a directory is dropped: a typo in a deployment variable
+    must not become a root that resolves to something surprising later.
     """
 
-    raw = (environ if environ is not None else dict(os.environ)).get("KAE_LOCAL_SOURCE_ROOTS", "")
     found = []
-    for entry in raw.split(os.pathsep):
+    for entry in entries:
         candidate = entry.strip()
         if not candidate:
             continue
@@ -82,6 +86,13 @@ def configured_roots(environ: dict[str, str] | None = None) -> tuple[Path, ...]:
         if resolved.is_dir():
             found.append(resolved)
     return tuple(found)
+
+
+def configured_roots(environ: dict[str, str] | None = None) -> tuple[Path, ...]:
+    """The same, read straight from an environment. For tests and tooling."""
+
+    raw = (environ if environ is not None else dict(os.environ)).get("KAE_LOCAL_SOURCE_ROOTS", "")
+    return resolve_roots(raw.split(os.pathsep))
 
 
 class LocalSourceClient:
@@ -312,8 +323,22 @@ def _describe(path: Path) -> str:
         try:
             for line in readme.read_text(encoding="utf-8").splitlines():
                 stripped = line.strip().lstrip("#").strip()
-                if stripped:
-                    return stripped[:200]
+                if not stripped or _is_markup(stripped):
+                    continue
+                return stripped[:200]
         except (OSError, UnicodeDecodeError):
             return ""
     return ""
+
+
+def _is_markup(line: str) -> bool:
+    """Whether this line is decoration rather than a sentence.
+
+    Two of 29 real repositories open with `<div align="center">`, so the first
+    non-empty line described the project as `<div align="center">`. **Skipped
+    rather than tag-stripped**: stripping yields an empty string, which renders
+    as *this project has no description* — a different and worse claim than
+    reading on to the first line that is prose.
+    """
+
+    return line.startswith(("<", "![", "[![", "---", "===", "|"))

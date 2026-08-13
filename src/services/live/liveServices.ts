@@ -1742,7 +1742,7 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         }[]
         truncated: boolean
         unavailable_reason: string
-      }>(`/api/github/repositories${query ? `?q=${encodeURIComponent(query)}` : ''}`)
+      }>(`/api/repositories${query ? `?q=${encodeURIComponent(query)}` : ''}`)
       return {
         repositories: (body.repositories ?? []).map((repo) => ({
           fullName: repo.full_name,

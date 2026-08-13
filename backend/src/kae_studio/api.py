@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 
 from .acquisition import ANALYSIS_UNAVAILABLE, GitHubSourceClient, SourceKind, SourceReadError
 from .acquisition.github_app import AppUnavailable, GitHubApp
-from .acquisition.local_source import LocalSourceClient, configured_roots
+from .acquisition.local_source import LocalSourceClient, resolve_roots
 from .acquisition.service import AcquisitionService, UnknownResource
 from .artifacts_client import ArtifactsClient, ArtifactsRefused, ArtifactsUnavailable
 from .config import Settings
@@ -311,7 +311,12 @@ def create_app(settings: Settings) -> FastAPI:
         # A directory on this machine needs no credential (`ADR-0006`, `D-67`).
         # `None` where no roots are configured, which means the provider does
         # not exist rather than that it may read anywhere.
-        roots = configured_roots()
+        # From `settings`, never from `os.environ` again. `Settings` already
+        # resolved this, and re-reading the environment here made the status
+        # endpoint and the provider answer from two different places — so a
+        # deployment could report `local_sources: 1` and list nothing, which is
+        # how a test caught it (`D-71`).
+        roots = resolve_roots(settings.local_source_roots)
         app.state.acquisition = AcquisitionService(
             client, unavailable, local=LocalSourceClient(roots) if roots else None
         )
@@ -1673,11 +1678,21 @@ def create_app(settings: Settings) -> FastAPI:
             "proves": "this credential can read file content at this revision.",
         }
 
+    # `/api/github/repositories` kept because the deployed bundle calls it and
+    # the run rule is that no route is deleted before its replacement is
+    # verified. Both answer from the same function; the name is the only
+    # difference, and the old one stopped being true when the listing began
+    # carrying local directories (`D-71`).
+    @app.get("/api/repositories")
     @app.get("/api/github/repositories")
     async def github_repositories(
         request: Request, q: str = "", _: Operator = Depends(require_operator)
     ) -> Any:
-        """Repositories this deployment's credential can reach.
+        """Repositories this deployment can reach — local and remote.
+
+        **Not only GitHub**, despite one of the two paths that reach this. A
+        local directory needs no credential, so the answer here can be
+        non-empty on a deployment holding none at all (`D-68`, `D-71`).
 
         **The listing that makes selection possible.** Without it, choosing a
         repository means typing `owner/name` from memory into a free-text field
