@@ -304,3 +304,52 @@ describe('configuring GitHub lives in Settings', () => {
     expect(await screen.findByText(/env:KAE_GITHUB_TOKEN/)).toBeInTheDocument()
   })
 })
+
+/**
+ * `D-60` — the Settings contract claimed the page says *when*, and it did not.
+ *
+ * `lastVerifiedAt` is mapped by the adapter, populated on the live deployment
+ * (`2026-08-10T17:02:42Z` for the granted connection, stamped by
+ * `authorize_connection`) and rendered nowhere. The contract's user question —
+ * *"Who granted it, and when was it last checked?"* — described a screen that
+ * did not exist.
+ */
+describe('a grant says when it was made', () => {
+  it('shows the date beside who made it', async () => {
+    renderWith(<ProjectSettings />)
+
+    // Both, in one sentence: a *who* with no *when* is what this fixes, and a
+    // *when* with no *who* would be the same defect mirrored.
+    const line = await screen.findByText(/granted by operator/i)
+    expect(line).toHaveTextContent(/10 Aug/)
+  })
+
+  it('never calls the grant a check', async () => {
+    // `D-25`: *verified means proved, not declared.* The timestamp is stamped
+    // when somebody authorises the connection; nothing has reached GitHub
+    // since. "Last checked" would commit that defect in a label rather than in
+    // a badge, and the contract said exactly that before this.
+    renderWith(<ProjectSettings />)
+
+    await screen.findByText(/granted by operator/i)
+    expect(screen.queryByText(/last checked/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/verified on/i)).not.toBeInTheDocument()
+  })
+
+  it('says nothing rather than inventing a date when there is none', async () => {
+    renderWith(<ProjectSettings />, (services) => ({
+      ...services,
+      setup: {
+        ...services.setup,
+        listConnections: async (id) =>
+          (await services.setup.listConnections(id)).map((c) => ({
+            ...c,
+            lastVerifiedAt: null,
+          })),
+      },
+    }))
+
+    const line = await screen.findByText(/granted by operator/i)
+    expect(line).not.toHaveTextContent(/ on /)
+  })
+})

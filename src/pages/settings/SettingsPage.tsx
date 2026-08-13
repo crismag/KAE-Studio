@@ -25,6 +25,7 @@
  */
 
 import { useState } from 'react'
+import { formatDate } from '@/lib/format'
 import { Github, Lock, Plus } from 'lucide-react'
 
 import { PageLayout } from '@/components/project/PageLayout'
@@ -121,6 +122,13 @@ function ConnectionRow({ connection }: { connection: MemoryConnection }) {
           <p className="mt-1 text-[11.5px] text-ink-subtle">
             <Mono>{connection.credentialReference ?? 'no reference'}</Mono>
             {connection.authorizedBy && ` · granted by ${connection.authorizedBy}`}
+            {/* **Granted**, never *last checked*. This timestamp is stamped when
+                somebody authorises the connection, and nothing since has
+                reached the provider — calling it a check would be `D-25`'s
+                *verified means proved, not declared*, committed in a label
+                instead of a badge. The contract claimed a *when* the page did
+                not show; this is the when it actually has (`D-60`). */}
+            {connection.lastVerifiedAt && ` on ${formatDate(connection.lastVerifiedAt)}`}
           </p>
         </div>
         {!granted && (

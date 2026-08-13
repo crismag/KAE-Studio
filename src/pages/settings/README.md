@@ -19,7 +19,7 @@ The place a credential is authorised, revoked, and seen.
 ## User questions it answers
 
 - What has this project been given access to?
-- Who granted it, and when was it last checked?
+- Who granted it, and when?
 - What is this deployment configured to reach at all?
 - Why can I not publish?
 
@@ -37,7 +37,15 @@ missing (`D-41`).
 ## Contextual toolbelt
 
 `§9`. **Record a connection** (as a reference, never a secret), **grant** it,
-and read **who granted it and when**.
+and read **who granted it and when** — the date the grant was made, which is
+what `last_verified_at` holds.
+
+**Never *last checked*.** Nothing here has reached GitHub. That timestamp is
+stamped by `authorize_connection` and by nothing else, so a label saying the
+connection was *checked* would be `D-25`'s *verified means proved, not declared*
+committed in wording rather than in a badge. This page's earlier contract asked
+*"when was it last checked?"* and the page answered neither half; the question
+is now the one the data can answer (`D-60`).
 
 **Revoke is absent.** Nothing in KAE-Memory moves a connection out of `granted`,
 so a revoke control would be a button with no write behind it — `§19`, and the
