@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServices } from '@/hooks/useServices'
 import type { ArtifactPlanEdit, ModuleDecision, PublishInput } from '@/services/interfaces'
@@ -681,7 +682,12 @@ export function useExtractionCoverage() {
  */
 export function useRuns() {
   const { ingestion, projectId } = useServices()
-  return useQuery({
+  const queryClient = useQueryClient()
+  // Whether work was in flight the last time this was asked. The transition
+  // out of it is the event nothing was listening for (`D-43`).
+  const wasWorking = useRef(false)
+
+  const query = useQuery({
     queryKey: ['runs', projectId],
     queryFn: () => ingestion.runs(projectId),
     refetchInterval: (query) => {
@@ -691,6 +697,28 @@ export function useRuns() {
       return working ? 4000 : false
     },
   })
+
+  const working = (query.data ?? []).some(
+    (run) => run.status === 'pending' || run.status === 'running',
+  )
+
+  useEffect(() => {
+    // **Extraction is the one thing that changes a project without anybody
+    // touching it.** Every mutation a person makes already invalidates the
+    // projection; a run finishing did not, so somebody could watch the runs go
+    // green and read a page still describing the project as it was before
+    // their document was read.
+    //
+    // Fired on the transition rather than on every poll: invalidating while
+    // work is in flight would refetch the whole projection every four seconds
+    // to show a project that has not changed yet.
+    if (wasWorking.current && !working) {
+      void queryClient.invalidateQueries({ queryKey: ['projection', projectId] })
+    }
+    wasWorking.current = working
+  }, [working, projectId, queryClient])
+
+  return query
 }
 
 /**
