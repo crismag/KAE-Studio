@@ -18,6 +18,7 @@ import type {
   OpenDecision,
   PreliminaryContext,
   ProjectBlocker,
+  ProjectReview,
   Project,
   ProjectDefinition,
   ProjectHealth,
@@ -1667,3 +1668,44 @@ export const blockers: ProjectBlocker[] = [
     resolutionNote: 'Periods close at 23:59 on the last day of the calendar month.',
   },
 ]
+
+/* ----------------------------------------------------------------- review */
+
+/**
+ * The quality review KAE-Memory computes (`D-30`).
+ *
+ * Most severe first, which is the order Memory returns and the reason it sorts.
+ * Each carries the sentence that says what would make it disappear — the field
+ * that makes a diagnostic actionable rather than merely alarming.
+ */
+export const review: ProjectReview = {
+  available: true,
+  reason: '',
+  findings: [
+    {
+      kind: 'open_blocker',
+      severity: 'critical',
+      summary: 'A blocker is open: nobody has confirmed which regional officer signs off.',
+      recommendedAction: 'Resolve the blocker, or record who owns closing it and by when.',
+      areaKey: 'approval',
+      subjectKey: 'BLK-01',
+    },
+    {
+      kind: 'missing_area',
+      severity: 'major',
+      summary: 'Nothing has been established about how reports are corrected after publication.',
+      recommendedAction:
+        'Discuss corrections in the workspace until at least one statement is confirmed.',
+      areaKey: 'publication',
+      subjectKey: '',
+    },
+    {
+      kind: 'duplicate_knowledge',
+      severity: 'minor',
+      summary: 'Two confirmed statements say a report is submitted monthly.',
+      recommendedAction: 'Supersede one of them, so the project holds a single wording.',
+      areaKey: 'reporting',
+      subjectKey: '',
+    },
+  ],
+}

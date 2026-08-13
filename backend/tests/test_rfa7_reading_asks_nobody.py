@@ -103,6 +103,9 @@ class _CountingMemory:
         # product defect rather than an incomplete test.
         return {"modules": [], "edges": [], "build_order": []}
 
+    async def review(self, project_id: str) -> Any:
+        return {"findings": [], "counts": {}}
+
     async def aclose(self) -> None:
         """Closing is not a failure, and a stub that raises here breaks teardown."""
 

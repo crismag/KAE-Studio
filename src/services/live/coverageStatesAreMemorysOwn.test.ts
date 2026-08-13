@@ -211,3 +211,56 @@ describe('blockers reach the projection', () => {
     expect(await blockers([])).toEqual([])
   })
 })
+
+/**
+ * `D-30` — the review survives the mapping that never called it.
+ *
+ * The panel's own tests build findings directly, so they pass with an adapter
+ * that drops the section entirely — `RFA-2`'s lesson, and the reason these sit
+ * one layer lower.
+ */
+describe('the computed review reaches the projection', () => {
+  const WIRE = {
+    kind: 'open_blocker',
+    severity: 'critical',
+    summary: 'A blocker is open.',
+    recommendedAction: 'Resolve it, or record who owns closing it.',
+    areaKey: 'approval',
+    subjectKey: 'BLK-01',
+  }
+
+  async function review(over: Record<string, unknown>) {
+    respondWith({ review: over })
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+    return projection.review
+  }
+
+  it('carries the finding and its recommended action', async () => {
+    const mapped = await review({ available: true, reason: '', findings: [WIRE] })
+
+    expect(mapped.findings[0].summary).toBe(WIRE.summary)
+    expect(mapped.findings[0].recommendedAction).toBe(WIRE.recommendedAction)
+  })
+
+  it('reads a section the backend could not compute as unavailable', async () => {
+    const mapped = await review({
+      available: false,
+      reason: 'KAE-Memory returned 503.',
+      findings: [],
+    })
+
+    expect(mapped.available).toBe(false)
+    expect(mapped.reason).toContain('503')
+  })
+
+  it('treats a backend too old to send one as unavailable, not as clean', async () => {
+    // An older Studio never called the route. Defaulting to "available with no
+    // findings" would report a clean project on the strength of a call that
+    // never happened.
+    respondWith({})
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+
+    expect(projection.review.available).toBe(false)
+    expect(projection.review.findings).toEqual([])
+  })
+})

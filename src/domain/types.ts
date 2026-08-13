@@ -805,6 +805,13 @@ export interface ProjectProjection {
    */
   blockers: ProjectBlocker[]
   /**
+   * The quality review KAE-Memory computes (`D-30`).
+   *
+   * Studio invented a ninth finding kind, `agent_proposal`, and never called
+   * the route that computes the eight real ones.
+   */
+  review: ProjectReview
+  /**
    * The architecture as KAE-Memory holds it: modules, the edges between them,
    * and the order they can be built in.
    *
@@ -828,6 +835,43 @@ export interface SourceListing {
   sources: ProjectSource[]
   /** Empty when the record was read. Non-empty is the reason it was not. */
   unavailable: string
+}
+
+/**
+ * One thing a reviewer should know without inspecting the database (`D-30`).
+ *
+ * KAE-Memory derives these on every request rather than storing them, *"so the
+ * findings can never disagree with the state they describe"*. `ADR-0015`: there
+ * is **no identifier**, because there is nothing stable to address — acting on
+ * a finding means changing the state that produced it, and then it is gone.
+ *
+ * Distinct from the proposal list on the same page, which is a gesture surface:
+ * a person agrees or refuses and a statement moves. This is a diagnostic, and
+ * *"this area has nothing in it"* is not something to click yes on.
+ */
+export interface QualityFinding {
+  /** One of Memory's eight — `missing_area`, `duplicate_knowledge`, … */
+  kind: string
+  severity: string
+  summary: string
+  /**
+   * What would make this finding disappear, in Memory's own sentence.
+   *
+   * Rendered unedited. A paraphrase of an instruction is advice nobody can
+   * follow, and Memory wrote this one to be acted on.
+   */
+  recommendedAction: string
+  areaKey: string | null
+  /** What it is about where the area alone does not say — a blocker's id. */
+  subjectKey: string
+}
+
+export interface ProjectReview {
+  /** False when Memory did not answer. Not the same as "nothing was found". */
+  available: boolean
+  reason: string
+  /** Most severe first, in the order Memory returned them. */
+  findings: QualityFinding[]
 }
 
 /**

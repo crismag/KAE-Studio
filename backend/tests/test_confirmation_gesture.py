@@ -353,6 +353,9 @@ def test_the_disclosure_a_user_sees_matches_the_runs_behind_it() -> None:
         async def module_graph(self, project_id: str) -> Any:
             return {"modules": [], "edges": [], "build_order": []}
 
+        async def review(self, project_id: str) -> Any:
+            return {"findings": [], "counts": {}}
+
     app = create_app(
         Settings.from_environment(
             {
@@ -412,6 +415,9 @@ def test_a_memory_that_cannot_report_loss_does_not_produce_a_warning() -> None:
             raise RuntimeError("this Memory has no such route")
 
         async def module_graph(self, project_id: str) -> Any:
+            raise RuntimeError("this Memory has no such route")
+
+        async def review(self, project_id: str) -> Any:
             raise RuntimeError("this Memory has no such route")
 
     app = create_app(

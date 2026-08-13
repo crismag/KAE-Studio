@@ -24,6 +24,7 @@ import type {
   MemoryConnection,
   PreliminaryContext,
   ProjectBlocker,
+  ProjectReview,
   Project,
   PublicationTarget,
   SetupGap,
@@ -528,6 +529,11 @@ interface BackendProjection {
     warnings: string[]
   }
   modules: { available: boolean; gap: { capability: string; reason: string } }
+  review?: {
+    available?: boolean
+    reason?: string
+    findings?: unknown[]
+  }
   architecture?: {
     available?: boolean
     reason?: string
@@ -696,6 +702,49 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
     preliminary: toPreliminary(raw.preliminary),
     architecture: toArchitecture(raw.architecture),
     blockers: toBlockers(raw.blockers),
+    review: toReview(raw.review),
+  }
+}
+
+/**
+ * The quality review KAE-Memory computes (`D-30`).
+ *
+ * Absent on a Studio backend older than this, and that reads as **not
+ * available** rather than as a project with nothing wrong — an empty findings
+ * list is a claim, and one that would be made on the strength of a call that
+ * never happened.
+ */
+function toReview(raw: BackendProjection['review']): ProjectReview {
+  if (!raw) {
+    return {
+      available: false,
+      reason: 'This Studio deployment cannot read the project review yet.',
+      findings: [],
+    }
+  }
+
+  const text = (entry: Record<string, unknown>, key: string): string =>
+    typeof entry[key] === 'string' ? (entry[key] as string) : ''
+
+  return {
+    available: raw.available === true,
+    reason: typeof raw.reason === 'string' ? raw.reason : '',
+    // Memory's order, kept. It sorts most severe first and that is the reason
+    // it bothers to sort.
+    findings: (raw.findings ?? [])
+      .filter(
+        (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
+      )
+      .map((entry) => ({
+        kind: text(entry, 'kind'),
+        severity: text(entry, 'severity'),
+        summary: text(entry, 'summary'),
+        // Verbatim. Memory writes what would make the finding disappear, and a
+        // paraphrase of an instruction is advice nobody can follow.
+        recommendedAction: text(entry, 'recommendedAction'),
+        areaKey: typeof entry.areaKey === 'string' ? entry.areaKey : null,
+        subjectKey: text(entry, 'subjectKey'),
+      })),
   }
 }
 

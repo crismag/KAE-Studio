@@ -47,6 +47,7 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         preliminary,
         coverage,
         graph,
+        review,
     ) = await asyncio.gather(
         _safe(memory.get_project(project_id)),
         _safe(memory.readiness(project_id)),
@@ -60,6 +61,7 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         _safe(memory.preliminary_context(project_id)),
         _safe(memory.extraction_coverage(project_id)),
         _safe(memory.module_graph(project_id)),
+        _safe(memory.review(project_id)),
     )
 
     unavailable: list[dict[str, str]] = []
@@ -193,7 +195,51 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # so the two cannot be confused: a project whose architecture is
         # readable is not a project whose modules can be edited.
         "architecture": _architecture(graph),
+        # The review KAE-Memory computes, which nothing called (`D-30`). Its
+        # eight finding kinds are a diagnostic; the proposal list above is a
+        # gesture surface, and they are carried apart because folding them
+        # together would dress "this area is empty" up as something to click
+        # yes on.
+        "review": _review(review),
         "unavailable": unavailable,
+    }
+
+
+def _review(pair: tuple[Any, str | None]) -> dict[str, Any]:
+    """Quality findings, or why they could not be read.
+
+    `recommended_action` is carried verbatim. Memory writes a sentence saying
+    what would make each finding disappear, and a paraphrase would be advice
+    nobody can follow.
+    """
+
+    payload, problem = pair
+    if problem is not None or not isinstance(payload, dict):
+        return {
+            "available": False,
+            # A review that could not be computed is not a project with nothing
+            # wrong, and an empty list would say the second.
+            "reason": problem or "KAE-Memory returned no review.",
+            "findings": [],
+        }
+
+    return {
+        "available": True,
+        "reason": "",
+        # Memory's order, kept. It sorts most severe first and that is the
+        # reason it bothers to sort.
+        "findings": [
+            {
+                "kind": finding.get("kind", ""),
+                "severity": finding.get("severity", ""),
+                "summary": finding.get("summary", ""),
+                "recommendedAction": finding.get("recommended_action", ""),
+                "areaKey": finding.get("area_key"),
+                "subjectKey": finding.get("subject_key", ""),
+            }
+            for finding in payload.get("findings", [])
+            if isinstance(finding, dict)
+        ],
     }
 
 

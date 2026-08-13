@@ -123,6 +123,17 @@ class MemoryClient:
             "POST", f"/v1/projects/{project_id}/sources/{source_id}/pin", json=body
         )
 
+    async def review(self, project_id: str) -> Any:
+        """Quality findings, most severe first (`D-30`).
+
+        A pure read. Memory derives these on every request rather than storing
+        them, *"so the findings can never disagree with the state they
+        describe"* — which is also why calling it on a projection is safe, and
+        why nothing here can accept or dismiss one.
+        """
+
+        return await self._request("GET", f"/v1/projects/{project_id}/review")
+
     async def module_graph(self, project_id: str) -> Any:
         """Every module, every edge, and the order they can be built in.
 

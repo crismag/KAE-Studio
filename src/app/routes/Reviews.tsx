@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { QualityReview } from '@/components/project/QualityReview'
 import { PageLayout } from '@/components/project/PageLayout'
 import {
   Badge,
@@ -40,7 +41,7 @@ const NOT_COMPUTED: Partial<Record<FindingKind, string>> = {
   open_decision:
     'Open decisions are shown on the workspace, where they can be answered in context. They are not duplicated here.',
   requirement_gap:
-    'A gap is the difference between what the definition needs and what it holds. Nothing computes that difference yet.',
+    'Not computed as a requirement-level gap. KAE-Memory does compare what each area holds against what it needs, and those findings are in the review above — this group would need the same comparison per requirement, which nothing does.',
   unverified_requirement:
     'Verification needs a link between a requirement and a test. KAE records neither tests nor that link, so every requirement would appear here and the group would mean nothing.',
 }
@@ -230,6 +231,11 @@ export function Reviews() {
       }
     >
       <div className="space-y-6">
+        {/* First. It is the review KAE-Memory actually computes, and the groups
+            below are Studio's own reading of what a person still has to decide
+            (`D-30`). */}
+        <QualityReview review={projection.review} />
+
         {GROUPS.map((group) => {
           const items = projection.findings.filter((f) => f.kind === group.kind)
           const Icon = group.icon
