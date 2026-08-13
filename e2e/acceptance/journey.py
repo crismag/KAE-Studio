@@ -20,7 +20,7 @@ exercised the artifact chain through the wiring the deployment actually uses.
 `STUDIO_PASSWORD` is needed only where the deployment reports
 `authentication: required`; the harness asks before signing in (`D-64`).
 
-Scenarios: weak-answer, established, lifecycle, continuity.
+Scenarios: sparse-idea, weak-answer, established, lifecycle, continuity.
 """
 
 from __future__ import annotations
@@ -334,7 +334,79 @@ def continuity() -> None:
     print(f"  project: {project}")
 
 
+SPARSE = "I want an inbox where I can dump thoughts and have them turned into useful things."
+
+
+def sparse_idea() -> None:
+    """`J1` — a sparse idea, against the journey's **own** pass conditions.
+
+    `established` and `weak-answer` overlap `J1` and `J3` without matching them
+    (`D-65`), so this asserts what the journey actually says rather than what
+    was convenient to check. Six of its clauses are mechanical; the seventh —
+    *semantic interpretation produces useful knowledge without phrase-specific
+    rules* — is judgement, is printed, and is not asserted. `J1` says so itself:
+    *test usefulness and epistemic integrity, not model taste.*
+    """
+
+    header("J1 — a sparse idea, and what may be claimed from it")
+    project = new_project("Acceptance J1")
+    say(project, SPARSE)
+    proposed = wait_for_candidates(project, 1)
+    show("Proposed", proposed)
+
+    state = projection(project)
+    preliminary = state.get("preliminary") or {}
+
+    # 1. The original sentence, kept as it was said.
+    verbatim = [entry.get("text", "") for entry in preliminary.get("statedVerbatim") or []]
+    must(SPARSE in verbatim, "the original evidence is stored verbatim")
+
+    # 2. Inference is offered, never asserted. Nothing was confirmed here, so a
+    #    confirmed statement at this point came from the model deciding.
+    must(bool(proposed), "semantic interpretation produced proposed knowledge")
+    must(
+        all(item.get("lifecycle") == "proposed" for item in proposed),
+        "every inferred statement is explicitly non-confirmed",
+    )
+    must(not state.get("confirmed"), "nothing is confirmed that nobody confirmed")
+
+    # 3. Unknowns are representable rather than silently dropped.
+    unknowns = (preliminary.get("materialUnknowns") or []) + (
+        preliminary.get("deferrableUnknowns") or []
+    )
+    must(bool(unknowns or state.get("openQuestions")), "meaningful unknowns can be represented")
+
+    # 4. Provenance reaches the sentence, not merely a record id.
+    trace = call(f"/api/projects/{project}/knowledge/{proposed[0]['id']}/trace")
+    quoted = json.dumps(trace) if trace is not None else ""
+    must(SPARSE[:40] in quoted, "provenance leads back to the source evidence")
+
+    # 5. Readiness is about what is established. A model inferring six things
+    #    must not move it, or the number measures the model's enthusiasm.
+    health = state.get("health") or {}
+    must(
+        health.get("advisory") is True,
+        "readiness is advisory rather than a gate",
+    )
+    must(
+        not health.get("implementationEligible") and not health.get("draftEligible"),
+        "inference alone did not make the project fit to build from",
+    )
+
+    # 6. Assembly separates what is known from what is guessed.
+    must(
+        preliminary.get("isPreliminary") is True,
+        "preliminary assembly says it is preliminary",
+    )
+
+    print("\n  What to judge (not asserted):")
+    print("   - is the inferred material useful, or generic filler?")
+    print(f"   - readiness: {health.get('percentage')}%  status: {health.get('status')}")
+    print(f"  project: {project}")
+
+
 SCENARIOS = {
+    "sparse-idea": sparse_idea,
     "weak-answer": weak_answer,
     "established": established,
     "lifecycle": lifecycle,

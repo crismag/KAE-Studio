@@ -131,3 +131,115 @@ class TestItAsksBeforeItRefuses:
         assert journey.authentication_required() is True
         with pytest.raises(SystemExit):
             journey.sign_in()
+
+
+SPARSE = "I want an inbox where I can dump thoughts and have them turned into useful things."
+
+
+def good_projection() -> dict[str, Any]:
+    """A project that satisfies every clause of `J1`."""
+
+    return {
+        "confirmed": [],
+        "openQuestions": [{"text": "what counts as useful?"}],
+        "proposed": [{"id": "k1", "text": "Capture thoughts quickly", "lifecycle": "proposed"}],
+        "preliminary": {
+            "isPreliminary": True,
+            "statedVerbatim": [{"text": SPARSE}],
+            "materialUnknowns": [{"text": "where do they go?"}],
+            "deferrableUnknowns": [],
+        },
+        "health": {"advisory": True, "draftEligible": False, "implementationEligible": False},
+    }
+
+
+class TestTheJourneyAssertsWhatJ1Says:
+    """The scenario runs against a live host, so its checks cannot be vacuous.
+
+    `J1` was recorded as unrun for months and the two scenarios nearest it —
+    `established` and `weak-answer` — assert neither its verbatim-evidence clause
+    nor its provenance clause (`D-65`). A scenario that prints `ok` for a
+    condition it never tested would be worse than the blank it replaced, so each
+    clause is broken here and must be reported.
+    """
+
+    def run(self, journey: Any, monkeypatch: pytest.MonkeyPatch, projection: dict) -> list[str]:
+        def call(path: str, body: object | None = None, method: str = "") -> object:
+            if path == "/api/status":
+                return {"authentication": "disabled"}
+            if path.endswith("/projection"):
+                return projection
+            if path.endswith("/trace"):
+                return {"quote": SPARSE}
+            if path.endswith("/turn"):
+                return {"move": "ask", "skill": "s", "subject": None}
+            if path == "/api/projects":
+                return {"id": "p1"}
+            return {}
+
+        monkeypatch.setattr(journey, "call", call)
+        monkeypatch.setattr(journey, "wait_for_candidates", lambda p, n: projection["proposed"])
+        monkeypatch.setattr(journey, "_FAILURES", [])
+        journey.sparse_idea()
+        return list(journey._FAILURES)
+
+    def test_a_project_meeting_every_clause_reports_nothing(
+        self, journey: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        assert self.run(journey, monkeypatch, good_projection()) == []
+
+    @pytest.mark.parametrize(
+        ("break_it", "expected"),
+        [
+            (lambda p: p["preliminary"].update(statedVerbatim=[{"text": "paraphrased"}]),
+             "the original evidence is stored verbatim"),
+            (lambda p: p["proposed"][0].update(lifecycle="confirmed"),
+             "every inferred statement is explicitly non-confirmed"),
+            (lambda p: p.update(confirmed=[{"text": "nobody agreed to this"}]),
+             "nothing is confirmed that nobody confirmed"),
+            (lambda p: (p["preliminary"].update(materialUnknowns=[]), p.update(openQuestions=[])),
+             "meaningful unknowns can be represented"),
+            (lambda p: p["health"].update(advisory=False),
+             "readiness is advisory rather than a gate"),
+            (lambda p: p["health"].update(implementationEligible=True),
+             "inference alone did not make the project fit to build from"),
+            (lambda p: p["preliminary"].update(isPreliminary=False),
+             "preliminary assembly says it is preliminary"),
+        ],
+    )
+    def test_each_clause_is_reported_when_it_fails(
+        self, journey: Any, monkeypatch: pytest.MonkeyPatch, break_it: Any, expected: str
+    ) -> None:
+        projection = good_projection()
+        break_it(projection)
+
+        assert expected in self.run(journey, monkeypatch, projection)
+
+    def test_provenance_that_leads_nowhere_is_reported(
+        self, journey: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The clause a trace endpoint returning an id would silently satisfy."""
+
+        def call(path: str, body: object | None = None, method: str = "") -> object:
+            if path == "/api/status":
+                return {"authentication": "disabled"}
+            if path.endswith("/projection"):
+                return good_projection()
+            if path.endswith("/trace"):
+                # A record id and no quote — traceable to a row, not to a
+                # sentence anybody said.
+                return {"knowledge_id": "k1", "versions": []}
+            if path.endswith("/turn"):
+                return {"move": "ask", "skill": "s", "subject": None}
+            if path == "/api/projects":
+                return {"id": "p1"}
+            return {}
+
+        monkeypatch.setattr(journey, "call", call)
+        monkeypatch.setattr(
+            journey, "wait_for_candidates", lambda p, n: good_projection()["proposed"]
+        )
+        monkeypatch.setattr(journey, "_FAILURES", [])
+        journey.sparse_idea()
+
+        assert "provenance leads back to the source evidence" in journey._FAILURES
