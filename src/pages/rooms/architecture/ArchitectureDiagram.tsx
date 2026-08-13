@@ -24,7 +24,7 @@
  */
 
 import { cn } from '@/lib/cn'
-import { layersFrom } from '@/app/routes/buildOrderLayers'
+import { layersFrom } from './buildOrderLayers'
 import type { ArchitectureGraph } from '@/domain/types'
 
 /**

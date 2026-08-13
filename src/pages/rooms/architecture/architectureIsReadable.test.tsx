@@ -27,7 +27,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { Dependencies } from './Dependencies'
+import { Dependencies } from './DependenciesSubflow'
 import { layersFrom } from './buildOrderLayers'
 import { architecture as fixture } from '@/services/mock/fixtures/ministryReporting'
 import type { ArchitectureGraph, ProjectProjection } from '@/domain/types'

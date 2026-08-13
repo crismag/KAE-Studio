@@ -7,8 +7,8 @@
 **Three routes, one Room.** `/dependencies` and `/modules` are registered
 `partOf: 'architecture'` — subflows with their own paths. `§13` puts a Room and
 its subflows in one folder and the directive says one route per commit, so this
-folder arrives over three commits. `/dependencies` and `/modules` **have not
-been colocated yet** (`D-52`); this contract describes the Room, not the
+folder arrives over three commits. `/dependencies` is here; **`/modules` has not
+been colocated yet** (`D-52`). This contract describes the Room, not the
 directory's current contents.
 
 ## Purpose
@@ -68,9 +68,9 @@ over MCP and not here.
 `ArchitectureRoom.tsx` and `ArchitectureDiagram.tsx`, which nothing outside this
 Room uses.
 
-`buildOrderLayers.ts` stays in `app/routes/` this commit, because
-`/dependencies` still imports it from there and moving it now would mean editing
-a route this commit is not moving. It comes here with `/dependencies`.
+`DependenciesSubflow.tsx` and `buildOrderLayers.ts`, which the diagram and the
+list both use — a Room folder is exactly where a thing shared by two routes of
+one Room belongs, and it moved when the second of them did rather than before.
 
 ## Does **not** own
 
