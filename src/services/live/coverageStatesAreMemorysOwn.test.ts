@@ -264,3 +264,42 @@ describe('the computed review reaches the projection', () => {
     expect(projection.review.findings).toEqual([])
   })
 })
+
+/**
+ * `D-33` — what the project is fit for survives the mapping.
+ *
+ * KAE-Memory computes `draft_eligible` and `implementation_eligible`. Studio's
+ * `_health` mapped percentage, status and areas and dropped both.
+ */
+describe('eligibility reaches the projection', () => {
+  async function fit(over: Record<string, unknown>) {
+    respondWith({
+      health: { percentage: 0, phase: 'discovering', areas: [], ...over },
+    })
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+    return projection.health
+  }
+
+  it('carries both facts', async () => {
+    const health = await fit({ draftEligible: true, implementationEligible: true })
+
+    expect(health.draftEligible).toBe(true)
+    expect(health.implementationEligible).toBe(true)
+  })
+
+  it('keeps them apart', async () => {
+    const health = await fit({ draftEligible: true, implementationEligible: false })
+
+    expect(health.draftEligible).toBe(true)
+    expect(health.implementationEligible).toBe(false)
+  })
+
+  it('reads an absent flag as not eligible', async () => {
+    // A Memory too old to send these has told us nothing. Costing somebody a
+    // generated package is better than costing them a package they trusted.
+    const health = await fit({})
+
+    expect(health.draftEligible).toBe(false)
+    expect(health.implementationEligible).toBe(false)
+  })
+})

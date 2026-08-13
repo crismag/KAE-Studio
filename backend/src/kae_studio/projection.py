@@ -453,6 +453,21 @@ def _health(readiness: Any) -> dict[str, Any]:
         "percentage": readiness.get("percentage", 0) if isinstance(readiness, dict) else 0,
         "advisory": True,
         "status": readiness.get("status", "unknown") if isinstance(readiness, dict) else "unknown",
+        # What this project is *fit for*, which is the pair Memory computes and
+        # nothing here carried (`D-33`). Two facts, never one score: "enough to
+        # draft from" and "safe to build from" answer different questions, and
+        # a single "ready" collapses the distinction the readiness model exists
+        # to draw.
+        #
+        # Absent reads as **not** eligible. A Memory too old to send these has
+        # told us nothing, and the direction that costs somebody a generated
+        # package is better than the one that costs them a package they trusted.
+        "draftEligible": bool(readiness.get("draft_eligible"))
+        if isinstance(readiness, dict)
+        else False,
+        "implementationEligible": bool(readiness.get("implementation_eligible"))
+        if isinstance(readiness, dict)
+        else False,
         # Memory's field names, read correctly. These were `area_key` and
         # `satisfied`, which exist in neither payload — so every area arrived
         # with an empty key and was permanently unsatisfied, and nothing noticed

@@ -1179,6 +1179,11 @@ export const findings: ReviewFinding[] = [
 /* ----------------------------------------------------------------- health */
 
 export const health: ProjectHealth = {
+  // The prototype project has enough to draft from and a critical blocker
+  // standing, so it is not safe to build from — which is the pair that makes
+  // the distinction visible rather than a fixture where both agree (`D-33`).
+  draftEligible: true,
+  implementationEligible: false,
   phase: 'Requirements forming',
   summary:
     'The submission and approval workflow is well understood. Approval authority and the correction path are unresolved, and both block work that depends on them.',

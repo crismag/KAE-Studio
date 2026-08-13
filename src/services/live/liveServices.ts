@@ -478,6 +478,8 @@ interface BackendProjection {
     percentage: number
     advisory: boolean
     status: string
+    draftEligible?: boolean
+    implementationEligible?: boolean
     areas: {
       key: string
       name: string
@@ -649,6 +651,9 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       version: s.version,
     })),
     health: {
+      // Absent reads as not eligible, never as eligible (`D-33`).
+      draftEligible: raw.health.draftEligible === true,
+      implementationEligible: raw.health.implementationEligible === true,
       phase: raw.project.phase,
       // Readiness is advisory in KAE and the wording says so. A bare percentage
       // gets read as a gate, which is the one thing it is built not to be.

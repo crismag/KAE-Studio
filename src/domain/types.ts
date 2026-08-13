@@ -683,6 +683,18 @@ export interface CoverageTopic {
 
 export interface ProjectHealth {
   phase: string
+  /**
+   * Whether there is enough here to draft from.
+   *
+   * `D-33`. KAE-Memory computes this and `implementationEligible` and Studio
+   * carried neither, while the Dashboard pointed at one of them in a sentence.
+   * Two facts rather than one score: *is there enough to draft from* and *is
+   * this safe to build from* are different questions, and a single "ready"
+   * collapses the distinction the readiness model exists to draw.
+   */
+  draftEligible: boolean
+  /** Whether this is safe to build from. Never folded together with the above. */
+  implementationEligible: boolean
   summary: string
   coverage: CoverageTopic[]
   blockingDecisionIds: string[]

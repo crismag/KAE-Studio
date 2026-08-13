@@ -32,6 +32,8 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { useServices } from '@/hooks/useServices'
+import { useProjection } from '@/hooks/useProject'
+import { FitFor } from '@/components/project/FitFor'
 import { readHandle, writeHandle } from './pipelineHandle'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/plural'
@@ -238,6 +240,7 @@ function useResumedPublication(
 
 export function GeneratePackage() {
   const { projectId } = useServices()
+  const projection = useProjection()
   const profiles = useArtifactProfiles()
   const publishers = useArtifactPublishers()
   const createPlan = useCreateArtifactPlan()
@@ -320,6 +323,11 @@ export function GeneratePackage() {
       </PanelHeader>
 
       <PanelBody className="space-y-5">
+        {/* Before the first control, because it is what a person needs in order
+            to decide whether to use the controls at all (`D-33`). It stops
+            nothing — nothing in the estate refuses on these flags. */}
+        {projection.data && <FitFor health={projection.data.health} />}
+
         {/* 1 — choose a shape */}
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
