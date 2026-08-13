@@ -195,9 +195,9 @@ class LocalSourceClient:
 
         path = self._repo(repo)
         running = hashlib.sha256()
-        for entry, size in sorted(_walk(path)):
-            running.update(entry.encode())
-            running.update(str(size).encode())
+        for entry in _walk(path):
+            running.update(entry["path"].encode())
+            running.update(entry["sha"].encode())
         return running.hexdigest()
 
     # -- reading -----------------------------------------------------------
@@ -212,10 +212,7 @@ class LocalSourceClient:
         """
 
         path = self._repo(repo)
-        entries = [
-            {"path": name, "size": size, "type": "blob"}
-            for name, size in sorted(_walk(path))
-        ]
+        entries = _walk(path)
         return entries[:MAX_TREE_ENTRIES], len(entries) > MAX_TREE_ENTRIES
 
     def read_file(self, repo: str, path: str, revision: str) -> str:
@@ -244,21 +241,47 @@ class LocalSourceClient:
             raise SourceReadError(403, f"{path} could not be read: {error.strerror}") from None
 
 
-def _walk(root: Path) -> list[tuple[str, int]]:
-    found: list[tuple[str, int]] = []
+def _walk(root: Path) -> list[dict]:
+    """Every readable file with its **content** hash.
+
+    The hash is the identity, not the size. A first draft digested `path:size`,
+    which is stable under any edit that keeps the length — a renamed field, a
+    flipped boolean, a changed constant — so a snapshot could be reported
+    unchanged while the code under it had moved. `ADR-0006` §23 asks for content
+    hashes and this is why.
+
+    The shape matches `github_source.tree`'s, `sha` included, because
+    `snapshot_digest` consumes both and a provider that returned a different
+    shape would fail at the one call that combines them.
+    """
+
+    found: list[dict] = []
     for current, directories, files in os.walk(root):
         directories[:] = [d for d in directories if d not in SKIP and not d.startswith(".")]
         for name in files:
             full = Path(current) / name
             try:
                 size = full.stat().st_size
+                sha = _sha256(full)
             except OSError:
                 # A dangling symlink or a file removed mid-walk. Skipped rather
                 # than failing the listing: one unreadable entry is not a
                 # reason to describe none of the repository.
                 continue
-            found.append((str(full.relative_to(root)), size))
-    return found
+            found.append(
+                {"path": str(full.relative_to(root)), "size": size, "sha": sha, "type": "blob"}
+            )
+    return sorted(found, key=lambda entry: entry["path"])
+
+
+def _sha256(path: Path) -> str:
+    """Streamed, so a large file is fingerprinted without being held."""
+
+    running = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(65_536), b""):
+            running.update(block)
+    return running.hexdigest()
 
 
 def _git(path: Path, *arguments: str) -> str:

@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from .github_source import GitHubSourceClient, SourceReadError, snapshot_digest
+from .local_source import LocalSourceClient
 from .model import (
     Connection,
     ConnectionState,
@@ -54,8 +55,13 @@ class AcquisitionService:
         self,
         github: GitHubSourceClient | None = None,
         unavailable_reason: str = "",
+        local: LocalSourceClient | None = None,
     ) -> None:
         self._github = github
+        #: A directory already on this machine (`ADR-0006`, `D-67`). `None`
+        #: where no roots are configured, which means the provider does not
+        #: exist rather than that it may read anywhere.
+        self._local = local
         # Carried, not computed. There are four ways to have no client and they
         # have four different remedies (`D-58`); working out which from here
         # would put credential logic in the object whose contract is that it
@@ -77,13 +83,57 @@ class AcquisitionService:
         remedies.
         """
 
-        if self._github is None:
+        found: list[dict[str, object]] = []
+        truncated = False
+
+        # Local first. It needs no credential, so where both are configured the
+        # answers that cost nothing come before the ones that can fail.
+        if self._local is not None:
+            local_found, local_truncated = self._local.repositories(query)
+            found += [{**entry, "kind": SourceKind.LOCAL.value} for entry in local_found]
+            truncated = truncated or local_truncated
+
+        if self._github is not None:
+            try:
+                remote, remote_truncated = self._github.repositories(query)
+            except SourceReadError as error:
+                # Not fatal where local answers exist: a refused credential must
+                # not hide the directories this deployment can plainly read.
+                return found, truncated, str(error)
+            found += [{**entry, "kind": SourceKind.GITHUB.value} for entry in remote]
+            truncated = truncated or remote_truncated
+        elif not found:
             return [], False, self._unavailable or NO_CREDENTIAL
-        try:
-            found, truncated = self._github.repositories(query)
-        except SourceReadError as error:
-            return [], False, str(error)
-        return list(found), truncated, ""
+
+        return found, truncated, ""
+
+
+    # -- dispatch ----------------------------------------------------------
+
+    def _client_for(self, source: Source) -> GitHubSourceClient | LocalSourceClient:
+        """The client that can read this source, by its kind (`D-68`).
+
+        A source knows where it came from, so the service does not have to be
+        told twice by a mode. A kind whose provider this deployment did not
+        configure says **that** — the `D-58` lesson applied before a second
+        provider made it possible to get wrong again.
+        """
+
+        if source.kind is SourceKind.LOCAL:
+            if self._local is None:
+                raise SourceReadError(
+                    501,
+                    "this deployment reads no local directories. Set "
+                    "KAE_LOCAL_SOURCE_ROOTS to the directories KAE may read.",
+                )
+            return self._local
+        if source.kind is SourceKind.GITHUB:
+            if self._github is None:
+                raise SourceReadError(
+                    501, self._unavailable or "no GitHub credential is configured"
+                )
+            return self._github
+        raise SourceReadError(501, f"a {source.kind.value} source cannot be read yet")
 
     # -- connections -------------------------------------------------------
 
@@ -178,7 +228,13 @@ class AcquisitionService:
         know which it was holding.
         """
 
-        self.connection(connection_id)
+        # A local directory needs no authorisation to reach it, so demanding a
+        # connection would be a grant with nothing behind it — `§19`, and the
+        # reason Settings has no revoke control (`D-68`). Every remote kind
+        # still names one: that check is what stops a source being configured
+        # against a credential nobody issued.
+        if kind is not SourceKind.LOCAL:
+            self.connection(connection_id)
         source = Source(
             source_id=source_id or f"src_{uuid.uuid4().hex[:12]}",
             project_id=project_id,
@@ -240,23 +296,15 @@ class AcquisitionService:
         """
 
         source = self.source(source_id)
-        if source.kind is not SourceKind.GITHUB:
+        if source.kind not in {SourceKind.GITHUB, SourceKind.LOCAL}:
             raise NotImplementedError(
                 f"pinning a {source.kind.value} source is not implemented. Only "
-                f"GitHub sources can currently be resolved to an immutable revision."
+                f"repositories can be resolved to an immutable revision."
             )
-        if self._github is None:
-            updated = _with_source(
-                source,
-                state=SourceState.CONFIGURED,
-                last_error="no GitHub connection is configured for this deployment",
-            )
-            self._sources[source_id] = updated
-            return updated
-
         try:
-            revision = self._github.resolve(source.location, source.reference or "HEAD")
-            entries, truncated = self._github.tree(source.location, revision)
+            client = self._client_for(source)
+            revision = client.resolve(source.location, source.reference or "HEAD")
+            entries, truncated = client.tree(source.location, revision)
         except SourceReadError as error:
             updated = _with_source(source, state=SourceState.CONFIGURED, last_error=str(error))
             self._sources[source_id] = updated
@@ -294,14 +342,13 @@ class AcquisitionService:
         """
 
         source = self.source(source_id)
-        if self._github is None:
-            raise SourceReadError(501, "no GitHub connection is configured")
+        client = self._client_for(source)
         if source.scope.excludes(path):
             raise SourceReadError(
                 403, f"{path} is outside the configured scope for this source"
             )
         revision = source.snapshot.revision if source.snapshot else (source.reference or "HEAD")
-        content = self._github.read_file(source.location, path, revision)
+        content = client.read_file(source.location, path, revision)
 
         readable = _with_source(
             source,
@@ -322,12 +369,11 @@ class AcquisitionService:
         """
 
         source = self.source(source_id)
-        if self._github is None:
-            raise SourceReadError(501, "no GitHub connection is configured")
+        client = self._client_for(source)
         if source.snapshot is None:
             raise SourceReadError(409, "this source has not been pinned to a revision")
 
-        entries, truncated = self._github.tree(source.location, source.snapshot.revision)
+        entries, truncated = client.tree(source.location, source.snapshot.revision)
         in_scope = [
             entry
             for entry in entries
@@ -353,8 +399,7 @@ class AcquisitionService:
         """
 
         source = self.source(source_id)
-        if self._github is None:
-            raise SourceReadError(501, "no GitHub connection is configured")
+        client = self._client_for(source)
         if source.snapshot is None:
             raise SourceReadError(409, "this source has not been pinned to a revision")
 
@@ -365,7 +410,7 @@ class AcquisitionService:
                 raise SourceReadError(
                     403, f"{path} is outside the configured scope for this source"
                 )
-            read.append((path, self._github.read_file(source.location, path, revision)))
+            read.append((path, client.read_file(source.location, path, revision)))
         return read
 
 

@@ -59,6 +59,9 @@ class Settings:
     #: nothing to choose, and asking somebody for an id they would have to find
     #: in a URL is the kind of configuration an App exists to remove.
     github_app_installation_id: str
+    #: Directories this deployment may read as sources (`ADR-0006`, `D-67`).
+    #: Empty means the local provider does not exist — never "read anywhere".
+    local_source_roots: tuple[str, ...]
     session_secret: str
     operator_password: str
     operator_name: str
@@ -169,6 +172,11 @@ class Settings:
             # wrong thing entirely.
             github_app_private_key=env.get("STUDIO_GITHUB_APP_PRIVATE_KEY", ""),
             github_app_installation_id=env.get("STUDIO_GITHUB_APP_INSTALLATION_ID", "").strip(),
+            local_source_roots=tuple(
+                entry.strip()
+                for entry in env.get("KAE_LOCAL_SOURCE_ROOTS", "").split(os.pathsep)
+                if entry.strip()
+            ),
             session_secret=secret,
             operator_password=env.get("STUDIO_PASSWORD", ""),
             authentication_required=authentication_required,
@@ -219,6 +227,11 @@ class Settings:
             # Sources step, and a deployment where that step cannot lead
             # anywhere should say so somewhere an operator looks.
             "source_analysis": "planned",
+            # What this deployment may read from its own filesystem
+            # (`ADR-0006`). A count, never the paths: an operator needs to know
+            # whether any are configured, and a status endpoint served without
+            # authentication is no place to publish a directory layout.
+            "local_sources": len(self.local_source_roots),
             "operator": self.operator_name,
             "secure_cookies": self.secure_cookies,
             "cookie_samesite": self.cookie_samesite,

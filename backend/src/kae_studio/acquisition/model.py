@@ -45,6 +45,10 @@ class SourceKind(StrEnum):
     """
 
     GITHUB = "github"
+    #: A directory already on this machine (`ADR-0006`). Needs no credential,
+    #: no App and no network — which is why it is the source kind that made the
+    #: repository-to-knowledge path reachable at all (`D-67`).
+    LOCAL = "local"
     S3 = "s3"
     UPLOAD = "upload"
     #: Text a person typed or pasted. Its content is in hand the moment it

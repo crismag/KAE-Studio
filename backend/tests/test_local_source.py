@@ -209,7 +209,11 @@ class TestIdentity:
         """A fingerprint that never moves would make every snapshot identical."""
 
         before = client.digest(f"{workspace}/crm")
-        (workspace / "crm" / "main.py").write_text("print('goodbye, world')\n")
+        # **The same length.** The first draft digested `path:size`, which this
+        # edit leaves untouched — so a snapshot would have been reported
+        # unchanged while the code under it had moved. A longer replacement
+        # would have passed against the defect.
+        (workspace / "crm" / "main.py").write_text("print('HELLO')\n")
 
         assert client.digest(f"{workspace}/crm") != before
 
@@ -227,3 +231,129 @@ def test_nothing_here_writes() -> None:
     source = Path(local_source.__file__).read_text()
     for forbidden in ("write_text(", "write_bytes(", "shutil.", "os.remove", "unlink(", "mkdir("):
         assert forbidden not in source, f"{forbidden} appeared in a read-only client"
+
+
+class TestTheServiceDispatchesByKind:
+    """`§7`'s one Source abstraction, with two providers behind it (`D-68`).
+
+    `AcquisitionService` held one client and asked `self._github is None` in
+    seven places. A second provider makes that question the wrong one: a source
+    knows where it came from, so the service does not need a mode.
+    """
+
+    def service(self, workspace: Path, github: object | None = None) -> object:
+        from kae_studio.acquisition.service import AcquisitionService
+
+        return AcquisitionService(
+            github,  # type: ignore[arg-type]
+            "no GitHub credential is configured",
+            local=LocalSourceClient((workspace.resolve(),)),
+        )
+
+    def test_a_local_source_reads_without_any_credential(
+        self, workspace: Path
+    ) -> None:
+        """The whole point of `ADR-0006`'s first increment."""
+
+        from kae_studio.acquisition.model import SourceKind
+
+        service = self.service(workspace)
+        source = service.add_source(  # type: ignore[attr-defined]
+            project_id="p1",
+            kind=SourceKind.LOCAL,
+            connection_id="",
+            location=str(workspace / "crm"),
+            reference="",
+        )
+        pinned = service.pin(source.source_id)  # type: ignore[attr-defined]
+
+        assert pinned.snapshot is not None
+        assert pinned.snapshot.file_count == 2
+        # An identity a finding can cite, from a directory with no git in it.
+        assert pinned.snapshot.revision
+
+    def test_a_local_source_needs_no_connection(self, workspace: Path) -> None:
+        """Reaching a directory requires no authorisation to reach it.
+
+        Demanding one would be a grant with nothing behind it — `§19`, and the
+        reason Settings has no revoke control.
+        """
+
+        from kae_studio.acquisition.model import SourceKind
+
+        service = self.service(workspace)
+        source = service.add_source(  # type: ignore[attr-defined]
+            project_id="p1",
+            kind=SourceKind.LOCAL,
+            connection_id="",
+            location=str(workspace / "crm"),
+            reference="",
+        )
+
+        assert source.connection_id == ""
+
+    def test_a_github_source_with_no_credential_says_which_provider(
+        self, workspace: Path
+    ) -> None:
+        """Not *no credential configured* — that was `D-58`'s defect returning."""
+
+        from kae_studio.acquisition.model import SourceKind
+
+        service = self.service(workspace)
+        connection = service.add_connection("github", "source", "env:TOKEN")  # type: ignore[attr-defined]
+        source = service.add_source(  # type: ignore[attr-defined]
+            project_id="p1",
+            kind=SourceKind.GITHUB,
+            connection_id=connection.connection_id,
+            location="crismag/KAE-Studio",
+            reference="main",
+        )
+        updated = service.pin(source.source_id)  # type: ignore[attr-defined]
+
+        assert "GitHub" in (updated.last_error or "")
+
+    def test_the_listing_merges_and_every_entry_says_which_it_is(
+        self, workspace: Path
+    ) -> None:
+        """One picker, not a mode toggle.
+
+        `full_name` is `owner/name` for one provider and an absolute path for
+        the other. Without `kind` a reader cannot tell them apart, and inventing
+        a fake `owner/name` for a directory would make them untraceable.
+        """
+
+        class FakeGitHub:
+            def repositories(self, query: str = "", limit: int = 100) -> tuple[list[dict], bool]:
+                return [{"full_name": "crismag/KAE-Studio", "default_branch": "main"}], False
+
+        found, _, reason = self.service(workspace, FakeGitHub()).repositories()  # type: ignore[attr-defined]
+
+        assert reason == ""
+        assert {entry["kind"] for entry in found} == {"local", "github"}
+
+    def test_a_refused_credential_does_not_hide_the_local_answers(
+        self, workspace: Path
+    ) -> None:
+        """A picker that emptied itself because GitHub said no would be lying.
+
+        The directories are plainly readable and have nothing to do with the
+        credential that was refused.
+        """
+
+        class RefusingGitHub:
+            def repositories(self, query: str = "", limit: int = 100) -> tuple[list[dict], bool]:
+                raise SourceReadError(401, "GitHub refused this credential")
+
+        found, _, reason = self.service(workspace, RefusingGitHub()).repositories()  # type: ignore[attr-defined]
+
+        assert [entry["kind"] for entry in found] == ["local"]
+        # Still reported. A short list presented as complete is the other defect.
+        assert "refused" in reason
+
+    def test_no_provider_at_all_still_says_so(self) -> None:
+        from kae_studio.acquisition.service import AcquisitionService
+
+        found, _, reason = AcquisitionService(None, "").repositories()
+
+        assert found == []
+        assert "Install the KAE GitHub App" in reason

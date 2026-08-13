@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 
 from .acquisition import ANALYSIS_UNAVAILABLE, GitHubSourceClient, SourceKind, SourceReadError
 from .acquisition.github_app import AppUnavailable, GitHubApp
+from .acquisition.local_source import LocalSourceClient, configured_roots
 from .acquisition.service import AcquisitionService, UnknownResource
 from .artifacts_client import ArtifactsClient, ArtifactsRefused, ArtifactsUnavailable
 from .config import Settings
@@ -307,7 +308,13 @@ def create_app(settings: Settings) -> FastAPI:
         # `/api/status` reports which is in use, because a silent preference and
         # an ignored setting look identical from outside.
         client, unavailable = _source_client(settings)
-        app.state.acquisition = AcquisitionService(client, unavailable)
+        # A directory on this machine needs no credential (`ADR-0006`, `D-67`).
+        # `None` where no roots are configured, which means the provider does
+        # not exist rather than that it may read anywhere.
+        roots = configured_roots()
+        app.state.acquisition = AcquisitionService(
+            client, unavailable, local=LocalSourceClient(roots) if roots else None
+        )
         # Built once. Constructing an interviewer per request would rebuild a
         # Memory client on every turn for no gain.
         app.state.interviewer = Interviewer(
