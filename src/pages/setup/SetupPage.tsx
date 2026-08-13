@@ -171,6 +171,12 @@ function SetupSummary({
   )
   const sources: Level = !repository?.in_use ? 'none' : reached ? 'verified' : 'configured'
   const destination = state.targets.find((t) => t.isDefault)
+  // A destination that is registered and is not the default receives nothing.
+  // `resolve_target` takes a registered id or the project's default and has *no
+  // third option* — deliberately, so that no publish can name a coordinate
+  // inline — and nothing in Studio passes an id, so generation resolves the
+  // default or fails. Read from the live host: one target, `is_default: false`.
+  const noneIsDefault = state.targets.length > 0 && !destination
   // Registered is registered. This read `destination.available ? 'configured' :
   // 'none'`, so a destination whose credential is not authorized rendered as
   // "No output destination" — to somebody who chose a repository, chose a path
@@ -178,9 +184,19 @@ function SetupSummary({
   //
   // Losing a fact by rounding it down is the same defect as claiming one by
   // rounding it up; both replace what is true with what is easy to compute.
-  const destinations: Level = !destination ? 'none' : 'configured'
-  const unreachable =
-    destination && !destination.available
+  //
+  // `none` still means nothing was registered. Rounding a registered target
+  // down to "No output destination" is the defect `D-26` closed two lines
+  // above, and it would be the same defect for the same reason: it replaces
+  // what is true with what is easy to compute.
+  const destinations: Level = state.targets.length === 0 ? 'none' : 'configured'
+  const unreachable = noneIsDefault
+    ? (state.targets.length === 1
+        ? 'It is registered and is not the default. '
+        : `${state.targets.length} are registered and none is the default. `) +
+      'A package goes to the default destination — nothing names one at publish ' +
+      'time — so a generated package has nowhere to go. Choose one below.'
+    : destination && !destination.available
       ? destination.unavailableReason ||
         'It cannot be reached yet — the connection it uses has not been granted.'
       : ''
@@ -213,8 +229,12 @@ function SetupSummary({
           // unreachable for a reason Memory named — a revoked grant, a deleted
           // repository — is not fixed by visiting settings, and sending
           // somebody there would be a guess dressed as an instruction.
+          // Nor when the missing thing is the default: the exact recovery is
+          // the *Make default* control further down this same page, and sending
+          // somebody to Settings for it would be a wrong instruction rather
+          // than a vague one.
           action={
-            unreachable && !destination?.unavailableReason
+            unreachable && !noneIsDefault && !destination?.unavailableReason
               ? { label: 'Grant the connection in Settings', to: '/settings/project' }
               : undefined
           }

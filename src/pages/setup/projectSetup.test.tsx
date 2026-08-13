@@ -314,7 +314,11 @@ describe('verified is earned, not granted', () => {
  * up (`D-25`). Both replace what is true with what is easy to compute.
  */
 describe('a registered destination stays registered', () => {
-  function withTarget(available: boolean, unavailableReason: string | null = null) {
+  function withTarget(
+    available: boolean,
+    unavailableReason: string | null = null,
+    isDefault = true,
+  ) {
     return (services: StudioServices): StudioServices =>
       withSetup(services, {
         getSetup: async (projectId) => ({
@@ -325,7 +329,7 @@ describe('a registered destination stays registered', () => {
               provider: 'github',
               name: 'Planning documents',
               purpose: 'documentation',
-              isDefault: true,
+              isDefault,
               enabled: true,
               available,
               unavailableReason,
@@ -369,6 +373,41 @@ describe('a registered destination stays registered', () => {
 
     await screen.findByText(/^Destinations$/)
     expect(screen.queryByText(/cannot be reached/i)).not.toBeInTheDocument()
+  })
+
+  /**
+   * `D-55`'s neighbour, and live: the deployed project holds one target with
+   * `is_default: false`. `resolve_target` accepts a registered id or the
+   * project's default and **no third option**, deliberately, so that no publish
+   * can name a coordinate inline — and nothing in Studio passes an id. A
+   * registered target that is not the default therefore receives nothing, and
+   * the page said `Configured` beside it without qualification.
+   */
+  it('says a registered destination that is not the default has nowhere to go', async () => {
+    renderSetup(withTarget(true, null, false))
+
+    expect(await screen.findByText(/is registered and is not the default/i)).toBeInTheDocument()
+    expect(screen.getByText(/nowhere to go/i)).toBeInTheDocument()
+  })
+
+  it('does not round a non-default destination down to none', async () => {
+    // The `D-26` half, against the new condition: it *is* registered.
+    renderSetup(withTarget(true, null, false))
+
+    await screen.findByText(/^Destinations$/)
+    expect(screen.queryByText(/no output destination/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/a destination is registered/i)).toBeInTheDocument()
+  })
+
+  it('sends nobody to Settings to choose a default', async () => {
+    // `§16` asks for **one exact** next action. The recovery is the *Make
+    // default* control on this page, so the grant link — right for an
+    // ungranted connection — would be a wrong instruction here, not a vague
+    // one.
+    renderSetup(withTarget(true, null, false))
+
+    await screen.findByText(/is registered and is not the default/i)
+    expect(screen.queryByText(/grant the connection in settings/i)).not.toBeInTheDocument()
   })
 
   it('still reports no destination when there genuinely is none', async () => {
