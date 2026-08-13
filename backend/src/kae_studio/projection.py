@@ -131,6 +131,15 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # decide against, and is it back?" unanswerable from the product — which
         # is most of what a review surface is for.
         "rejected": [s for s in statements if s["lifecycle"] == "rejected"],
+        # The other half of the question `rejected` is kept for. That one
+        # answers *what did we decide against, and is it back?*; this answers
+        # **what did we replace, and with what?** (`D-34`).
+        #
+        # `superseded` is in `_DECIDED`, so it was in neither `proposed` nor
+        # `confirmed` nor `rejected` — it reached no collection at all and the
+        # adapter never saw it. The contract requires the lifecycle survive
+        # presentation, and a statement that vanishes has not survived it.
+        "superseded": [s for s in statements if s["lifecycle"] == "superseded"],
         "health": _health(readiness_data),
         # How the number was reached, beside the number. Memory computes this
         # carefully (`AUD-025`, `AUD-026`, `AUD-039`) and Studio dropped it, so

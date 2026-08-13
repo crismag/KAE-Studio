@@ -391,9 +391,13 @@ function RequirementRow({
 
 export function Requirements() {
   const { data: projection, isLoading } = useProjection()
-  const [filter, setFilter] = useState<'all' | 'confirmed' | 'proposed' | 'contested' | 'rejected'>(
-    'all',
-  )
+  // `superseded` sits beside `rejected` because they are siblings in
+  // `STUDIO_ORCHESTRATION_CONTRACT`'s required semantics, and because both
+  // answer a question about what the project decided: one *what did we decide
+  // against*, the other *what did we replace* (`D-34`).
+  const [filter, setFilter] = useState<
+    'all' | 'confirmed' | 'proposed' | 'contested' | 'rejected' | 'superseded'
+  >('all')
 
   if (isLoading || !projection) {
     return (
@@ -426,6 +430,7 @@ export function Requirements() {
     proposed: projection.requirements.filter((r) => r.status === 'proposed').length,
     contested: projection.requirements.filter((r) => r.status === 'contested').length,
     rejected: projection.requirements.filter((r) => r.status === 'rejected').length,
+    superseded: projection.requirements.filter((r) => r.status === 'superseded').length,
   }
 
   return (

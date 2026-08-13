@@ -474,6 +474,8 @@ interface BackendProjection {
   confirmed: BackendStatement[]
   proposed: BackendStatement[]
   rejected: BackendStatement[]
+  /** Carried since `D-34`; absent on an older Studio backend. */
+  superseded?: BackendStatement[]
   health: {
     percentage: number
     advisory: boolean
@@ -556,7 +558,16 @@ interface BackendProjection {
 export function toProjection(raw: BackendProjection): ProjectProjection {
   // Rejected last: the list reads top-down from settled, to open, to declined,
   // and a decision already taken should not sit above one still waiting.
-  const statements = [...raw.confirmed, ...raw.proposed, ...(raw.rejected ?? [])]
+  // Superseded last, and included at all (`D-34`). It reached none of the three
+  // collections, so a statement the project corrected simply vanished — and
+  // `STUDIO_ORCHESTRATION_CONTRACT` requires the lifecycle survive
+  // presentation, which a statement that disappears has not done.
+  const statements = [
+    ...raw.confirmed,
+    ...raw.proposed,
+    ...(raw.rejected ?? []),
+    ...(raw.superseded ?? []),
+  ]
 
   return {
     project: {
@@ -597,11 +608,7 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       statement: s.text,
       // `validated` is Memory's word for confirmed by a person. Anything else
       // is a candidate, and the distinction must survive into the UI.
-      status: (s.lifecycle === 'validated'
-        ? 'confirmed'
-        : s.lifecycle === 'rejected'
-          ? 'rejected'
-          : 'proposed') as never,
+      status: lifecycleStatus(s.lifecycle),
       satisfies: [],
       verifiedBy: [],
       updatedAt: s.updatedAt,
@@ -790,6 +797,37 @@ interface WireArea {
   confirmed: number
   proposed: number
   required: number
+}
+
+/**
+ * KAE-Memory's lifecycle, in Studio's words (`D-34`).
+ *
+ * Exhaustive over `LifecycleState`'s four members. This was a ternary ending in
+ * `: 'proposed'` behind an `as never` cast — the same shape as `D-27`, and the
+ * same cast that hid it — so anything Memory added would arrive as a candidate
+ * awaiting somebody's agreement.
+ *
+ * `superseded` reaches this only now that the backend carries it; before, it
+ * was dropped a layer earlier and this branch was unreachable. Both halves had
+ * to move, because either alone leaves the statement invisible.
+ */
+function lifecycleStatus(lifecycle: string): Requirement['status'] {
+  switch (lifecycle) {
+    case 'validated':
+      return 'confirmed'
+    case 'rejected':
+      return 'rejected'
+    case 'superseded':
+      return 'superseded'
+    case 'proposed':
+      return 'proposed'
+    default:
+      // A word this build does not know. `proposed` claims only that nobody has
+      // agreed to it, which is the least wrong reading — and it is a reading,
+      // which is why the guard beside this asserts every state Memory has is
+      // named above.
+      return 'proposed'
+  }
 }
 
 /**

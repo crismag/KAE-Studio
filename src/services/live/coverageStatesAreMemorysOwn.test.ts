@@ -303,3 +303,78 @@ describe('eligibility reaches the projection', () => {
     expect(health.implementationEligible).toBe(false)
   })
 })
+
+/**
+ * `D-34` — a superseded statement stops disappearing.
+ *
+ * `STUDIO_ORCHESTRATION_CONTRACT` requires that Studio *"must not erase the
+ * underlying lifecycle"*, and names `rejected/superseded` among six semantics
+ * it must preserve. `LifecycleState` has four members; Studio's backend split
+ * three ways, and `superseded` — being in the decided set — reached **none** of
+ * the collections. It was not mislabelled. It was gone.
+ *
+ * Driven off Memory's whole lifecycle, so a fifth state cannot arrive and be
+ * shown as a candidate somebody has yet to agree with.
+ */
+describe('every lifecycle state KAE-Memory has survives presentation', () => {
+  /** `LifecycleState` in `kae_memory/domain/lifecycle.py`, verbatim. */
+  const MEMORY_LIFECYCLE = ['proposed', 'validated', 'rejected', 'superseded'] as const
+
+  function statement(lifecycle: string) {
+    return {
+      id: `k-${lifecycle}`,
+      text: `A statement that is ${lifecycle}.`,
+      version: 1,
+      kind: 'rule',
+      lifecycle,
+      updatedAt: '2026-08-12T09:00:00Z',
+    }
+  }
+
+  async function requirements(over: Record<string, unknown>) {
+    respondWith(over)
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+    return projection.requirements
+  }
+
+  it('carries a superseded statement at all', async () => {
+    const mapped = await requirements({ superseded: [statement('superseded')] })
+
+    expect(mapped.map((r) => r.id)).toContain('k-superseded')
+  })
+
+  it('calls it superseded rather than proposed', async () => {
+    // The harm the old ternary would have done once the backend carried it: a
+    // statement the project replaced, offered as one nobody has agreed to yet.
+    const mapped = await requirements({ superseded: [statement('superseded')] })
+
+    expect(mapped[0].status).toBe('superseded')
+  })
+
+  it.each(MEMORY_LIFECYCLE)('maps %s to a status Studio renders', async (lifecycle) => {
+    const key = {
+      proposed: 'proposed',
+      validated: 'confirmed',
+      rejected: 'rejected',
+      superseded: 'superseded',
+    }[lifecycle]
+    const collection = {
+      proposed: 'proposed',
+      validated: 'confirmed',
+      rejected: 'rejected',
+      superseded: 'superseded',
+    }[lifecycle]
+    const mapped = await requirements({ [collection]: [statement(lifecycle)] })
+
+    expect(mapped[0].status).toBe(key)
+  })
+
+  it('does not offer a superseded statement for review', async () => {
+    // It is decided. A review queue containing it would ask somebody to agree
+    // with a sentence the project has already replaced.
+    respondWith({ superseded: [statement('superseded')] })
+    const projection = await createLiveServices('p1').projection.getProjection('p1')
+
+    expect(projection.findings.map((f) => f.id)).not.toContain('k-superseded')
+  })
+})
