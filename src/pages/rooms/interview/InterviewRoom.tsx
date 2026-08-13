@@ -51,12 +51,11 @@ import {
   useProjection,
   useSendMessage,
 } from '@/hooks/useProject'
-import { openBlockers } from '@/components/project/openBlockers'
+import { blockedBy } from './blockedBy'
 import type {
   ConversationMessage,
   CoverageTopic,
   OpenDecision,
-  ProjectBlocker,
   ProjectProjection,
 } from '@/domain/types'
 import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
@@ -404,16 +403,6 @@ const COVERAGE_WORD: Record<CoverageTopic['state'], string> = {
   missing: 'missing',
   // `capitalize` on the raw key would render "notapplicable".
   notApplicable: 'not applicable',
-}
-
-/**
- * Open blockers sitting in one area (`D-31`).
- *
- * Only open ones: a blocker somebody closed is not a reason an area is stuck,
- * and showing it here would make the panel argue with the Dashboard.
- */
-export function blockedBy(areaKey: string, blockers: ProjectBlocker[]): ProjectBlocker[] {
-  return openBlockers(blockers).filter((blocker) => blocker.areaKey === areaKey)
 }
 
 export function CoverageSection({
