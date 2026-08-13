@@ -36,7 +36,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, CircleDashed, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Check, CircleDashed, ShieldCheck } from 'lucide-react'
 
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { RepositoryPicker } from '@/components/project/RepositoryPicker'
@@ -209,6 +209,15 @@ function SetupSummary({
           label="Destinations"
           level={destinations}
           detail={unreachable}
+          // Only when the connection is the thing missing. A destination
+          // unreachable for a reason Memory named — a revoked grant, a deleted
+          // repository — is not fixed by visiting settings, and sending
+          // somebody there would be a guess dressed as an instruction.
+          action={
+            unreachable && !destination?.unavailableReason
+              ? { label: 'Grant the connection in Settings', to: '/settings/project' }
+              : undefined
+          }
           means={{
             none: 'No output destination. Generated documents have nowhere to go.',
             configured: 'A destination is registered.',
@@ -236,10 +245,13 @@ function StateRow({
   level,
   means,
   detail = '',
+  action,
 }: {
   label: string
   level: Level
   means: Record<Level, string>
+  /** The one thing to do about the caveat, when there is one (`§16`). */
+  action?: { label: string; to: string }
   /**
    * A caveat belonging to this project rather than to the vocabulary.
    *
@@ -263,7 +275,24 @@ function StateRow({
         </Badge>
       </div>
       <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">{means[level]}</p>
-      {detail && <p className="mt-1 text-[11.5px] leading-relaxed text-attention">{detail}</p>}
+      {detail && (
+        <>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-attention">{detail}</p>
+          {/* `§16`: a degraded state names one exact next action. This one
+              named the fix in prose — grant the connection — and offered no
+              way to do it, on a page whose connections panel is two below
+              (`D-41`). */}
+          {action && (
+            <Link
+              to={action.to}
+              className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
+            >
+              {action.label}
+              <ArrowRight className="size-3" aria-hidden="true" />
+            </Link>
+          )}
+        </>
+      )}
     </div>
   )
 }

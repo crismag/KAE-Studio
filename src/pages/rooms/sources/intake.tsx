@@ -183,11 +183,16 @@ function DocumentsGiven() {
   const unreadable = useSourcesUnavailable()
 
   if (unreadable.data) {
+    // The next action `§16` asks for, and an honest one: the caller cannot fix
+    // KAE-Memory, but they can act without risk. Idempotency is by document
+    // title, chunk index and content, so the sentence holds only for the same
+    // title — which is why it says so rather than promising more.
     return (
       <div className="border-t border-line pt-4">
         <p role="alert" className="text-[11.5px] leading-relaxed text-ink-muted">
           {unreadable.data} Anything given earlier is not listed here — this is not a statement that
-          nothing was.
+          nothing was. If you are unsure whether something was received, giving it again under the
+          same title is safe: identical text under an identical title is recorded once.
         </p>
       </div>
     )

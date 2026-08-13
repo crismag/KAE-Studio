@@ -161,7 +161,13 @@ function Repositories() {
 
   return (
     <>
-      {unreadable.data ? <CapabilityNote reason={unreadable.data} /> : null}
+      {unreadable.data ? (
+        // No action offered. The record could not be read because KAE-Memory
+        // did not answer, and there is nothing a person can do about that from
+        // here — inventing "try again" for somebody else's outage is the same
+        // manufacture as inventing a reason (`§16`, `D-41`).
+        <CapabilityNote reason={unreadable.data} />
+      ) : null}
       <QueryState
         query={sources}
         of="Your sources"

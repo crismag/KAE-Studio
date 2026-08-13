@@ -33,15 +33,35 @@
  * this component — that is an `EmptyState`.
  */
 
-import { Lock } from 'lucide-react'
+import { ArrowRight, Lock } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 export function CapabilityNote({
   reason,
   proved,
+  action,
   className,
 }: {
   /** Why this cannot be computed, in the backend's own words. */
   reason: string
+  /**
+   * The one thing a person can do about it (`§16`, `D-41`).
+   *
+   * *"Each empty/degraded state must explain what belongs there, why it is
+   * unavailable, and **one exact recovery/next action**."* Every note this
+   * codebase shipped answered the first two clauses and none answered the
+   * third — including one that named the exact fix in prose and did not offer
+   * the link, on a page that had one two panels down.
+   *
+   * **Optional, and deliberately so.** A 503 from KAE-Memory has no user
+   * action, and inventing *"try again"* for an outage somebody else must fix is
+   * the same manufacture as inventing a reason. Omitting it is a designed
+   * state; `§16` asks for the action to be *exact*, not for one to exist.
+   *
+   * **One, never a menu.** Two suggestions is a question, and a person reading
+   * a degraded state is already stuck.
+   */
+  action?: { label: string; to: string }
   /**
    * What *was* established, when anything was. Shown so a reader can see how
    * far they actually got rather than only what stopped.
@@ -58,6 +78,15 @@ export function CapabilityNote({
         <Lock className="mt-0.5 size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
         <div className="min-w-0">
           <p className="text-[12.5px] leading-relaxed text-ink-muted">{reason}</p>
+          {action && (
+            <Link
+              to={action.to}
+              className="mt-1.5 inline-flex items-center gap-1 text-[12px] text-accent-ink underline-offset-2 hover:underline"
+            >
+              {action.label}
+              <ArrowRight className="size-3" aria-hidden="true" />
+            </Link>
+          )}
           {proved && proved.length > 0 && (
             <>
               {/* Named rather than implied. "Not available" alone reads as
