@@ -1,0 +1,11 @@
+import { chromium } from 'playwright'
+const browser = await chromium.launch()
+const page = await (await browser.newContext({ viewport: { width: 1200, height: 900 } })).newPage()
+await page.goto('http://127.0.0.1:5199/#/dashboard', { waitUntil: 'networkidle' })
+await page.waitForTimeout(1500)
+await page.getByText('Cris Test 2: existing project').click()
+await page.waitForTimeout(2500)
+await page.goto('http://127.0.0.1:5199/#/settings/project', { waitUntil: 'networkidle' })
+await page.waitForTimeout(2500)
+await page.screenshot({ path: '/tmp/shots/connections.png', fullPage: true })
+await browser.close()

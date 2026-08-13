@@ -59,6 +59,11 @@ class Settings:
     #: nothing to choose, and asking somebody for an id they would have to find
     #: in a URL is the kind of configuration an App exists to remove.
     github_app_installation_id: str
+    #: The App's URL slug, which is the only part of an App a browser needs:
+    #: `github.com/apps/<slug>/installations/new` is the install hand-off. Empty
+    #: means no App is registered, and the Connect control says so rather than
+    #: linking somewhere that 404s (`D-79`).
+    github_app_slug: str
     #: Directories this deployment may read as sources (`ADR-0006`, `D-67`).
     #: Empty means the local provider does not exist — never "read anywhere".
     local_source_roots: tuple[str, ...]
@@ -172,6 +177,7 @@ class Settings:
             # wrong thing entirely.
             github_app_private_key=env.get("STUDIO_GITHUB_APP_PRIVATE_KEY", ""),
             github_app_installation_id=env.get("STUDIO_GITHUB_APP_INSTALLATION_ID", "").strip(),
+            github_app_slug=env.get("STUDIO_GITHUB_APP_SLUG", "").strip(),
             local_source_roots=tuple(
                 entry.strip()
                 for entry in env.get("KAE_LOCAL_SOURCE_ROOTS", "").split(os.pathsep)
@@ -223,6 +229,10 @@ class Settings:
             # would be indistinguishable from one that ignored the other, and
             # the person debugging it has no way to tell from the outside.
             "github_credential": self.github_credential,
+            # The slug, not a secret: it is in every install URL and on the
+            # App's public page. Without it the browser has nowhere to send
+            # somebody, which is a different state from "no App configured".
+            "github_app_slug": self.github_app_slug,
             # Stated at the status endpoint because the setup wizard offers a
             # Sources step, and a deployment where that step cannot lead
             # anywhere should say so somewhere an operator looks.

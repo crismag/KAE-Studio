@@ -268,9 +268,12 @@ describe('configuring GitHub lives in Settings', () => {
   it('is where the credential reference is added', async () => {
     renderWith(<ProjectSettings />)
 
-    expect(await screen.findByLabelText(/add a connection/i)).toBeInTheDocument()
+    // Renamed by `D-79`: the token path is now labelled for what it is rather
+    // than presented as the way to connect. The claim — that configuring
+    // GitHub lives here and not on `/setup` — is unchanged.
+    expect(await screen.findByLabelText(/environment variable/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/the name of the environment variable holding the token, not the token/i),
+      screen.getByText(/the name of the variable holding the token, not the token/i),
     ).toBeInTheDocument()
   })
 
@@ -320,7 +323,10 @@ describe('a grant says when it was made', () => {
 
     // Both, in one sentence: a *who* with no *when* is what this fixes, and a
     // *when* with no *who* would be the same defect mirrored.
-    const line = await screen.findByText(/granted by operator/i)
+    // `D-79` renamed the label from "granted by" to "connected by" — the page
+    // is now about accounts rather than credential records. The claim is
+    // unchanged: who, and when.
+    const line = await screen.findByText(/connected by operator/i)
     expect(line).toHaveTextContent(/10 Aug/)
   })
 
@@ -331,7 +337,7 @@ describe('a grant says when it was made', () => {
     // a badge, and the contract said exactly that before this.
     renderWith(<ProjectSettings />)
 
-    await screen.findByText(/granted by operator/i)
+    await screen.findByText(/connected by operator/i)
     expect(screen.queryByText(/last checked/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/verified on/i)).not.toBeInTheDocument()
   })
@@ -349,7 +355,7 @@ describe('a grant says when it was made', () => {
       },
     }))
 
-    const line = await screen.findByText(/granted by operator/i)
+    const line = await screen.findByText(/connected by operator/i)
     expect(line).not.toHaveTextContent(/ on /)
   })
 })

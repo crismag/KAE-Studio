@@ -36,6 +36,13 @@ export type DeploymentStatus = {
    * `501 artifacts_not_configured`.
    */
   artifactsConfigured?: boolean
+  /**
+   * The GitHub App's URL slug, when this deployment has one registered.
+   *
+   * Absent means there is nothing to install, which is why the Connect control
+   * states a prerequisite instead of linking somewhere that 404s (`D-79`).
+   */
+  githubAppSlug?: string
 }
 
 type State =
@@ -73,6 +80,10 @@ export function useDeploymentStatus(): State {
             interviewProvider: typeof provider.name === 'string' ? provider.name : undefined,
             memoryUrl: typeof raw.memory_url === 'string' ? raw.memory_url : undefined,
             artifactsConfigured: raw.artifacts === 'configured',
+            githubAppSlug:
+              typeof raw.github_app_slug === 'string' && raw.github_app_slug
+                ? raw.github_app_slug
+                : undefined,
           },
         })
       } catch {

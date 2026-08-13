@@ -30,9 +30,9 @@ missing (`D-41`).
 
 ## Data it consumes
 
-| Port    | For                                                        |
-| ------- | ---------------------------------------------------------- |
-| `setup` | connections, their authorization state, who granted them   |
+| Port    | For                                                      |
+| ------- | -------------------------------------------------------- |
+| `setup` | connections, their authorization state, who granted them |
 
 ## Contextual toolbelt
 
@@ -40,11 +40,11 @@ missing (`D-41`).
 and read **who granted it and when** — the date the grant was made, which is
 what `last_verified_at` holds.
 
-**Never *last checked*.** Nothing here has reached GitHub. That timestamp is
+**Never _last checked_.** Nothing here has reached GitHub. That timestamp is
 stamped by `authorize_connection` and by nothing else, so a label saying the
-connection was *checked* would be `D-25`'s *verified means proved, not declared*
+connection was _checked_ would be `D-25`'s _verified means proved, not declared_
 committed in wording rather than in a badge. This page's earlier contract asked
-*"when was it last checked?"* and the page answered neither half; the question
+_"when was it last checked?"_ and the page answered neither half; the question
 is now the one the data can answer (`D-60`).
 
 **Revoke is absent.** Nothing in KAE-Memory moves a connection out of `granted`,

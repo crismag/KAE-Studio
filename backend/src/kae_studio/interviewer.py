@@ -121,6 +121,21 @@ class OllamaReasoner:
         return str(content)
 
 
+def describe_interviewer(provider: str = "", model: str = "") -> str:
+    """What `/api/status` should say about who is answering.
+
+    Hardcoded to Bedrock for as long as Bedrock was the only option, and left
+    saying so after `D-77` made a local model the default — so every page footer
+    named an AI that was not running (`D-78`). Derived now, from the same
+    function that chooses the provider.
+    """
+
+    reasoner = reasoner_for(provider, model)
+    if isinstance(reasoner, OllamaReasoner):
+        return f"CIE via Ollama ({reasoner.model})"
+    return f"CIE via Bedrock ({reasoner.model})"
+
+
 def reasoner_for(provider: str, model: str = "") -> BedrockReasoner | OllamaReasoner:
     """Which provider produces the move.
 
@@ -167,5 +182,6 @@ __all__ = [
     "InterviewUnavailable",
     "Move",
     "OllamaReasoner",
+    "describe_interviewer",
     "reasoner_for",
 ]

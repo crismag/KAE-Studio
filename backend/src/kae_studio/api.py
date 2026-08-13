@@ -36,7 +36,7 @@ from .acquisition.service import AcquisitionService, UnknownResource
 from .artifacts_client import ArtifactsClient, ArtifactsRefused, ArtifactsUnavailable
 from .config import Settings
 from .generation_input import ContextNotUsable, to_generation_input
-from .interviewer import DEFAULT_MODEL, InterviewUnavailable, Interviewer
+from .interviewer import DEFAULT_MODEL, InterviewUnavailable, Interviewer, describe_interviewer
 from .memory_client import MODULE_GAP, MemoryClient, MemoryRefused, MemoryUnavailable
 from .security import SESSION_COOKIE, SESSION_MAX_AGE, Operator, Sessions, require_operator
 
@@ -469,7 +469,12 @@ def create_app(settings: Settings) -> FastAPI:
             # reports is the only kind worth having, and a hand-written string
             # is not one.
             "interview_provider": {
-                "name": f"CIE via Bedrock ({request.app.state.interviewer.model or DEFAULT_MODEL})",
+                # Derived, never hardcoded. This said "Bedrock" in every page
+                # footer while a local model was answering (`D-78`).
+                "name": describe_interviewer(
+                    request.app.state.interviewer.provider,
+                    request.app.state.interviewer.model,
+                ),
                 "mode": "live",
                 "note": (
                     "Every conversational decision is CIE's. Studio transports "
