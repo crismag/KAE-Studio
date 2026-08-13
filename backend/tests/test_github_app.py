@@ -321,8 +321,12 @@ class TestConfigurationMistakes:
             }
         )
 
-        # No installation id and no reachable GitHub: the ambiguous case.
-        assert _source_client(settings) is None
+        # No installation id and no reachable GitHub: the credential cannot be
+        # used, and the deployment keeps running to say why.
+        client, reason = _source_client(settings)
+
+        assert client is None
+        assert reason
 
     def test_nothing_configured_builds_no_client(self) -> None:
         pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
@@ -332,7 +336,111 @@ class TestConfigurationMistakes:
             {"KAE_MEMORY_TOKEN": "t", "STUDIO_SESSION_SECRET": "x" * 40, "STUDIO_NO_AUTH": "1"}
         )
 
-        assert _source_client(settings) is None
+        client, reason = _source_client(settings)
+
+        assert client is None
+        # Empty, so the picker falls back to the sentence for a deployment that
+        # configured nothing — which is what this is. A reason here would claim
+        # a specific fault where there is none.
+        assert reason == ""
+
+
+class TestWhyThePickerIsEmpty:
+    """Four ways to have no client, four remedies (`D-58`).
+
+    `GH-APP` returned `None` for all of them and the picker had one sentence:
+    *no GitHub credential is configured… set `STUDIO_GITHUB_SOURCE_TOKEN`*. For
+    a deployment that had configured an App that was simply not installed
+    anywhere, that is false, and it sends somebody to add a token which would
+    not have fixed it — `D-26`'s defect again, in the direction that hides
+    progress somebody already made.
+    """
+
+    def settings_for(self, private_key: str, **env: str) -> Settings:
+        return Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "t",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+                "STUDIO_GITHUB_APP_ID": "12345",
+                "STUDIO_GITHUB_APP_PRIVATE_KEY": private_key,
+                **env,
+            }
+        )
+
+    def reason_for(self, monkeypatch: pytest.MonkeyPatch, private_key: str, found: Any) -> str:
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+        from kae_studio.api import _source_client
+
+        def installations(_self: Any) -> Any:
+            if isinstance(found, Exception):
+                raise found
+            return found
+
+        monkeypatch.setattr(GitHubApp, "installations", installations)
+        client, reason = _source_client(self.settings_for(private_key))
+        assert client is None
+        return reason
+
+    def test_installed_nowhere_says_to_install_it(
+        self, monkeypatch: pytest.MonkeyPatch, private_key: str
+    ) -> None:
+        """The credential is fine. It has no repositories, which is different."""
+
+        reason = self.reason_for(monkeypatch, private_key, [])
+
+        assert "not installed anywhere" in reason
+        assert "Install it" in reason
+        # Never the sentence for a deployment that configured nothing.
+        assert "STUDIO_GITHUB_SOURCE_TOKEN" not in reason
+
+    def test_installed_several_times_names_them_and_asks_for_one(
+        self, monkeypatch: pytest.MonkeyPatch, private_key: str
+    ) -> None:
+        """Taking the first would read some other account's repositories."""
+
+        reason = self.reason_for(
+            monkeypatch,
+            private_key,
+            [
+                {"installation_id": 1, "account": "crismag", "repository_selection": "selected"},
+                {"installation_id": 2, "account": "an-org", "repository_selection": "all"},
+            ],
+        )
+
+        # Which two, because "several" leaves somebody guessing which of their
+        # accounts KAE would have read.
+        assert "an-org, crismag" in reason
+        assert "STUDIO_GITHUB_APP_INSTALLATION_ID" in reason
+
+    def test_a_refused_credential_says_the_two_things_disagree(
+        self, monkeypatch: pytest.MonkeyPatch, private_key: str
+    ) -> None:
+        reason = self.reason_for(
+            monkeypatch, private_key, AppUnavailable("GitHub refused this App's credentials.")
+        )
+
+        assert "refused" in reason
+        assert "not installed" not in reason
+
+    def test_nothing_configured_still_offers_the_app_first(self) -> None:
+        """The remedy somebody without shell access can actually carry out."""
+
+        from kae_studio.acquisition.service import NO_CREDENTIAL
+
+        assert NO_CREDENTIAL.index("Install the KAE GitHub App") < NO_CREDENTIAL.index(
+            "STUDIO_GITHUB_SOURCE_TOKEN"
+        )
+
+    def test_the_service_says_what_it_was_told_rather_than_guessing(self) -> None:
+        """`AcquisitionService` holds no credential and so decides no remedy."""
+
+        from kae_studio.acquisition.service import AcquisitionService
+
+        found, truncated, reason = AcquisitionService(None, "the App is installed nowhere").repositories()
+
+        assert found == [] and not truncated
+        assert reason == "the App is installed nowhere"
 
 
 def test_the_app_module_offers_no_way_to_write() -> None:

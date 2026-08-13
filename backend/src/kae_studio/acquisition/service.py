@@ -37,11 +37,30 @@ class UnknownResource(LookupError):
     """A connection or source that does not exist."""
 
 
+#: The fallback, for a deployment that configured nothing at all. Installing
+#: the App comes first because it is the remedy somebody without shell access on
+#: the host can actually carry out (`D-58`).
+NO_CREDENTIAL = (
+    "No GitHub credential is configured for this deployment, so no repository "
+    "can be listed. Install the KAE GitHub App against the repositories it may "
+    "read, or set STUDIO_GITHUB_SOURCE_TOKEN on the host and restart Studio."
+)
+
+
 class AcquisitionService:
     """Configure sources, verify them, pin them. Analysis is not here."""
 
-    def __init__(self, github: GitHubSourceClient | None = None) -> None:
+    def __init__(
+        self,
+        github: GitHubSourceClient | None = None,
+        unavailable_reason: str = "",
+    ) -> None:
         self._github = github
+        # Carried, not computed. There are four ways to have no client and they
+        # have four different remedies (`D-58`); working out which from here
+        # would put credential logic in the object whose contract is that it
+        # holds no credentials.
+        self._unavailable = unavailable_reason
         self._connections: dict[str, Connection] = {}
         self._sources: dict[str, Source] = {}
 
@@ -59,13 +78,7 @@ class AcquisitionService:
         """
 
         if self._github is None:
-            return (
-                [],
-                False,
-                "No GitHub credential is configured for this deployment, so no "
-                "repository can be listed. Set STUDIO_GITHUB_SOURCE_TOKEN on the "
-                "host and restart Studio.",
-            )
+            return [], False, self._unavailable or NO_CREDENTIAL
         try:
             found, truncated = self._github.repositories(query)
         except SourceReadError as error:

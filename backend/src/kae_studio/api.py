@@ -237,37 +237,50 @@ class ReviewIn(BaseModel):
     expected_version: int = 0
 
 
-def _source_client(settings: Settings) -> GitHubSourceClient | None:
-    """The read client this deployment can build, or `None` with a stated gap.
+def _source_client(settings: Settings) -> tuple[GitHubSourceClient | None, str]:
+    """The read client this deployment can build, and why it could not.
 
-    `None` is a supported deployment and not a broken one — the routes report
-    `github_source: not configured` and the picker says so. A client built over
-    an empty credential would instead fail per request with a 401, which reads
-    like a revoked grant rather than a deployment nobody has finished.
+    `None` is a supported deployment and not a broken one — a client built over
+    an empty credential would fail per request with a 401, which reads like a
+    revoked grant rather than a deployment nobody has finished.
+
+    The sentence matters as much as the client. There are four ways to have no
+    client and they have four different remedies (`D-58`); returning `None`
+    alone made a configured App report as *no credential configured* and sent
+    somebody to add a token that would not have helped.
     """
 
     if settings.github_app:
-        installation = settings.github_app_installation_id
         app = GitHubApp(settings.github_app_id, settings.github_app_private_key)
-        if installation:
-            return app.source_client(int(installation))
-        # No installation named, so ask. One installation needs no choosing;
-        # several without a choice is ambiguous, and picking the first would
-        # silently read the wrong account's repositories.
+        if settings.github_app_installation_id:
+            return app.source_client(int(settings.github_app_installation_id)), ""
+        # No installation named, so ask. One needs no choosing; several without
+        # a choice is ambiguous, and taking the first would silently read some
+        # other account's repositories.
         try:
             found = app.installations()
-        except AppUnavailable:
-            # Reported by the routes as an unusable credential rather than
-            # crashing startup: an App whose key GitHub refuses is a
-            # configuration mistake, and a process that will not boot is a
-            # worse way to learn about one.
-            return None
+        except AppUnavailable as error:
+            # Reported rather than raised: an App whose key GitHub refuses is a
+            # configuration mistake, and a process that will not boot is a worse
+            # way to learn about one — nothing is left running to say so.
+            return None, str(error)
         if len(found) == 1:
-            return app.source_client(found[0]["installation_id"])
-        return None
+            return app.source_client(found[0]["installation_id"]), ""
+        if not found:
+            return None, (
+                "The KAE GitHub App is configured and is not installed anywhere, "
+                "so it can reach no repositories. Install it against the "
+                "repositories KAE may read."
+            )
+        accounts = ", ".join(sorted(row["account"] for row in found if row["account"]))
+        return None, (
+            f"The KAE GitHub App is installed {len(found)} times ({accounts}) and "
+            "this deployment does not say which to read as. Set "
+            "STUDIO_GITHUB_APP_INSTALLATION_ID on the host and restart Studio."
+        )
     if settings.github_source_token:
-        return GitHubSourceClient(settings.github_source_token)
-    return None
+        return GitHubSourceClient(settings.github_source_token), ""
+    return None, ""
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -293,7 +306,8 @@ def create_app(settings: Settings) -> FastAPI:
         # GitHub's own UI, and it leaves nothing long-lived on the host.
         # `/api/status` reports which is in use, because a silent preference and
         # an ignored setting look identical from outside.
-        app.state.acquisition = AcquisitionService(_source_client(settings))
+        client, unavailable = _source_client(settings)
+        app.state.acquisition = AcquisitionService(client, unavailable)
         # Built once. Constructing an interviewer per request would rebuild a
         # Memory client on every turn for no gain.
         app.state.interviewer = Interviewer(
