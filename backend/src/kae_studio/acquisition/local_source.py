@@ -1,0 +1,296 @@
+"""Reading a repository that is already on this machine. **Read-only, confined.**
+
+`ADR-0006` — local execution is the canonical environment, and a local directory
+needs no credential, no GitHub App and no network. This is the provider that
+makes the repository-to-knowledge path reachable without waiting on `SRC-TOKEN`.
+
+## Why this file is more dangerous than the one beside it
+
+`github_source.py` reaches a remote service that authenticates it. This reaches
+**the filesystem of the host process**, over an HTTP API, in a deployment where
+`STUDIO_NO_AUTH` is on by decision. A `location` that accepts any path is
+`GET /etc/shadow` with extra steps, and a `path` that accepts `../` is the same
+thing wearing a repository name.
+
+So (`D-67`):
+
+- `KAE_LOCAL_SOURCE_ROOTS` names what may be read. **Unset means this provider
+  does not exist** — never "read anywhere". A local capability that switches
+  itself on by default is how a workstation feature becomes a hosted hole.
+- Every path is resolved *before* it is checked. `..`, a symlink pointing out of
+  the tree, and a symlink whose target moves later are then one case instead of
+  three patterns to match. Checking the string first is the classic mistake and
+  the guards assert against it specifically.
+- The confinement lives here rather than in a route, so it protects the routes
+  somebody adds next year as well as the ones that exist now.
+
+There is no method here that mutates anything, which is the property
+`github_source.py` opens by claiming and this file inherits deliberately.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import subprocess
+from pathlib import Path
+
+from .github_source import MAX_TREE_ENTRIES, SourceReadError
+
+#: Directories that are never material and are large enough to matter.
+SKIP = frozenset(
+    {
+        ".git",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        "dist",
+        "build",
+        ".next",
+        "target",
+    }
+)
+
+#: Above this, a file is carried as a reference rather than read (`ADR-0006`
+#: §22). Read into a prompt it is noise; read into Memory it is a file dump.
+MAX_FILE_BYTES = 1_000_000
+
+
+class LocalSourceUnavailable(RuntimeError):
+    """No roots are configured, in a sentence an operator can act on."""
+
+
+def configured_roots(environ: dict[str, str] | None = None) -> tuple[Path, ...]:
+    """The directories this deployment may read, resolved.
+
+    Empty when unset, and the caller builds no client at all — the same shape as
+    a missing GitHub credential, and for the same reason: a provider that cannot
+    say what it may reach must not answer.
+    """
+
+    raw = (environ if environ is not None else dict(os.environ)).get("KAE_LOCAL_SOURCE_ROOTS", "")
+    found = []
+    for entry in raw.split(os.pathsep):
+        candidate = entry.strip()
+        if not candidate:
+            continue
+        resolved = Path(candidate).expanduser().resolve()
+        if resolved.is_dir():
+            found.append(resolved)
+    return tuple(found)
+
+
+class LocalSourceClient:
+    """Describe a tree, read a file, resolve a revision. Nothing else."""
+
+    def __init__(self, roots: tuple[Path, ...]) -> None:
+        if not roots:
+            raise LocalSourceUnavailable(
+                "no local source roots are configured, so no directory may be read. "
+                "Set KAE_LOCAL_SOURCE_ROOTS to the directories KAE may read."
+            )
+        self._roots = roots
+
+    # -- confinement -------------------------------------------------------
+
+    def _within(self, candidate: Path) -> Path:
+        """Resolve, then check. Never the other way round.
+
+        `Path.resolve()` collapses `..` and follows symlinks, so what is checked
+        is the file that would actually be opened rather than the string that
+        was asked for. A check on the unresolved string passes for
+        `root/../../etc/passwd` and for a symlink planted inside the root.
+        """
+
+        resolved = candidate.expanduser().resolve()
+        for root in self._roots:
+            if resolved == root or root in resolved.parents:
+                return resolved
+        raise SourceReadError(404, "that path is not inside a directory KAE may read")
+
+    def _repo(self, location: str) -> Path:
+        path = self._within(Path(location))
+        if not path.is_dir():
+            raise SourceReadError(404, f"there is no directory at {location}")
+        return path
+
+    # -- capability --------------------------------------------------------
+
+    def repositories(self, query: str = "", limit: int = 100) -> tuple[list[dict], bool]:
+        """What this deployment was configured to reach.
+
+        GitHub's version of this answers *what this credential can see*. The
+        local answer is the same question with a different authority, which is
+        why the picker needs no second mode.
+
+        A root is itself offered when it is a repository; otherwise its
+        immediate children are, because `~/workspaces` is a container of
+        projects and not a project.
+        """
+
+        found: list[dict] = []
+        for root in self._roots:
+            candidates = [root] if (root / ".git").exists() else sorted(
+                child for child in root.iterdir() if child.is_dir() and child.name not in SKIP
+            )
+            for candidate in candidates:
+                found.append(
+                    {
+                        "full_name": str(candidate),
+                        "default_branch": _branch(candidate),
+                        "private": True,
+                        # What a person recognises it by. Never invented.
+                        "description": _describe(candidate),
+                        "updated_at": "",
+                    }
+                )
+
+        needle = query.strip().lower()
+        if needle:
+            found = [r for r in found if needle in r["full_name"].lower()]
+        return found[:limit], len(found) > limit
+
+    def check(self, repo: str) -> dict:
+        """What this deployment can do with this directory.
+
+        `can_write` is **always false**, and not because a permission was
+        checked: nothing in this file writes. Reporting the filesystem's opinion
+        would describe a capability the code does not have.
+        """
+
+        path = self._repo(repo)
+        return {
+            "account": str(path.parent),
+            "can_read": os.access(path, os.R_OK),
+            "can_write": False,
+            "default_branch": _branch(path),
+            "private": True,
+        }
+
+    # -- pinning -----------------------------------------------------------
+
+    def resolve(self, repo: str, reference: str) -> str:
+        """A reference to an immutable commit, or a digest of the tree.
+
+        A directory that is not a git repository still needs an identity a
+        finding can be traced to, and *"whatever was on disk that day"* is not
+        one. `git rev-parse` where there is git; a content digest where there is
+        not, which changes when the content changes and is the same promise by
+        other means.
+        """
+
+        path = self._repo(repo)
+        if (path / ".git").exists():
+            revision = _git(path, "rev-parse", reference or "HEAD")
+            if revision:
+                return revision
+        return self.digest(repo)
+
+    def digest(self, repo: str) -> str:
+        """A stable fingerprint of what is readable here (`ADR-0006` §23)."""
+
+        path = self._repo(repo)
+        running = hashlib.sha256()
+        for entry, size in sorted(_walk(path)):
+            running.update(entry.encode())
+            running.update(str(size).encode())
+        return running.hexdigest()
+
+    # -- reading -----------------------------------------------------------
+
+    def tree(self, repo: str, revision: str) -> tuple[list[dict], bool]:
+        """Every readable file, relative to the directory.
+
+        `revision` is accepted and unused: this reads the working tree, and
+        checking out a historical revision would mutate somebody's checkout,
+        which is the one thing a read-only client must never do. Stated rather
+        than silently ignored.
+        """
+
+        path = self._repo(repo)
+        entries = [
+            {"path": name, "size": size, "type": "blob"}
+            for name, size in sorted(_walk(path))
+        ]
+        return entries[:MAX_TREE_ENTRIES], len(entries) > MAX_TREE_ENTRIES
+
+    def read_file(self, repo: str, path: str, revision: str) -> str:
+        """One file's text, bounded.
+
+        Binary content is refused rather than mangled: a decode with
+        `errors="replace"` produces something that looks like text, extracts
+        into nonsense, and is traceable to a real file — which is worse than a
+        refusal a person can read.
+        """
+
+        root = self._repo(repo)
+        # Joined then confined, so `path` cannot climb out with `../`.
+        target = self._within(root / path)
+        if not target.is_file():
+            raise SourceReadError(404, f"there is no file at {path}")
+        if target.stat().st_size > MAX_FILE_BYTES:
+            raise SourceReadError(
+                413, f"{path} is larger than {MAX_FILE_BYTES} bytes and was not read"
+            )
+        try:
+            return target.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise SourceReadError(415, f"{path} is not text this deployment can read") from None
+        except OSError as error:
+            raise SourceReadError(403, f"{path} could not be read: {error.strerror}") from None
+
+
+def _walk(root: Path) -> list[tuple[str, int]]:
+    found: list[tuple[str, int]] = []
+    for current, directories, files in os.walk(root):
+        directories[:] = [d for d in directories if d not in SKIP and not d.startswith(".")]
+        for name in files:
+            full = Path(current) / name
+            try:
+                size = full.stat().st_size
+            except OSError:
+                # A dangling symlink or a file removed mid-walk. Skipped rather
+                # than failing the listing: one unreadable entry is not a
+                # reason to describe none of the repository.
+                continue
+            found.append((str(full.relative_to(root)), size))
+    return found
+
+
+def _git(path: Path, *arguments: str) -> str:
+    try:
+        done = subprocess.run(  # noqa: S603 - fixed executable, no shell
+            ["git", "-C", str(path), *arguments],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return done.stdout.strip() if done.returncode == 0 else ""
+
+
+def _branch(path: Path) -> str:
+    return _git(path, "rev-parse", "--abbrev-ref", "HEAD") or ""
+
+
+def _describe(path: Path) -> str:
+    """The first heading of a README, where there is one."""
+
+    for name in ("README.md", "README.rst", "README.txt", "README"):
+        readme = path / name
+        if not readme.is_file():
+            continue
+        try:
+            for line in readme.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip().lstrip("#").strip()
+                if stripped:
+                    return stripped[:200]
+        except (OSError, UnicodeDecodeError):
+            return ""
+    return ""
