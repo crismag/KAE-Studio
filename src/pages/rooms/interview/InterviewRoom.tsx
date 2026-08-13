@@ -51,10 +51,12 @@ import {
   useProjection,
   useSendMessage,
 } from '@/hooks/useProject'
+import { openBlockers } from '@/components/project/openBlockers'
 import type {
   ConversationMessage,
   CoverageTopic,
   OpenDecision,
+  ProjectBlocker,
   ProjectProjection,
 } from '@/domain/types'
 import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
@@ -404,6 +406,16 @@ const COVERAGE_WORD: Record<CoverageTopic['state'], string> = {
   notApplicable: 'not applicable',
 }
 
+/**
+ * Open blockers sitting in one area (`D-31`).
+ *
+ * Only open ones: a blocker somebody closed is not a reason an area is stuck,
+ * and showing it here would make the panel argue with the Dashboard.
+ */
+export function blockedBy(areaKey: string, blockers: ProjectBlocker[]): ProjectBlocker[] {
+  return openBlockers(blockers).filter((blocker) => blocker.areaKey === areaKey)
+}
+
 export function CoverageSection({
   projection,
   onDiscuss,
@@ -434,6 +446,16 @@ export function CoverageSection({
               </span>
             </p>
             <p className="text-[11.5px] leading-snug text-ink-subtle">{topic.detail}</p>
+            {/* `PLANNING_MODEL`'s `blocked`: *"another decision is required
+                first — dimmed, states the blocker"*. Beside the state rather
+                than as a sixth state, because Memory's `AreaState` cannot
+                produce one and a vocabulary this page invented alone would be
+                a fourth for one concept (`D-31`). */}
+            {blockedBy(topic.key, projection.blockers).map((blocker) => (
+              <p key={blocker.id} className="text-[11.5px] leading-snug text-blocking">
+                Blocked: {blocker.summary}
+              </p>
+            ))}
             {/* U4. Back into the conversation with the subject named, rather
                 than a second editing surface beside the one that works. */}
             {/* Nothing to discuss about an area that does not apply, and

@@ -32,6 +32,10 @@ function projection(): ProjectProjection {
         },
       ],
     },
+    // Present because the panel reads it. The cast below silences the type,
+    // so a field this component depends on has to be supplied deliberately —
+    // omitting it crashed the panel rather than rendering it without blockers.
+    blockers: [],
   } as unknown as ProjectProjection
 }
 
@@ -54,5 +58,67 @@ describe('starting work on an area', () => {
     render(<CoverageSection projection={strong} onDiscuss={() => {}} />)
 
     expect(screen.queryByRole('button', { name: /discuss this/i })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * `D-31` — an area with an open blocker says so.
+ *
+ * `PLANNING_MODEL.md` specifies seven area states with prescribed behaviour,
+ * including `blocked`: *"another decision is required first — dimmed, states
+ * the blocker."* KAE-Memory's `AreaState` has four and cannot produce one, so
+ * this arrives as a **caveat beside the state** rather than a sixth state.
+ *
+ * Inventing one here would have made a fourth vocabulary for a concept that
+ * already has three — the contract's seven, Memory's four, and Studio's five.
+ */
+describe('an area that is waiting on a person', () => {
+  function withBlockers(blockers: unknown[]): ProjectProjection {
+    return { ...projection(), blockers } as unknown as ProjectProjection
+  }
+
+  const BLOCKER = {
+    id: 'BLK-1',
+    summary: 'Nobody has confirmed which officer signs off.',
+    severity: 'critical',
+    status: 'open',
+    areaKey: 'scope_and_boundaries',
+    owner: 'Church leadership',
+    resolutionNote: null,
+  }
+
+  it('names the blocker sitting in that area', () => {
+    render(<CoverageSection projection={withBlockers([BLOCKER])} />)
+
+    expect(screen.getByText(/nobody has confirmed which officer signs off/i)).toBeInTheDocument()
+  })
+
+  it('leaves an area alone when the blocker belongs to another', () => {
+    render(<CoverageSection projection={withBlockers([{ ...BLOCKER, areaKey: 'approval' }])} />)
+
+    expect(screen.queryByText(/nobody has confirmed/i)).not.toBeInTheDocument()
+  })
+
+  it('does not report a closed blocker as still blocking', () => {
+    // A blocker somebody closed is not a reason an area is stuck, and showing
+    // it here would make this panel argue with the Dashboard.
+    render(<CoverageSection projection={withBlockers([{ ...BLOCKER, status: 'resolved' }])} />)
+
+    expect(screen.queryByText(/nobody has confirmed/i)).not.toBeInTheDocument()
+  })
+
+  it('says nothing when nothing is blocked', () => {
+    render(<CoverageSection projection={withBlockers([])} />)
+
+    expect(screen.queryByText(/^Blocked:/)).not.toBeInTheDocument()
+  })
+
+  it('does not invent a sixth state to carry it', () => {
+    // The caveat sits beside the state. A state Memory cannot produce would be
+    // a fourth vocabulary for one concept.
+    render(<CoverageSection projection={withBlockers([BLOCKER])} />)
+
+    expect(screen.getByText('thin')).toBeInTheDocument()
+    expect(screen.queryByText(/^blocked$/i)).not.toBeInTheDocument()
   })
 })
