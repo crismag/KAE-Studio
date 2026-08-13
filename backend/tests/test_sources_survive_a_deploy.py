@@ -117,6 +117,17 @@ class RecordingMemory:
     async def project_sources(self, project_id: str) -> list[dict[str, Any]]:
         return list(self.rows.get(project_id, []))
 
+    async def setup_state(self, project_id: str) -> dict[str, Any]:
+        """The shape the deployed `/v1/projects/{id}/setup` returns."""
+
+        return {
+            "project_id": project_id,
+            "configuration": {
+                field: {"value": value, "state": "confirmed", "in_use": True}
+                for field, value in self.configuration.get(project_id, {}).items()
+            },
+        }
+
     async def pin_source(
         self, project_id: str, source_id: str, body: dict[str, Any]
     ) -> dict[str, Any]:
@@ -639,3 +650,98 @@ class TestAPastedDocumentIsASource:
             client.__exit__(None, None, None)
 
         assert listed["sources"] == []
+
+
+class TestARepositoryNamedBeforeD23:
+    """The configured repository is a Source, however it got configured (`D-55`).
+
+    `D-23` registers it **on the write**, so every project configured before that
+    increment shipped names a repository and has no Source. Read from the live
+    host: *Cris Test 2* returns `primary_repository: crismag/KAE-Studio`,
+    `state: confirmed`, and a source list that is empty with `unavailable: ""` —
+    Memory was asked and holds nothing. The Sources Room then offers *"connect
+    one in Project setup"*, which is where the repository already is.
+
+    These fix the invariant rather than the rows: a named primary repository is
+    a Source no matter which path named it.
+    """
+
+    def test_a_repository_configured_without_studio_becomes_a_source(self) -> None:
+        memory = RecordingMemory()
+        # Written straight into the record, as a project configured before
+        # `D-23` was. No Studio route ran, so nothing registered anything.
+        memory.configuration["p1"] = {"primary_repository": "crismag/KAE-Studio"}
+
+        client = app_with(memory)
+        try:
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [s["location"] for s in listed["sources"]] == ["crismag/KAE-Studio"]
+        # `configured`, never `readable`: this path contacted no provider.
+        assert listed["sources"][0]["state"] == "configured"
+        # Registered durably, not conjured into the working set — a source with
+        # no id cannot be pinned, sampled or read, and one kind of Source is
+        # what `§7` is for.
+        assert memory.rows["p1"][0]["source_id"]
+
+    def test_repairing_twice_registers_once(self) -> None:
+        """A read is not a way to accumulate rows."""
+
+        memory = RecordingMemory()
+        memory.configuration["p1"] = {"primary_repository": "crismag/KAE-Studio"}
+
+        client = app_with(memory)
+        try:
+            client.get("/api/projects/p1/sources")
+            client.get("/api/projects/p1/sources")
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert memory.registrations == 1
+        assert len(listed["sources"]) == 1
+
+    def test_a_project_naming_no_repository_registers_nothing(self) -> None:
+        """The repair is bounded by the field, not by the project."""
+
+        memory = RecordingMemory()
+        memory.configuration["p1"] = {"primary_branch": "main"}
+
+        client = app_with(memory)
+        try:
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed["sources"] == []
+        assert memory.registrations == 0
+
+    def test_the_repair_never_disturbs_a_source_already_there(self) -> None:
+        """Changing the repository leaves the previous source alone (`D-23`).
+
+        The chosen scope is the evidence. Registration is idempotent by
+        `(kind, location)` and **overwrites `scope`**, so a repair that swept
+        every source rather than the one missing location would silently discard
+        the include paths somebody chose.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/sources",
+                json={**CONFIGURED, "connection_id": connect(client)},
+            )
+            # The same repository, named in Project Setup as well. This is the
+            # ordinary case, not a contrived one: somebody adds a source with
+            # include paths and then names that repository as the project's.
+            memory.configuration["p1"] = {"primary_repository": "kae/ministry-reporting"}
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [s["location"] for s in listed["sources"]] == ["kae/ministry-reporting"]
+        assert listed["sources"][0]["scope"]["include_paths"] == ["docs/", "src/"]
+        assert memory.rows["p1"][0]["scope"]["include_paths"] == ["docs/", "src/"]

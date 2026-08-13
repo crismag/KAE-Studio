@@ -1420,10 +1420,9 @@ def create_app(settings: Settings) -> FastAPI:
 
         from .acquisition.model import Source, SourceKind, SourceScope, SourceState
 
-        payload = await memory(request).project_sources(project_id)
-        for entry in payload if isinstance(payload, list) else []:
-            if not isinstance(entry, dict):
-                continue
+        def adopt(entry: dict[str, Any]) -> str:
+            """Take one durable record into the working set; return its location."""
+
             try:
                 kind = SourceKind(entry.get("kind", ""))
                 state = SourceState(entry.get("state", "configured"))
@@ -1431,15 +1430,16 @@ def create_app(settings: Settings) -> FastAPI:
                 # A kind or state this deployment does not know. Skipped rather
                 # than coerced: a source rendered under the wrong kind is worse
                 # than one a newer Studio will show.
-                continue
+                return ""
             scope = entry.get("scope") or {}
+            location = str(entry.get("location", ""))
             acquisition(request).adopt(
                 Source(
                     source_id=str(entry.get("source_id", "")),
                     project_id=project_id,
                     kind=kind,
                     connection_id=str(entry.get("connection_id") or ""),
-                    location=str(entry.get("location", "")),
+                    location=location,
                     reference=str(scope.get("reference", "")),
                     scope=SourceScope(
                         include_paths=tuple(scope.get("include_paths", ())),
@@ -1452,6 +1452,48 @@ def create_app(settings: Settings) -> FastAPI:
                     state=state,
                 )
             )
+            return location
+
+        payload = await memory(request).project_sources(project_id)
+        known = {
+            adopt(entry)
+            for entry in (payload if isinstance(payload, list) else [])
+            if isinstance(entry, dict)
+        }
+
+        # The repository named in Project Setup **is** a Source (`§7`, `D-23`).
+        # `D-23` asserted that on the write and nothing re-asserted it after, so
+        # every project configured before it shipped names a repository and has
+        # no Source — the Sources Room sends those people to Project Setup, where
+        # their repository already is. That was the whole defect `D-23` recorded
+        # as closed, still open on all existing data (`D-55`).
+        #
+        # Reconciled here rather than backfilled by migration so the invariant
+        # holds for any future path that sets the field without passing through
+        # Studio. Bounded to one field, idempotent by `(kind, location)` on
+        # Memory's side, and additive: nothing is renamed or removed.
+        setup = await memory(request).setup_state(project_id)
+        configured = ""
+        if isinstance(setup, dict):
+            field = (setup.get("configuration") or {}).get("primary_repository")
+            if isinstance(field, dict):
+                configured = str(field.get("value") or "").strip()
+
+        if configured and configured not in known:
+            registered = await memory(request).register_source(
+                project_id,
+                {
+                    "kind": "github",
+                    "location": configured,
+                    # `configured`, for `D-23`'s reason: naming a repository is
+                    # not reaching one, and this path has contacted nothing.
+                    "state": "configured",
+                    "connection_id": None,
+                    "scope": {},
+                },
+            )
+            if isinstance(registered, dict):
+                adopt(registered)
 
     @app.get("/api/projects/{project_id}/sources")
     async def list_sources(
