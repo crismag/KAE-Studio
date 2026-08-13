@@ -23,7 +23,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { ProjectDefinition } from './ProjectDefinition'
+import { ProjectDefinition } from '@/pages/rooms/definition/DefinitionRoom'
 import { CoverageSection } from '@/pages/rooms/interview/InterviewRoom'
 import { SectionsNotRead } from '@/components/project/SectionsNotRead'
 import { sectionsNotRead } from '@/components/project/sectionsNotRead'

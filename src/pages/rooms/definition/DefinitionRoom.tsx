@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Ban, Check } from 'lucide-react'
-import { PreliminaryContextPanel } from '@/components/project/PreliminaryContextPanel'
+import { PreliminaryContextPanel } from './PreliminaryContextPanel'
 import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
