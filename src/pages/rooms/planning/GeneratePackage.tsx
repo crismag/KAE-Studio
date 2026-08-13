@@ -33,7 +33,7 @@ import {
 } from 'lucide-react'
 import { useServices } from '@/hooks/useServices'
 import { useProjection } from '@/hooks/useProject'
-import { FitFor } from '@/components/project/FitFor'
+import { FitFor } from './FitFor'
 import { readHandle, writeHandle } from './pipelineHandle'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/plural'

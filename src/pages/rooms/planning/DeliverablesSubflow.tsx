@@ -15,7 +15,7 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { useDeliverables, useProjection } from '@/hooks/useProject'
-import { GeneratePackage } from '@/components/project/GeneratePackage'
+import { GeneratePackage } from './GeneratePackage'
 import type { Deliverable, DeliverableState } from '@/domain/types'
 
 const STATE_META: Record<
