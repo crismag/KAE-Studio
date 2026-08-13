@@ -5,7 +5,7 @@ import { StageReadiness } from '@/components/project/StageReadiness'
 import { prerequisitesFor } from '@/components/project/stagePrerequisites'
 import { useProjection } from '@/hooks/useProject'
 import { Button, Panel, PanelBody, PanelHeader, PanelTitle } from '@/components/ui/primitives'
-import { ArchitectureDiagram } from '@/components/project/ArchitectureDiagram'
+import { ArchitectureDiagram } from './ArchitectureDiagram'
 
 export function Architecture() {
   const { data: projection } = useProjection()

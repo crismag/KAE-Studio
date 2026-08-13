@@ -23,7 +23,7 @@
 
 import type { ReactElement } from 'react'
 
-import { Architecture } from '@/app/routes/Architecture'
+import { Architecture } from '@/pages/rooms/architecture/ArchitectureRoom'
 import { Dashboard } from '@/app/routes/Dashboard'
 import { Deliverables } from '@/app/routes/Deliverables'
 import { Dependencies } from '@/app/routes/Dependencies'
