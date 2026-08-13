@@ -106,7 +106,13 @@ describe('what ships asserts nothing it cannot source', () => {
     const files = shippingSources().map((s) => s.file)
 
     expect(files.some((f) => f.startsWith('components/'))).toBe(true)
-    expect(files.some((f) => f.startsWith('app/routes/'))).toBe(true)
+    // `pages/`, not `app/routes/`. `STAGE-2b` moved every page into a Room or
+    // page folder, so `app/routes/` now holds only tests and this assertion
+    // stopped being true of a directory that had stopped having pages in it.
+    //
+    // The claim is unchanged — the scan must reach the surfaces a person sees —
+    // and it is re-anchored to where they now live rather than relaxed.
+    expect(files.some((f) => f.startsWith('pages/'))).toBe(true)
     expect(files.some((f) => f.startsWith('services/live/'))).toBe(true)
     expect(files.every((f) => !f.startsWith(MOCK_LAYER))).toBe(true)
   })

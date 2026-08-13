@@ -29,7 +29,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
 import { RepositoryPicker } from './RepositoryPicker'
-import { ProjectSettings } from '@/app/routes/ProjectSettings'
+import { ProjectSettings } from '@/pages/settings/SettingsPage'
 import type { AcquisitionPort, StudioServices } from '@/services/interfaces'
 
 function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): StudioServices {
