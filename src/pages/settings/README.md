@@ -51,10 +51,6 @@ is now the one the data can answer (`D-60`).
 so a revoke control would be a button with no write behind it — `§19`, and the
 same reason `Publish` states its prerequisite rather than failing at the end.
 
-**Agent activity is named and empty on purpose.** The panel says the capability
-is not implemented rather than rendering an empty list, because an empty list
-reads as *nothing happened*.
-
 Nothing on this belt belongs in global navigation, and nothing here selects a
 resource — that is `/setup`'s and the Rooms' (`§6`).
 

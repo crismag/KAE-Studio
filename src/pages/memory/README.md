@@ -47,6 +47,11 @@ the previous version filtered to records with an inline trace, and since the
 adapter set `trace: []` on every one, the page whose whole job is provenance
 rendered a heading, a badge reading `0`, and an empty list (`AUD-004`).
 
+**Agent activity is named and empty on purpose.** The panel states that the
+capability is not implemented rather than rendering an empty list, because an
+empty list reads as *nothing happened*. It lives here and was described by the
+Settings contract for a while, which rendered no such panel (`D-61`).
+
 Nothing else. There is no editing here, and no confirming: this page is a
 window.
 
@@ -64,7 +69,8 @@ None. Nothing is completed here.
 ## Owns
 
 `MemoryPage.tsx`, and `RecordProvenance` within it — the on-demand trace reader,
-which nothing else uses.
+which nothing else uses. Its three panels — *Knowledge and its evidence*, *What
+Studio currently remembers* and *Agent activity* — are all this page's.
 
 ## Does **not** own
 

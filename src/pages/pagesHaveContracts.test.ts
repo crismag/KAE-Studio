@@ -97,3 +97,68 @@ describe('every page folder states its contract', () => {
     expect(section.trim().length, `${folder} lists no boundary`).toBeGreaterThan(80)
   })
 })
+
+/**
+ * `D-61` — a contract may not claim a panel that its own folder does not render.
+ *
+ * The Settings contract described an *Agent activity* panel in its **Contextual
+ * toolbelt**. That panel is on the Memory page; `SettingsPage.tsx` renders one,
+ * *What KAE may reach*. Third contract-versus-code defect in two ticks (`D-60`,
+ * and `D-49` before it), the same shape each time: prose right about the product
+ * and wrong about which file does it.
+ *
+ * ## Why this rule and not the obvious one
+ *
+ * *A contract names its panels* is true nowhere — nine of ten folders render
+ * panels their contract never lists, deliberately, because a contract describes
+ * responsibilities and not markup. Asserted, it would fail everywhere and be
+ * deleted within the week.
+ *
+ * One direction is true, and only inside the two sections that assert ownership.
+ * A `## Does **not** own` section naming another page's panel to disclaim it
+ * stays legal — that is what those sections are for.
+ */
+describe('a contract does not claim another page’s panel', () => {
+  const paths = pageFolders()
+  const CLAIMS = ['## Contextual toolbelt', '## Owns']
+
+  function claimingSections(readme: string): string {
+    return CLAIMS.map((heading) => {
+      const start = readme.indexOf(heading)
+      if (start === -1) return ''
+      const next = readme.indexOf('\n## ', start + heading.length)
+      return readme.slice(start, next === -1 ? undefined : next)
+    }).join('\n')
+  }
+
+  const owner = new Map<string, string>()
+  for (const path of paths) {
+    for (const file of readdirSync(path)) {
+      if (!file.endsWith('.tsx') || file.includes('.test.')) continue
+      for (const [, title] of readFileSync(join(path, file), 'utf8').matchAll(
+        /<PanelTitle>([^<{]+)<\/PanelTitle>/g,
+      )) {
+        const name = title.trim()
+        // Two words at least. Single-word titles — *Rooms*, *Understanding* —
+        // are ordinary English and match prose that is not a claim about a
+        // panel at all: every contract mentioning "the Rooms'" would fail. A
+        // narrower guard that holds beats a broader one that gets deleted.
+        if (name.split(/\s+/).length > 1) owner.set(name, path)
+      }
+    }
+  }
+
+  it('found panels to check', () => {
+    // Guards the guard: an empty map passes every assertion below vacuously.
+    expect(owner.size).toBeGreaterThan(0)
+  })
+
+  it.each(paths)('%s claims only panels it renders', (path) => {
+    const claimed = claimingSections(readFileSync(join(path, 'README.md'), 'utf8'))
+    const foreign = [...owner.entries()]
+      .filter(([name, at]) => at !== path && claimed.includes(name))
+      .map(([name, at]) => `${name} (rendered in ${at})`)
+
+    expect(foreign).toEqual([])
+  })
+})
