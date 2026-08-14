@@ -59,6 +59,7 @@ function withRuns(rows: () => AgentRunRecord[]): StudioServices {
     ...base,
     ingestion: {
       ingestText: (projectId, document) => port.ingestText(projectId, document),
+      decodeUpload: (file) => port.decodeUpload(file),
       runs: async () => rows(),
       coverage: (projectId) => port.coverage(projectId),
     },

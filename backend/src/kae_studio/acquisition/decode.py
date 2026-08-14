@@ -106,12 +106,12 @@ def _kind(filename: str, content_type: str) -> str:
 
 def _pdf(data: bytes) -> tuple[str, list[str]]:
     try:
-        import fitz  # PyMuPDF
+        import pymupdf
     except ImportError as error:
         raise DecodeError("PDF reading is not installed on this Studio.") from error
 
     try:
-        document = fitz.open(stream=data, filetype="pdf")
+        document = pymupdf.open(stream=data, filetype="pdf")
     except Exception as error:
         raise DecodeError(
             "This file could not be read as a PDF. It may be damaged. Paste the text if you have it."

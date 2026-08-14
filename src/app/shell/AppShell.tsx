@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -18,6 +19,7 @@ import {
   MessagesSquare,
   PanelsTopLeft,
   ScanSearch,
+  ChevronRight,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
@@ -25,15 +27,14 @@ import { Badge, Button } from '@/components/ui/primitives'
 import { useActiveProject } from '@/app/shell/activeProject'
 import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
 import { useProject, useProjection } from '@/hooks/useProject'
-import { SURFACES } from '@/app/registries/rooms'
+import { SURFACES, surfacesInGroup } from '@/app/registries/rooms'
 import { useServices } from '@/hooks/useServices'
+import { projectCounts } from '@/lib/counts'
 
 interface NavItem {
   to: string
   label: string
   icon: typeof MessagesSquare
-  /** Advanced/system-layer items sit below a separator. */
-  system?: boolean
 }
 
 /**
@@ -61,15 +62,19 @@ const ICONS: Record<string, NavItem['icon']> = {
   memory: Database,
 }
 
-/** Settings and Memory sit below the separator; everything else is work. */
-const SYSTEM = new Set(['project-settings', 'memory'])
-
 const NAV: NavItem[] = SURFACES.map((surface) => ({
   to: surface.route,
   label: surface.title,
   icon: ICONS[surface.id] ?? Database,
-  system: SYSTEM.has(surface.id),
 }))
+
+function navItems(group: Parameters<typeof surfacesInGroup>[0]): NavItem[] {
+  return surfacesInGroup(group).map((surface) => ({
+    to: surface.route,
+    label: surface.title,
+    icon: ICONS[surface.id] ?? Database,
+  }))
+}
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const { data: projection } = useProjection()
@@ -87,9 +92,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   // wrong is that the live adapter graded every material unknown `major`, so
   // `critical` was unreachable and the badge could never appear. Severity now
   // means the same thing on both adapters, and the rule stands unchanged.
-  const needsAttention = projection?.findings.filter((f) => f.severity === 'critical').length ?? 0
-  const workItems = NAV.filter((n) => !n.system)
-  const systemItems = NAV.filter((n) => n.system)
+  const needsAttention = projection ? projectCounts(projection).criticalAwaitingDecision : 0
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon
@@ -117,12 +120,15 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             <span className="truncate">{item.label}</span>
             {showCount && (
               <span
-                className="ml-auto rounded bg-attention-soft px-1.5 py-px text-[11px] font-medium text-attention"
-                // Spoken, because "3" beside "Reviews" is ambiguous to anyone
-                // not looking at the screen — and ambiguous to most who are.
-                aria-label={`${needsAttention} need review`}
+                className="ml-auto shrink-0 rounded bg-attention-soft px-1.5 py-px text-[11px] font-medium text-attention"
+                // **The noun, on screen and not only to a screen reader**
+                // (`NAV-01`). A bare `59` beside "Reviews" was ambiguous to
+                // anyone not looking and to most who were: 59 findings? 59
+                // items? 59 things wrong with the idea? The word is three
+                // characters and removes the guess.
+                aria-label={`${needsAttention} critical, needing review`}
               >
-                {needsAttention}
+                {needsAttention} critical
               </span>
             )}
           </>
@@ -133,15 +139,61 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav aria-label="Project sections" className="flex flex-col gap-0.5 px-2">
-      {workItems.map(renderItem)}
-      <div className="my-2 px-2.5">
-        <div className="h-px bg-line" />
-        <p className="pt-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-ink-subtle">
-          Advanced
-        </p>
-      </div>
-      {systemItems.map(renderItem)}
+      {navItems('primary').map(renderItem)}
+      {/* **Open-able, never hidden** (`NAV-01`). Fourteen equal entries gave a
+          reader no way to tell which are the product; deleting ten would take
+          away pages that answer real questions. A section that opens does
+          neither. */}
+      <Section label="Understanding" hint="What the project knows, and why">
+        {navItems('understanding').map(renderItem)}
+      </Section>
+      <Section label="Settings" hint="How this project is set up">
+        {navItems('settings').map(renderItem)}
+      </Section>
     </nav>
+  )
+}
+
+/**
+ * A named group of destinations, closed until somebody wants it.
+ *
+ * `<details>` rather than state: it is keyboard-operable, screen readers
+ * announce it as expandable, and a deep link into a page inside it still works
+ * whether or not the section has been opened — which a conditionally rendered
+ * list would not guarantee.
+ */
+function Section({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint: string
+  children: React.ReactNode
+}) {
+  const location = useLocation()
+  const routes = React.Children.toArray(children)
+  // Open when the reader is already inside it. Landing on a page whose section
+  // is shut reads as "this page is not in the menu".
+  const inside = routes.some(
+    (child) =>
+      React.isValidElement<{ to?: string }>(child) &&
+      typeof child.props.to === 'string' &&
+      location.pathname.startsWith(child.props.to),
+  )
+
+  return (
+    <details open={inside} className="group/section mt-1.5">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2.5 py-[7px] text-[11px] font-semibold uppercase tracking-wider text-ink-subtle hover:text-ink-muted">
+        <ChevronRight
+          className="size-3 shrink-0 transition-transform group-open/section:rotate-90"
+          aria-hidden="true"
+        />
+        {label}
+        <span className="sr-only"> — {hint}</span>
+      </summary>
+      <div className="flex flex-col gap-0.5 pt-0.5">{children}</div>
+    </details>
   )
 }
 

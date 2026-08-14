@@ -43,6 +43,26 @@
 
 export type SurfaceKind = 'room' | 'surface' | 'settings'
 
+/**
+ * Where a surface sits in the navigation (`NAV-01`, `D-95`).
+ *
+ * The live sweep counted the interactive controls on all fourteen destinations.
+ * Six of them — Definition, Modules, Architecture, Dependencies, Plan, Memory —
+ * have **two buttons each, and both belong to the shell**. Nothing on those
+ * pages can be operated. They were given the same weight in the sidebar as the
+ * four rooms where work actually happens, so a first-time reader met fourteen
+ * equal choices and no way to tell which four were the product.
+ *
+ * The rule this encodes: **a `primary` destination can be operated.** A page
+ * whose only controls belong to the shell is something you *read*, and reading
+ * is what `understanding` is for.
+ *
+ * Nothing is removed. Every route still resolves, every deep link still works,
+ * and the grouped sections are open-able rather than hidden — `§18`'s guardrail
+ * and the reason this is a navigation change and not a deletion.
+ */
+export type SurfaceGroup = 'primary' | 'understanding' | 'settings'
+
 export type SurfaceReadiness = 'live' | 'partial' | 'awaiting-capability'
 
 export interface SurfaceDefinition {
@@ -51,6 +71,14 @@ export interface SurfaceDefinition {
   title: string
   route: string
   kind: SurfaceKind
+  /**
+   * Which navigation section this belongs to.
+   *
+   * Distinct from `kind`, which says what a surface *is*. A `room` can be
+   * `understanding` — Architecture is a Room by intent and a reading surface in
+   * practice, because nothing on it can be operated yet.
+   */
+  group: SurfaceGroup
   /** What a person comes here to do, in one sentence. */
   purpose: string
   readiness: SurfaceReadiness
@@ -70,6 +98,7 @@ export interface SurfaceDefinition {
 export const SURFACES: SurfaceDefinition[] = [
   {
     id: 'dashboard',
+    group: 'primary',
     title: 'Project home',
     route: '/dashboard',
     kind: 'surface',
@@ -80,6 +109,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'setup',
+    group: 'settings',
     title: 'Project Setup',
     route: '/setup',
     kind: 'surface',
@@ -94,6 +124,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'interview',
+    group: 'primary',
     title: 'Workspace',
     route: '/workspace',
     kind: 'room',
@@ -102,16 +133,18 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'sources',
+    group: 'primary',
     title: 'Sources',
     route: '/sources',
     kind: 'room',
     purpose: 'Everything this project reads from, and what KAE did with it',
     readiness: 'partial',
     limit:
-      'Repositories and pasted text. KAE cannot decode uploaded files, and URLs and transcripts are not source kinds yet.',
+      'Repositories, pasted text, and uploaded PDF, Word, Excel or text files. URLs and transcripts are not source kinds yet.',
   },
   {
     id: 'definition',
+    group: 'understanding',
     title: 'Project Definition',
     route: '/definition',
     kind: 'room',
@@ -122,6 +155,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'requirements',
+    group: 'understanding',
     title: 'Requirements',
     route: '/requirements',
     kind: 'surface',
@@ -132,6 +166,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'modules',
+    group: 'understanding',
     title: 'Modules',
     route: '/modules',
     kind: 'surface',
@@ -142,6 +177,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'architecture',
+    group: 'understanding',
     title: 'Architecture',
     route: '/architecture',
     kind: 'room',
@@ -157,6 +193,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'dependencies',
+    group: 'understanding',
     title: 'Dependencies',
     route: '/dependencies',
     kind: 'surface',
@@ -172,6 +209,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'planning',
+    group: 'understanding',
     title: 'Plan',
     route: '/plan',
     kind: 'room',
@@ -180,17 +218,8 @@ export const SURFACES: SurfaceDefinition[] = [
     limit: 'Planning coverage is not measured. The page states what it is waiting for.',
   },
   {
-    id: 'deliverables',
-    title: 'Deliverables',
-    route: '/deliverables',
-    kind: 'surface',
-    partOf: 'planning',
-    purpose: 'Generate a development package and send it somewhere',
-    readiness: 'partial',
-    limit: 'Publishing is disabled on this deployment, so no destination has been proved writable.',
-  },
-  {
     id: 'review',
+    group: 'primary',
     title: 'Reviews',
     route: '/reviews',
     kind: 'room',
@@ -209,7 +238,19 @@ export const SURFACES: SurfaceDefinition[] = [
       'contradictions, duplicates and open blockers arrive from KAE-Memory’s review.',
   },
   {
+    id: 'deliverables',
+    group: 'primary',
+    title: 'Deliverables',
+    route: '/deliverables',
+    kind: 'surface',
+    partOf: 'planning',
+    purpose: 'Generate a development package and send it somewhere',
+    readiness: 'partial',
+    limit: 'Publishing is disabled on this deployment, so no destination has been proved writable.',
+  },
+  {
     id: 'project-settings',
+    group: 'settings',
     title: 'GitHub',
     route: '/settings/project',
     kind: 'settings',
@@ -218,6 +259,7 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'memory',
+    group: 'understanding',
     title: 'Memory',
     route: '/memory',
     kind: 'surface',
@@ -227,6 +269,17 @@ export const SURFACES: SurfaceDefinition[] = [
       'Agent activity is not implemented; the panel says so rather than showing an empty list.',
   },
 ]
+
+/**
+ * The surfaces in one navigation section, in registry order.
+ *
+ * The order is the registry's, so *what the sidebar shows* and *what order it
+ * shows it in* stay one fact in one file. A second array here would be the
+ * fourth place surface identity lives, which is what this registry replaced.
+ */
+export function surfacesInGroup(group: SurfaceGroup): SurfaceDefinition[] {
+  return SURFACES.filter((surface) => surface.group === group)
+}
 
 /** Rooms only, in registry order. What a Room switcher or Dashboard offers. */
 export const ROOMS = SURFACES.filter((surface) => surface.kind === 'room')

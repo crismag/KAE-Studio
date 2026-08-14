@@ -14,11 +14,12 @@
  * ## What is real here, and what is not
  *
  * **Paste is completely real** and rides a path that has been in production for
- * weeks. **Repository files are real** and reached from `/sources`. **Upload is
- * not**, and it renders as a stated gap rather than a drop zone that fails:
- * there is no bytes path, no MIME handling and no file decode anywhere in the
- * estate, and a control that accepted a PDF and then lost it would be exactly
- * the illusion this product spent a week removing.
+ * weeks. **Repository files are real** and reached from `/sources`. **Upload
+ * is real for digital text** — PDF, Word, Excel, CSV, and plain text are
+ * decoded on Studio's backend, previewed, then ingested through the same
+ * path paste uses. Scanned PDFs, legacy `.doc`, images and zip are refused
+ * rather than accepted and emptied. This is not analysis: extraction still
+ * proposes, and a person still confirms.
  *
  * ## Why the runs are on this page
  *
@@ -34,7 +35,6 @@ import { useState } from 'react'
 import { AlertTriangle, FileText, FolderGit2, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { plural } from '@/lib/plural'
 import { PageLayout } from '@/components/project/PageLayout'
 import { readFailure, readRole } from './runVocabulary'
@@ -52,6 +52,7 @@ import {
 import { QueryState } from '@/components/ui/QueryState'
 import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs'
 import {
+  useDecodeUpload,
   useExtractionCoverage,
   useIngestText,
   useRuns,
@@ -91,7 +92,7 @@ export function Intake() {
             <FromRepository />
           </TabPanel>
           <TabPanel value="upload">
-            <UploadIsNotBuilt />
+            <UploadDocument />
           </TabPanel>
         </Tabs>
 
@@ -175,7 +176,7 @@ export function PasteDocument() {
  * that is to paste it again.
  */
 function DocumentsGiven() {
-  const documents = useSourcesOfKind(['paste'])
+  const documents = useSourcesOfKind(['paste', 'upload'])
   // The same illusion the Repositories tab had, one tab over, and found by
   // re-scanning this change rather than by anybody hitting it: if the record
   // cannot be read, this section is simply absent — and absent here reads as
@@ -326,26 +327,134 @@ function FromRepository() {
 }
 
 /**
- * A gap, not a drop zone.
+ * Decode on the trusted backend, preview, then ingest through the paste path.
  *
- * There is no bytes path, no MIME handling and no file decode anywhere in the
- * estate. A zone that accepted a PDF and lost it would be worse than this.
+ * Types we cannot read are refused here, not accepted and emptied. A scanned
+ * PDF that yields almost no text is a warning the person sees before they
+ * confirm. Bytes never go to Memory; text does, as origin `upload`.
  */
-export function UploadIsNotBuilt() {
+export function UploadDocument() {
+  const decode = useDecodeUpload()
+  const ingest = useIngestText()
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+  const [warnings, setWarnings] = useState<string[]>([])
+  const decodeError = decode.error instanceof Error ? decode.error.message : null
+  const ingestError = ingest.error instanceof Error ? ingest.error.message : null
+
+  async function onFile(file: File | undefined) {
+    ingest.reset()
+    decode.reset()
+    setTitle('')
+    setText('')
+    setWarnings([])
+    if (!file) return
+    try {
+      const decoded = await decode.mutateAsync(file)
+      setTitle(decoded.suggestedTitle)
+      setText(decoded.text)
+      setWarnings(decoded.warnings)
+    } catch {
+      /* surfaced via decode.error */
+    }
+  }
+
   return (
     <Panel>
-      <PanelBody className="space-y-3">
-        <CapabilityNote
-          reason="KAE cannot read files yet. Nothing in the system decodes PDF, Word or other formats — there is no upload path at all, so a drop zone here would accept a file and lose it."
-          proved={[
-            'Pasting the text from a file works completely, and is the same path a file would take once decoding exists.',
-            'Files already in a connected repository can be read now, because they arrive as text.',
-          ]}
-        />
-        <p className="text-[12px] leading-relaxed text-ink-muted">
-          Reading files needs decoding, size and type limits, and a decision about where large
-          documents are stored — that last one is settled, and the rest is not built.
-        </p>
+      <PanelBody className="space-y-4">
+        <div className="max-w-2xl space-y-4">
+          <Field
+            label="The file"
+            hint="PDF, Word (.docx), Excel (.xlsx), CSV, or text. Scanned PDFs and legacy .doc are not read."
+            required
+          >
+            {(props) => (
+              <input
+                id={props.id}
+                aria-describedby={props['aria-describedby']}
+                type="file"
+                accept=".pdf,.docx,.xlsx,.csv,.txt,.md,.markdown,application/pdf,text/plain,text/csv,text/markdown"
+                className="block w-full text-[13px] text-ink file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-2.5 file:py-1 file:text-[12.5px] file:text-ink"
+                onChange={(event) => void onFile(event.target.files?.[0])}
+              />
+            )}
+          </Field>
+
+          {decode.isPending && (
+            <p className="text-[12.5px] text-ink-muted">Reading the file on this Studio…</p>
+          )}
+
+          {decodeError && (
+            <p role="alert" className="text-[12.5px] leading-relaxed text-blocking">
+              {decodeError}
+            </p>
+          )}
+
+          {warnings.map((warning) => (
+            <p
+              key={warning}
+              role="status"
+              className="rounded-panel border border-attention-line bg-attention-soft px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink"
+            >
+              {warning}
+            </p>
+          ))}
+
+          {text ? (
+            <>
+              <Field
+                label="What is this?"
+                hint="Shown beside every statement KAE takes from it."
+                required
+              >
+                {(props) => (
+                  <Input
+                    {...props}
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="Q3 brief"
+                  />
+                )}
+              </Field>
+              <Field
+                label="What KAE will read"
+                hint="Change this if the extraction missed something, or to drop pages that do not belong."
+                required
+              >
+                {(props) => (
+                  <Textarea
+                    {...props}
+                    rows={12}
+                    value={text}
+                    onChange={(event) => setText(event.target.value)}
+                  />
+                )}
+              </Field>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="primary"
+                  onClick={() => ingest.mutate({ title, text, origin: 'upload' })}
+                  disabled={!title.trim() || !text.trim() || ingest.isPending}
+                >
+                  {ingest.isPending ? 'Reading…' : 'Read this'}
+                </Button>
+                <span className="text-[11.5px] text-ink-subtle">
+                  {text.trim().length.toLocaleString()} characters
+                </span>
+              </div>
+            </>
+          ) : null}
+
+          {ingestError && (
+            <p role="alert" className="text-[12.5px] leading-relaxed text-blocking">
+              {ingestError}
+            </p>
+          )}
+        </div>
+
+        {ingest.data && <IngestResult outcome={ingest.data} />}
+
+        <DocumentsGiven />
       </PanelBody>
     </Panel>
   )

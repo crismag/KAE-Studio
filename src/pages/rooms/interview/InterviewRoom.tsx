@@ -799,11 +799,11 @@ export function Composer({
                 of the product — the most prominent dead control in Studio, in
                 its main surface, and `AUD-022`'s remaining half.
 
-                It goes to `/ingestion` rather than opening a file picker,
-                because KAE still cannot read files: there is no bytes path or
-                decode anywhere in the estate. Sending somebody to the page that
-                *can* take their document is the honest version of this
-                affordance, and it is why the page had to exist first. */}
+                It goes to `/ingestion` rather than opening a file picker here,
+                because that page is where a person pastes text or uploads a
+                file, sees what KAE will read, and confirms. Sending somebody
+                to the page that *can* take their document is the honest version
+                of this affordance, and it is why the page had to exist first. */}
             <Button variant="ghost" size="icon" asChild title="Give KAE a document to read">
               <Link to="/ingestion">
                 <Paperclip className="size-4" aria-hidden="true" />

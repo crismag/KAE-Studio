@@ -56,6 +56,7 @@ import {
 import { QueryState } from '@/components/ui/QueryState'
 import { ROOMS, SURFACES, type SurfaceDefinition } from '@/app/registries/rooms'
 import { useProjection } from '@/hooks/useProject'
+import { projectCounts } from '@/lib/counts'
 import type { ProjectProjection } from '@/domain/types'
 
 export function Dashboard() {
@@ -181,17 +182,19 @@ function Journey({ projection }: { projection: ProjectProjection }) {
  * rendered — a permanent list of zeroes is the *"Reviews 81"* problem inverted.
  */
 function NeedsYou({ projection }: { projection: ProjectProjection }) {
-  const proposed = projection.findings.length
-  const decisions = projection.openDecisions.filter((decision) => !decision.deferred).length
-  const contradictions = projection.contradictions.count
+  // From `projectCounts`, never recomputed here (`D-96`). Two pages counting
+  // the same thing their own way is how "174 proposed statements" came to sit
+  // beside a tab strip totalling 180.
+  const counts = projectCounts(projection)
+  const proposed = counts.awaitingDecision
+  const decisions = counts.openDecisions
+  const contradictions = counts.unresolvedContradictions
   const lost = projection.extractionCoverage && !projection.extractionCoverage.complete
   // What is outstanding on this page but held by another panel. Only critical
   // review findings: every project of any size has minor ones, and a "needs
   // you" panel that is never empty is one nobody reads — which would destroy
   // the signal this exists to protect.
-  const elsewhere =
-    openBlockers(projection.blockers).length +
-    projection.review.findings.filter((finding) => finding.severity === 'critical').length
+  const elsewhere = openBlockers(projection.blockers).length + counts.criticalReviewFindings
 
   const items = [
     proposed > 0 && {

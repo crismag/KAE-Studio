@@ -23,6 +23,7 @@ import {
 import { EmptyState } from '@/components/ui/primitives'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { useConfirmFinding, useProjection, useRejectFinding } from '@/hooks/useProject'
+import { projectCounts } from '@/lib/counts'
 import type { FindingKind, ReviewFinding } from '@/domain/types'
 
 /**
@@ -212,7 +213,9 @@ export function Reviews() {
     )
   }
 
-  const critical = projection.findings.filter((f) => f.severity === 'critical').length
+  // From `projectCounts` (`D-96`), so this badge and the sidebar's cannot drift.
+  const counts = projectCounts(projection)
+  const critical = counts.criticalAwaitingDecision
 
   // Reachable again: the live adapter grades a material unknown `critical`
   // rather than `major`, so this counter can move. It could not before, and sat
@@ -226,7 +229,7 @@ export function Reviews() {
       actions={
         <div className="flex gap-2">
           <Badge tone={critical > 0 ? 'blocking' : 'confirmed'}>{critical} critical</Badge>
-          <Badge tone="neutral">{projection.findings.length} awaiting review</Badge>
+          <Badge tone="neutral">{counts.awaitingDecision} awaiting review</Badge>
         </div>
       }
     >

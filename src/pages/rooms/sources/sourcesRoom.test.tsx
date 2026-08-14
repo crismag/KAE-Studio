@@ -332,21 +332,15 @@ describe('one Source abstraction, not two pages', () => {
     expect(screen.getByRole('button', { name: /read this/i })).toBeInTheDocument()
   })
 
-  it('still states the file gap rather than offering a drop zone', async () => {
-    /**
-     * The claim survives `D-80`; where it is said changed. It used to be a
-     * panel on a Files tab, announced whether or not anybody wanted a file.
-     * Now the option is in the menu and says what it needs when reached for —
-     * `D-78`'s rule, and still never a drop zone that would accept something
-     * KAE cannot decode.
-     */
+  it('takes an uploaded file without leaving the room', async () => {
     const user = userEvent.setup()
     renderSources((services) => withPinnedSource(services))
 
     await user.click(await screen.findByRole('button', { name: /add a source/i }))
+    await user.click(screen.getByRole('button', { name: /upload a file/i }))
 
-    expect(screen.getByText(/PDF and DOCX are not decoded yet/i)).toBeInTheDocument()
-    expect(screen.queryByText(/drop/i)).not.toBeInTheDocument()
+    expect(await screen.findByLabelText(/the file/i)).toBeInTheDocument()
+    expect(document.querySelector('input[type="file"]')).not.toBeNull()
   })
 
   it('keeps the run history reachable', async () => {

@@ -216,16 +216,28 @@ export interface SetupPort {
  * The second intake path, and the one the product never had a surface for. The
  * owner's sentence: *"Not all information intake are coming from an interview."*
  *
- * Text, not bytes. Memory parses no file formats — there is no MIME handling or
- * decode path anywhere in the estate — so a file upload port here would be a
- * capability nothing behind it can honour.
+ * Text, not bytes, once it reaches Memory. Studio decodes allowed uploads
+ * (PDF, Word, Excel, CSV, text) on the trusted backend; the browser never
+ * parses those formats, and Memory never sees the original bytes.
  */
+export interface DecodedUpload {
+  text: string
+  warnings: string[]
+  format: string
+  suggestedTitle: string
+}
+
 export interface IngestionPort {
   /** Hand KAE a document. Returns what it did, including what it dropped. */
   ingestText(
     projectId: string,
-    document: { title: string; text: string },
+    document: { title: string; text: string; origin?: 'paste' | 'upload' },
   ): Promise<DocumentIngestOutcome>
+  /**
+   * Turn an uploaded file into text a person can review. Nothing is stored.
+   * Types we cannot read are refused, never accepted and emptied.
+   */
+  decodeUpload(file: File): Promise<DecodedUpload>
   /** How much of what was submitted became knowledge. */
   coverage(projectId: string): Promise<ExtractionCoverage>
   /** Every run this project has produced, newest first. */

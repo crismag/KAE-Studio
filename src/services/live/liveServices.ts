@@ -54,6 +54,7 @@ import type {
   ModuleDecision,
   ProjectMemoryClient,
   FileExcerpt,
+  DecodedUpload,
   IngestionPort,
   ProjectProjectionService,
   SetupPort,
@@ -86,6 +87,31 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const body = await response.text()
     throw new Error(`${response.status}: ${body.slice(0, 200)}`)
+  }
+  return (await response.json()) as T
+}
+
+/**
+ * Multipart, so the browser must set the boundary. `call` always sends
+ * `Content-Type: application/json`, which would make this unreadable.
+ */
+async function callForm<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+  if (response.status === 401) throw new Error('not signed in')
+  if (!response.ok) {
+    const body = await response.text()
+    let detail = ''
+    try {
+      const parsed = JSON.parse(body) as { detail?: unknown }
+      if (typeof parsed.detail === 'string') detail = parsed.detail
+    } catch {
+      /* not JSON — fall through to the status line */
+    }
+    throw new Error(detail || `${response.status}: ${body.slice(0, 200)}`)
   }
   return (await response.json()) as T
 }
@@ -1698,7 +1724,11 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     ingestText: async (id, document) => {
       const raw = await call<WireIngest>(`/api/projects/${resolve(id)}/documents`, {
         method: 'POST',
-        body: JSON.stringify({ title: document.title, text: document.text }),
+        body: JSON.stringify({
+          title: document.title,
+          text: document.text,
+          origin: document.origin ?? 'paste',
+        }),
       })
       return {
         document: raw.document ?? document.title,
@@ -1711,6 +1741,23 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         // Verbatim. These are the sentences that say what was not read.
         warnings: raw.warnings ?? [],
       }
+    },
+
+    decodeUpload: async (file) => {
+      const form = new FormData()
+      form.append('file', file)
+      const raw = await callForm<{
+        text: string
+        warnings?: string[]
+        format: string
+        suggested_title: string
+      }>('/api/decode', form)
+      return {
+        text: raw.text,
+        warnings: raw.warnings ?? [],
+        format: raw.format,
+        suggestedTitle: raw.suggested_title,
+      } satisfies DecodedUpload
     },
 
     coverage: async (id) =>

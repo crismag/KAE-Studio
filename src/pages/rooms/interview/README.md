@@ -41,8 +41,8 @@ ask — which is the one surface that works before anything else does.
 ## Contextual toolbelt
 
 `§9`. The belt is the composer and the gestures a turn makes available:
-**attach** (which links to `/ingestion` rather than opening a picker, because
-KAE cannot read files — an honest affordance over an unbuilt capability),
+**attach** (which links to `/ingestion` rather than opening a picker in the
+composer — that page is where a person pastes text or uploads a file),
 **confirm**, **defer**, and **discuss this** from any area of the context panel.
 
 `§9`'s example also lists Voice, Transcript, Questions and Notes. **None

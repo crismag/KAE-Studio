@@ -603,7 +603,6 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post("/api/decode")
     async def decode_upload(
-        request: Request,
         _: Operator = Depends(require_operator),
         file: UploadFile = File(...),
     ) -> Any:

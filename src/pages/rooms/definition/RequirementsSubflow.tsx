@@ -19,6 +19,8 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { useProjection } from '@/hooks/useProject'
+import { projectCounts } from '@/lib/counts'
+import { plural } from '@/lib/plural'
 import type { AcceptanceTest, ProjectModule, Requirement } from '@/domain/types'
 
 //: Above this, a group arrives closed.
@@ -412,20 +414,22 @@ export function Requirements() {
   // Questions counted separately from requirements, on purpose. A summary that
   // says "6 requirements, 4 awaiting review" when two of them are things the
   // model could not determine is overstating what the project has established.
-  const questions = projection.requirements.filter((r) => r.category === 'open_question')
-  const requirements = projection.requirements.filter((r) => r.category !== 'open_question')
+  //
+  // From `projectCounts` (`D-96`). This page recomputed them, and the tab strip
+  // beside it recomputed them differently — **All 180** over a summary reading
+  // **120 requirements**, because the tabs counted questions and the summary
+  // did not. Both were defensible and together they read as a broken product.
+  const counts = projectCounts(projection)
   const summary = [
-    `${requirements.length} requirement${requirements.length === 1 ? '' : 's'}`,
-    `${requirements.filter((r) => r.status === 'confirmed').length} confirmed`,
-    `${requirements.filter((r) => r.status === 'proposed').length} awaiting review`,
-    ...(questions.length > 0
-      ? [`${questions.length} open question${questions.length === 1 ? '' : 's'}`]
-      : []),
+    plural(counts.requirements, 'requirement'),
+    `${counts.confirmedRequirements} confirmed`,
+    `${counts.requirementsAwaitingReview} awaiting review`,
+    ...(counts.openQuestions > 0 ? [plural(counts.openQuestions, 'open question')] : []),
     // "N without verification" is structurally always the total, because KAE
     // records no tests. A count that cannot vary is not information.
   ].join(' · ')
-  const counts = {
-    all: projection.requirements.length,
+  const byStatus = {
+    all: counts.statements,
     confirmed: projection.requirements.filter((r) => r.status === 'confirmed').length,
     proposed: projection.requirements.filter((r) => r.status === 'proposed').length,
     contested: projection.requirements.filter((r) => r.status === 'contested').length,
@@ -438,7 +442,16 @@ export function Requirements() {
       title="Requirements"
       lead="What this project must do and the conditions it must satisfy. Review proposed items, resolve open questions, assign ownership, and define how each confirmed requirement will be verified."
       actions={
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by status">
+        <div
+          className="flex flex-wrap items-center gap-1"
+          role="group"
+          aria-label="Filter by status"
+        >
+          {/* **What the tabs count, said once** (`D-96`). They total every
+              statement; the summary line below totals requirements only, which
+              excludes open questions. Two honest numbers that looked like a
+              contradiction because neither said what it was counting. */}
+          <span className="pr-1 text-[11.5px] text-ink-subtle">Statements</span>
           {/* `contested` is omitted. The live adapter maps every statement to
               confirmed, proposed or rejected, so the count behind a "Needs
               clarification" filter is structurally always zero — a control
@@ -459,7 +472,7 @@ export function Requirements() {
               className="capitalize"
             >
               {key}
-              <span className="text-ink-subtle">{counts[key]}</span>
+              <span className="text-ink-subtle">{byStatus[key]}</span>
             </Button>
           ))}
         </div>

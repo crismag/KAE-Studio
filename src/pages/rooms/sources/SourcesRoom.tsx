@@ -71,7 +71,7 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
-import { Activity as RunActivity, Coverage, PasteDocument } from './intake'
+import { Activity as RunActivity, Coverage, PasteDocument, UploadDocument } from './intake'
 import { AddSource, type Branch } from './AddSource'
 import { plural } from '@/lib/plural'
 import { CloneRepository } from './CloneRepository'
@@ -242,6 +242,8 @@ function Repositories() {
               />
               {branch === 'paste' ? (
                 <PasteDocument />
+              ) : branch === 'upload' ? (
+                <UploadDocument />
               ) : branch === 'clone' ? (
                 <CloneRepository onDone={() => setBranch(null)} />
               ) : branch === 'folder' || branch === 'github' ? (
@@ -270,6 +272,8 @@ function Repositories() {
               </div>
               {branch === 'paste' ? (
                 <PasteDocument />
+              ) : branch === 'upload' ? (
+                <UploadDocument />
               ) : branch === 'clone' ? (
                 <CloneRepository onDone={() => setBranch(null)} />
               ) : branch === 'folder' || branch === 'github' ? (

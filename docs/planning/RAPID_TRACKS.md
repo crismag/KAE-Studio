@@ -112,8 +112,8 @@ and is on no port and in no UI.
 - **Four states, not three:** loading · empty · **inaccessible** · error.
   `ConnectionState` already separates `refused` from `unreachable` because they
   need different things from the user, and the UI must keep them apart.
-- `s3`, `upload` and local files appear as source kinds carrying a
-  `CapabilityGap`. `SourceKind` declares `s3` and `upload` already.
+- `s3` appears as a source kind carrying a `CapabilityGap`. `upload` is
+  decoded in Studio (`VC-06/H`) for PDF, Word, Excel, CSV and text.
 
 **Must not:** relabel pinning or listing as *analysis*.
 `POST /api/sources/{id}/analysis` returns 501 with `ANALYSIS_UNAVAILABLE` on
@@ -201,24 +201,28 @@ parsing, no MIME handling, no bytes path anywhere in the estate — and
 - **Paste-text ingestion is fully real here.** No fixture in the path: text in,
   candidates out, progress and loss visible. It is the shortest honest
   end-to-end demonstration available in the estate.
-- The drop zone itself renders a `CapabilityGap` until `/H` — accepting a file
-  and decoding it is not an experience-layer concern.
+- The drop zone itself is `/H`. Accepting a file and decoding it is not an
+  experience-layer concern; `/E` ships paste as the real path.
 
 *Exit:* pasted text becomes candidates with provenance, and both progress and
 loss are visible.
 
 ### VC-06/H
 
-File upload and decode (PDF, DOCX, Markdown → text), size and MIME limits,
-malware handling, cross-document dedup (`kae_memory/domain/lexical.py` has
-`is_near_duplicate`; ingestion does not use it), durability at volume, Memory
-write rules.
+**Done for digital text.** Studio decodes PDF, Word (`.docx`), Excel (`.xlsx`),
+CSV and plain text/Markdown in process (`backend/src/kae_studio/acquisition/decode.py`),
+previews, then ingests through `POST /api/projects/{id}/documents` with
+`origin=upload`. Types it cannot read are refused (`415`). Scanned PDFs warn.
+OCR, malware scanning, cross-document dedup, durability at volume, and the
+persistence-disposition decision (`MEMORY` / `RAG` / `ARTIFACT` / `REFERENCE` /
+`EPHEMERAL`) remain. Analysis is still 501.
 
-> **Gated by a decision.** `usable-kae/04` requires each acquisition run to
+> **Gated by a decision for volume.** `usable-kae/04` requires each acquisition run to
 > declare a persistence disposition — `MEMORY` / `RAG` / `ARTIFACT` /
 > `REFERENCE` / `EPHEMERAL` — and none exists in code. They are what stops a
-> large source being copied wholesale into Memory. Settle it before ingesting at
-> volume; ingesting first means reclassifying real data.
+> large source being copied wholesale into Memory. The current slice is small
+> chosen files as text, which ADR-0004 allows; ingesting at volume still needs
+> the disposition.
 
 ---
 

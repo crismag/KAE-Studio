@@ -1,7 +1,7 @@
 /**
  * The `+` menu says what each branch needs, and only when reached for (`D-80`).
  *
- * Two of the five branches do not exist. They are drawn anyway: a menu that
+ * Create a repository is still unbuilt. It is drawn anyway: a menu that
  * silently omits the thing somebody came to do teaches them the product cannot
  * do it, where one that shows it and says what it needs teaches them what is
  * missing.
@@ -43,6 +43,7 @@ describe('what the menu offers', () => {
       /clone a repository here first/i,
       /create a new repository/i,
       /paste a document/i,
+      /upload a file/i,
     ]) {
       expect(screen.getByRole('button', { name: title })).toBeInTheDocument()
     }

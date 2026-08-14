@@ -68,6 +68,16 @@ function delay<T>(value: T, ms = LATENCY_MS): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
+function readUploadText(file: File): Promise<string> {
+  if (typeof file.text === 'function') return file.text()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read the file'))
+    reader.readAsText(file)
+  })
+}
+
 /**
  * Mutable prototype state. This is UI state for a demo session, not a store:
  * it lives in memory, is discarded on reload, and is never authoritative.
@@ -653,7 +663,7 @@ class MockIngestion implements IngestionPort {
 
   ingestText(
     _projectId: string,
-    document: { title: string; text: string },
+    document: { title: string; text: string; origin?: 'paste' | 'upload' },
   ): Promise<DocumentIngestOutcome> {
     // One chunk per ~1200 characters, which is the shape rather than the rule.
     const chunks = Math.max(1, Math.ceil(document.text.length / 1200))
@@ -677,6 +687,57 @@ class MockIngestion implements IngestionPort {
       chunks,
       truncatedChunks: 0,
       warnings: [],
+    })
+  }
+
+  async decodeUpload(file: File) {
+    const name = file.name.toLowerCase()
+    if (name.endsWith('.doc')) {
+      throw new Error('Legacy Word (.doc) is not read. Save the file as .docx, or paste the text.')
+    }
+    const allowed =
+      name.endsWith('.pdf') ||
+      name.endsWith('.docx') ||
+      name.endsWith('.xlsx') ||
+      name.endsWith('.csv') ||
+      name.endsWith('.txt') ||
+      name.endsWith('.md') ||
+      name.endsWith('.markdown')
+    if (!allowed) {
+      throw new Error(
+        'KAE cannot read this file type. PDF, Word (.docx), Excel (.xlsx), CSV, and plain text or Markdown. Legacy .doc, scanned PDFs (OCR), images, email and zip are not read yet. Save as one of those, or paste the text.',
+      )
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error(
+        'This file is larger than 10 MB, which KAE will not read. Paste the relevant passages, or split the file.',
+      )
+    }
+    const text = (await readUploadText(file)).trim()
+    if (!text) {
+      throw new Error(
+        'KAE found no readable text in this file. A scanned PDF needs OCR, which is not available, and an empty workbook has nothing to extract. Paste the text if you have it.',
+      )
+    }
+    const format = name.endsWith('.pdf')
+      ? 'pdf'
+      : name.endsWith('.docx')
+        ? 'docx'
+        : name.endsWith('.xlsx')
+          ? 'xlsx'
+          : name.endsWith('.csv')
+            ? 'csv'
+            : 'text'
+    return delay({
+      text,
+      warnings:
+        format === 'pdf' && text.length < 40
+          ? [
+              'This PDF has almost no extractable text. It may be a scan. OCR is not available; paste the wording if you have it.',
+            ]
+          : [],
+      format,
+      suggestedTitle: file.name.replace(/\.[^.]+$/, ''),
     })
   }
 

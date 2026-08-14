@@ -672,14 +672,23 @@ export function useIngestText() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (document: { title: string; text: string }) =>
+    mutationFn: (document: { title: string; text: string; origin?: 'paste' | 'upload' }) =>
       ingestion.ingestText(projectId, document),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['runs', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['coverage', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
       ])
     },
+  })
+}
+
+/** Preview an upload as text. Nothing is stored until the person confirms. */
+export function useDecodeUpload() {
+  const { ingestion } = useServices()
+  return useMutation({
+    mutationFn: (file: File) => ingestion.decodeUpload(file),
   })
 }
 

@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -32,6 +32,7 @@ function withIngestion(base: StudioServices, over: Partial<IngestionPort>): Stud
     ...base,
     ingestion: {
       ingestText: (id, document) => port.ingestText(id, document),
+      decodeUpload: (file) => port.decodeUpload(file),
       coverage: (id) => port.coverage(id),
       runs: (id) => port.runs(id),
       ...over,
@@ -58,6 +59,11 @@ async function paste(user: ReturnType<typeof userEvent.setup>, text = 'Invoices 
   await user.type(await screen.findByLabelText(/what is this/i), 'Brief')
   await user.type(screen.getByLabelText(/the text/i), text)
   await user.click(screen.getByRole('button', { name: /read this/i }))
+}
+
+async function chooseFile(file: File) {
+  const input = await screen.findByLabelText(/the file/i)
+  fireEvent.change(input, { target: { files: [file] } })
 }
 
 describe('pasting a document', () => {
@@ -162,27 +168,71 @@ describe('pasting a document', () => {
 })
 
 describe('uploading a file', () => {
-  it('is offered as a stated gap and not as a control', async () => {
+  it('decodes, then waits for confirmation before ingesting', async () => {
     const user = userEvent.setup()
-    renderIngestion()
+    const sent: { title: string; text: string; origin?: string }[] = []
+    renderIngestion((services) =>
+      withIngestion(services, {
+        decodeUpload: async () => ({
+          text: 'Invoices go out weekly.',
+          warnings: [],
+          format: 'text',
+          suggestedTitle: 'brief',
+        }),
+        ingestText: async (id, document) => {
+          sent.push(document)
+          return services.ingestion.ingestText(id, document)
+        },
+      }),
+    )
 
     await user.click(await screen.findByRole('tab', { name: /upload a file/i }))
+    await chooseFile(new File(['Invoices go out weekly.'], 'brief.txt', { type: 'text/plain' }))
 
-    expect(await screen.findByText(/KAE cannot read files yet/i)).toBeInTheDocument()
-    // No drop zone, no file input. A control that accepted a PDF and lost it
-    // would be worse than saying so.
-    expect(document.querySelector('input[type="file"]')).toBeNull()
+    expect(await screen.findByLabelText(/what kae will read/i)).toHaveValue(
+      'Invoices go out weekly.',
+    )
+    expect(screen.getByLabelText(/what is this/i)).toHaveValue('brief')
+    expect(sent).toEqual([])
+
+    await user.click(screen.getByRole('button', { name: /read this/i }))
+
+    expect(sent).toEqual([{ title: 'brief', text: 'Invoices go out weekly.', origin: 'upload' }])
+    expect(await screen.findByText(/stored and queued/i)).toBeInTheDocument()
   })
 
-  it('says what does work instead', async () => {
+  it('refuses a type it cannot read, and does not look like it worked', async () => {
     const user = userEvent.setup()
     renderIngestion()
 
     await user.click(await screen.findByRole('tab', { name: /upload a file/i }))
+    await chooseFile(new File(['\x89PNG'], 'logo.png', { type: 'image/png' }))
 
-    expect(
-      await screen.findByText(/pasting the text from a file works completely/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/cannot read this file type/i)
+    expect(screen.queryByRole('button', { name: /read this/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/stored and queued/i)).not.toBeInTheDocument()
+  })
+
+  it('shows a scan warning before ingest, rather than silently emptying', async () => {
+    const user = userEvent.setup()
+    renderIngestion((services) =>
+      withIngestion(services, {
+        decodeUpload: async () => ({
+          text: 'Hi.',
+          warnings: [
+            'This PDF has almost no extractable text. It may be a scan. OCR is not available; paste the wording if you have it.',
+          ],
+          format: 'pdf',
+          suggestedTitle: 'scan',
+        }),
+      }),
+    )
+
+    await user.click(await screen.findByRole('tab', { name: /upload a file/i }))
+    await chooseFile(new File(['Hi.'], 'scan.pdf', { type: 'application/pdf' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/may be a scan/i)
+    expect(screen.getByRole('button', { name: /read this/i })).toBeEnabled()
   })
 })
 
@@ -263,9 +313,8 @@ describe('the composer’s attach button', () => {
   it('goes to ingestion rather than doing nothing', async () => {
     // `AUD-022`'s remaining half. This button had no `onClick` for the whole
     // life of the product — the most prominent dead control in Studio, in its
-    // main surface. It links rather than opening a file picker because KAE
-    // still cannot read files, and offering a picker would be the dead control
-    // replaced by a lying one.
+    // main surface. It links to `/ingestion`, where a person pastes or uploads,
+    // sees the text, and confirms.
     const { Composer } = await import('@/pages/rooms/interview/InterviewRoom')
     render(
       <MemoryRouter>

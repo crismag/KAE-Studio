@@ -3,10 +3,10 @@
  *
  * The owner's correction: a project **accumulates** places it reads from, so the
  * model is a list you add to, not a long list you pick one from. What differs
- * between entries is where the thing lives — and there are five cases, of which
- * three work today.
+ * between entries is where the thing lives — and there are six cases, of which
+ * five work today when their prerequisites are met.
  *
- * The two that do not are **drawn anyway, and marked**. A menu that silently
+ * The one that does not is **drawn anyway, and marked**. A menu that silently
  * omits the thing somebody came to do teaches them the product cannot do it;
  * one that shows it and says what it needs teaches them what is missing. Each
  * states its prerequisite **when reached for**, never as a paragraph above the
@@ -14,12 +14,12 @@
  */
 
 import { useState } from 'react'
-import { FolderOpen, Github, FilePlus2, GitBranch, Plus } from 'lucide-react'
+import { FolderOpen, Github, FilePlus2, GitBranch, Plus, Upload } from 'lucide-react'
 
 import { Badge } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/primitives'
 
-export type Branch = 'folder' | 'github' | 'clone' | 'create' | 'paste'
+export type Branch = 'folder' | 'github' | 'clone' | 'create' | 'paste' | 'upload'
 
 interface Option {
   id: Branch
@@ -103,7 +103,14 @@ export function options({
       id: 'paste',
       icon: FilePlus2,
       title: 'Paste a document',
-      means: 'Text works now · PDF and DOCX are not decoded yet',
+      means: 'Text you already have, typed or copied',
+      needs: '',
+    },
+    {
+      id: 'upload',
+      icon: Upload,
+      title: 'Upload a file',
+      means: 'PDF, Word, Excel, CSV, or text — previewed here, then you confirm',
       needs: '',
     },
   ]

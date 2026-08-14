@@ -12,6 +12,7 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { useKnowledgeTrace, useProject, useProjection } from '@/hooks/useProject'
+import { projectCounts } from '@/lib/counts'
 
 /**
  * Memory is a trust and continuity surface, not the primary workflow. It shows
@@ -99,6 +100,7 @@ export function Memory() {
   // now asks the same question — lazily, because a project holds hundreds of
   // records and reading provenance for all of them on load would trade one
   // dishonesty for a slow page.
+  const counts = projectCounts(projection)
   const records = projection.requirements
 
   return (
@@ -120,10 +122,13 @@ export function Memory() {
           <PanelBody>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[
-                { label: 'Requirements', value: projection.requirements.length },
+                { label: 'Statements', value: counts.statements },
                 { label: 'Modules', value: projection.modules.length },
-                { label: 'Open decisions', value: projection.openDecisions.length },
-                { label: 'Findings', value: projection.findings.length },
+                { label: 'Open decisions', value: counts.openDecisions },
+                // **Not "Findings"** (`D-96`). This labelled 174 proposed statements as
+                // findings, which are a different set of a different size — there
+                // are seven of those, and they are what a review produced.
+                { label: 'Awaiting your decision', value: counts.awaitingDecision },
               ].map((stat) => (
                 <div key={stat.label}>
                   <dt className="text-[11px] uppercase tracking-wider text-ink-subtle">
