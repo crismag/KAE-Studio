@@ -157,7 +157,11 @@ export function FieldSet({
   className?: string
 }) {
   return (
-    <fieldset className={cn('space-y-3', className)}>
+    // `min-w-0` because a `<fieldset>` has an intrinsic `min-inline-size:
+    // min-content` that overrides `max-width`. Without it the destination form
+    // on Setup rendered 508px past the right edge of a 1440px window — clipped,
+    // not scrollable, so the Path field and Register button were unreachable.
+    <fieldset className={cn('min-w-0 space-y-3', className)}>
       <legend className="text-[13px] font-semibold text-ink">{legend}</legend>
       {description && <p className="text-[12px] leading-relaxed text-ink-muted">{description}</p>}
       {children}

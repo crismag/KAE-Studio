@@ -122,7 +122,7 @@ const JOURNEY = [
 ]
 
 function Journey({ projection }: { projection: ProjectProjection }) {
-  const phase = projection.health.phase
+  const phase = projection.health.stage
   const activeIndex = JOURNEY.findIndex((stage) => stage.key === phase)
 
   return (

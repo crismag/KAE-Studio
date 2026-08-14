@@ -662,6 +662,10 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       draftEligible: raw.health.draftEligible === true,
       implementationEligible: raw.health.implementationEligible === true,
       phase: raw.project.phase,
+      // Where the project has got to, which is readiness's word and not the
+      // project's status. Carried at last: the adapter dropped it, so the
+      // journey strip had only `active` to compare against stage names.
+      stage: raw.health.status,
       // Readiness is advisory in KAE and the wording says so. A bare percentage
       // gets read as a gate, which is the one thing it is built not to be.
       summary: `${raw.health.percentage}% understood (advisory — never a gate). ${raw.contradictions.count} unresolved contradiction(s).`,

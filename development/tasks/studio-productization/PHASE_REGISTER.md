@@ -1,5 +1,14 @@
 # Studio Productization Phase Register
 
+> **`ES-3`, `ES-4` and `ES-5` are superseded in practice by `NAV-01`** —
+> [`../studio-navigability/EXECUTION_CONTEXT.md`](../studio-navigability/EXECUTION_CONTEXT.md).
+> This register named the right problems from the outside, in 2026-08. `NAV-01`
+> re-derives them from a live sweep of the running product — control tallies per
+> route, the counts that disagree, the identifiers rendered as primary text —
+> and slices them for shipping. Where the two disagree, `NAV-01` is the newer
+> evidence. The dependency `ES-5` records on `EM-3` still stands, and is why
+> `OD-NAV-2` exists.
+
 ## Sequence
 
 | Phase | Outcome | Dependency | Exit proof |

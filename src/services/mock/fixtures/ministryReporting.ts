@@ -1184,7 +1184,11 @@ export const health: ProjectHealth = {
   // the distinction visible rather than a fixture where both agree (`D-33`).
   draftEligible: true,
   implementationEligible: false,
-  phase: 'Requirements forming',
+  phase: 'active',
+  // The stage, in the vocabulary Memory uses for it. The fixture said
+  // "Requirements forming" here, which is prose and matches no stage key —
+  // so the mock could not have caught the strip being fed the wrong field.
+  stage: 'requirements',
   summary:
     'The submission and approval workflow is well understood. Approval authority and the correction path are unresolved, and both block work that depends on them.',
   coverage: [

@@ -52,16 +52,35 @@ function renderDashboard(shape?: (base: ProjectProjection) => ProjectProjection)
 
 describe('the journey', () => {
   it('marks the stage the project reports', async () => {
-    renderDashboard((base) => ({ ...base, health: { ...base.health, phase: 'defining' } }))
+    renderDashboard((base) => ({ ...base, health: { ...base.health, stage: 'defining' } }))
 
     const active = await screen.findByText('Definition')
     expect(active).toHaveAttribute('aria-current', 'step')
   })
 
-  it('marks nothing when the phase is one it does not recognise', async () => {
+  it('reads where the project got to, not whether it is still open', async () => {
+    /**
+     * The bug this replaces. The strip compared `phase` — the project's
+     * *status* — against a list of stage names, so `active` matched nothing and
+     * every project that has ever existed was told "this view does not
+     * recognise your stage". The one device on the home page that says where
+     * you are was permanently blank, on a live deployment, for months.
+     */
+    renderDashboard((base) => ({
+      ...base,
+      health: { ...base.health, phase: 'active', stage: 'discovering' },
+    }))
+
+    expect(await screen.findByText('Discovery')).toHaveAttribute('aria-current', 'step')
+    expect(
+      screen.queryByText(/reports a stage this view does not recognise/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('marks nothing when the stage is one it does not recognise', async () => {
     // Guessing a position would put a project somewhere it is not. Marking the
     // first stage is the tempting default and it is a claim.
-    renderDashboard((base) => ({ ...base, health: { ...base.health, phase: 'something-new' } }))
+    renderDashboard((base) => ({ ...base, health: { ...base.health, stage: 'something-new' } }))
 
     expect(
       await screen.findByText(/reports a stage this view does not recognise/i),

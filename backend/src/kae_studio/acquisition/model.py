@@ -34,14 +34,14 @@ class ConnectionState(StrEnum):
 class SourceKind(StrEnum):
     """Where material comes from.
 
-    `§7` names seven. Three exist: a repository, an object store, and a file
-    somebody hands over. `PASTE` is the fourth (`D-24`) and it is the only one
-    that needed no new capability — the ingest path was live and unrecorded.
+    `§7` names seven. Four exist: a repository, an object store, a file
+    somebody hands over, and pasted text (`D-24`). Upload decode lives in
+    Studio (`VC-06/H`): PDF, Word, Excel, CSV and plain text become evidence
+    through the same ingest path paste already uses. Analysis is still 501.
 
-    **Upload and URL are not among these by omission.** Upload needs a bytes
-    path, MIME handling and decode, none of which exists anywhere in the estate;
-    URL needs outbound egress from the host, which is a surface somebody has to
-    sanction rather than something a source kind quietly acquires.
+    **URL is not among these by omission.** It needs outbound egress from the
+    host, which is a surface somebody has to sanction rather than something a
+    source kind quietly acquires.
     """
 
     GITHUB = "github"

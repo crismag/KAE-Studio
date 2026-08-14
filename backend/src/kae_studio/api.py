@@ -22,9 +22,9 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from uuid import uuid4
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -90,6 +90,10 @@ class IngestTextIn(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1)
     max_chunks: int | None = None
+    #: How the text arrived. Decode is Studio's; Memory only ever sees text.
+    #: `upload` is recorded as that kind so the Sources list does not pretend
+    #: a PDF was typed.
+    origin: Literal["paste", "upload"] = "paste"
 
 
 class ConfigureFieldIn(BaseModel):
@@ -568,19 +572,18 @@ def create_app(settings: Settings) -> FastAPI:
             project_id, body.title, body.text, max_chunks=body.max_chunks
         )
 
-        # A pasted document is a Source (`D-24`, `§7`). The ingest path has
-        # worked the whole time and left no record that intake happened, so the
-        # Sources Room — the surface that answers *what has this project been
-        # given?* — showed repositories and nothing else.
+        # A pasted or uploaded document is a Source (`D-24`, `§7`). Decode
+        # happens in Studio; Memory only ever sees text. Kind records how it
+        # arrived so a PDF is not listed as something somebody typed.
         #
-        # Identity is the title on Memory's side: re-pasting a corrected brief
-        # is the same origin supplying material again, not a second origin.
+        # Identity is the title on Memory's side: giving a corrected brief
+        # again is the same origin supplying material, not a second origin.
         title = body.title.strip()
         if title:
             await memory(request).register_source(
                 project_id,
                 {
-                    "kind": "paste",
+                    "kind": body.origin,
                     "location": title,
                     # `readable`, never `configured`: the content arrived with
                     # the request. There is nothing left to reach, and a state
@@ -597,6 +600,59 @@ def create_app(settings: Settings) -> FastAPI:
             )
 
         return ingested
+
+    @app.post("/api/decode")
+    async def decode_upload(
+        request: Request,
+        _: Operator = Depends(require_operator),
+        file: UploadFile = File(...),
+    ) -> Any:
+        """Turn an uploaded file into text a person can review, then ingest.
+
+        Preview only. Nothing is written to Memory. The caller confirms, and
+        `POST /api/projects/{id}/documents` with `origin=upload` is the ingest.
+
+        Types we cannot read are refused (`415`), never accepted and emptied.
+        A scanned PDF that yields almost no text is a warning, not a silent
+        success. This is not analysis: `/analysis` stays 501.
+        """
+
+        from .acquisition.decode import MAX_BYTES, DecodeError, decode
+
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            piece = await file.read(64 * 1024)
+            if not piece:
+                break
+            total += len(piece)
+            if total > MAX_BYTES:
+                raise HTTPException(
+                    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    (
+                        f"This file is larger than {MAX_BYTES // (1024 * 1024)} MB, "
+                        "which KAE will not read. Paste the relevant passages, or split the file."
+                    ),
+                )
+            chunks.append(piece)
+
+        try:
+            decoded = decode(b"".join(chunks), file.filename or "upload", file.content_type or "")
+        except DecodeError as error:
+            message = str(error)
+            code = (
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+                if "cannot read this file type" in message or "Legacy Word" in message
+                else status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+            raise HTTPException(code, message) from error
+
+        return {
+            "text": decoded.text,
+            "warnings": decoded.warnings,
+            "format": decoded.format,
+            "suggested_title": decoded.suggested_title,
+        }
 
     @app.get("/api/projects/{project_id}/extraction-coverage")
     async def extraction_coverage(

@@ -682,7 +682,22 @@ export interface CoverageTopic {
 }
 
 export interface ProjectHealth {
+  /**
+   * The project's lifecycle status — `active`, `archived`. Not where it is in
+   * the journey, which is `stage`.
+   */
   phase: string
+  /**
+   * Where the project has got to: `discovering`, `defining`, `packaging`.
+   *
+   * **Distinct from `phase`, and the Dashboard's journey strip depended on the
+   * difference.** It read `phase`, which carries the project's *status*, so it
+   * compared `active` against a list of stage names, never matched, and said
+   * "this project reports a stage this view does not recognise" for every
+   * project that has ever existed. The one device on the home page that says
+   * where you are was permanently blank.
+   */
+  stage: string
   /**
    * Whether there is enough here to draft from.
    *
