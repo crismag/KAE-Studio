@@ -1,0 +1,11 @@
+import { chromium } from 'playwright'
+const b = await chromium.launch()
+const p = await (await b.newContext()).newPage()
+p.on('pageerror', e => console.log('PAGEERROR:', e.message.slice(0, 260)))
+p.on('console', m => { if (m.type()==='error') console.log('CONSOLE ERR:', m.text().slice(0,200)) })
+p.on('requestfailed', r => console.log('REQ FAILED:', r.url().slice(0,120), r.failure()?.errorText))
+await p.goto('http://127.0.0.1:5199/#/setup', { waitUntil: 'networkidle' })
+await p.waitForTimeout(3000)
+const text = await p.evaluate(() => document.body.innerText.trim().slice(0, 200))
+console.log('BODY:', JSON.stringify(text))
+await b.close()

@@ -282,12 +282,14 @@ function FromRepository() {
           skeleton={<Skeleton className="h-24" />}
           empty={
             <div className="space-y-3">
-              <p className="text-[12.5px] text-ink-muted">
-                No repository is connected to this project yet.
+              <p className="text-meta text-ink-muted">
+                Nothing to read from yet. Add a source above — a folder on this machine needs no
+                account, and a GitHub repository needs one{' '}
+                <Link className="underline" to="/settings/project">
+                  connected in Settings
+                </Link>
+                .
               </p>
-              <Button asChild>
-                <Link to="/setup">Connect one in Project setup</Link>
-              </Button>
             </div>
           }
         >

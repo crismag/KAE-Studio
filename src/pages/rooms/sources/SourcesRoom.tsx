@@ -63,7 +63,6 @@ import { Field, Input } from '@/components/ui/form'
 import {
   Badge,
   Button,
-  EmptyState,
   Mono,
   Panel,
   PanelBody,
@@ -74,6 +73,7 @@ import {
 import { QueryState } from '@/components/ui/QueryState'
 import { Activity as RunActivity, Coverage, PasteDocument } from './intake'
 import { AddSource, type Branch } from './AddSource'
+import { PickRepository } from './PickRepository'
 import {
   useIngestFiles,
   useSampleFile,
@@ -160,21 +160,37 @@ function Repositories() {
         of="Your sources"
         skeleton={<Skeleton className="h-48" />}
         empty={
-          // The note above already says the list may be short. Adding "no
-          // repository connected yet" beneath it would put two answers on one
-          // screen — one about the project, one about the deployment — and the
-          // wrong one carries a button telling somebody to redo work they have
-          // already done.
+          // **Carries the control that fixes it.** This rendered an explanation
+          // and a link to Setup, and Setup linked back — a first-run loop
+          // between two pages, neither of which could add a source. Worse, the
+          // empty branch replaced the whole panel including `AddSource`, so a
+          // project with nothing in it had **no way to add anything** (`D-85`).
           unreadable.data ? null : (
-            <EmptyState title="No repository connected yet">
-              <p>
-                KAE can read nothing outside this conversation until a repository is connected and
-                pinned to a commit.
-              </p>
-              <Button asChild className="mt-3">
-                <Link to="/setup">Connect one in Project setup</Link>
-              </Button>
-            </EmptyState>
+            <div className="max-w-lg space-y-4">
+              <div>
+                <h2 className="text-lead font-semibold text-ink">Nothing to read from yet</h2>
+                <p className="mt-1 text-body text-ink-muted">
+                  KAE reads repositories, folders and documents you give it. A folder on this
+                  machine needs no account.
+                </p>
+                <p className="mt-2 text-meta text-ink-subtle">
+                  To read a repository on GitHub,{' '}
+                  <Link className="underline" to="/settings/project">
+                    connect an account in Settings
+                  </Link>{' '}
+                  first.
+                </p>
+              </div>
+              <AddSource localRoots={localRoots} connected={connected} onChoose={setBranch} />
+              {branch === 'paste' ? (
+                <PasteDocument />
+              ) : branch === 'folder' || branch === 'github' ? (
+                <PickRepository
+                  kind={branch === 'folder' ? 'local' : 'github'}
+                  onDone={() => setBranch(null)}
+                />
+              ) : null}
+            </div>
           )
         }
       >
@@ -188,6 +204,11 @@ function Repositories() {
               </div>
               {branch === 'paste' ? (
                 <PasteDocument />
+              ) : branch === 'folder' || branch === 'github' ? (
+                <PickRepository
+                  kind={branch === 'folder' ? 'local' : 'github'}
+                  onDone={() => setBranch(null)}
+                />
               ) : chosen ? (
                 <SourceDetail source={chosen} />
               ) : null}

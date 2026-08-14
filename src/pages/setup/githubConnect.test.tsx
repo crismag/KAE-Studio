@@ -173,7 +173,11 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
     // product uses for human agreement, about a value nobody looked at.
     const user = userEvent.setup()
     const written: { field: string; state?: string; evidence?: string }[] = []
-    const { ProjectSetup } = await import('./SetupPage')
+    // **The picker moved to Sources** (`D-81`). Setup shows a summary and links
+    // there; selection has one home. The claim under test is unchanged — a
+    // value the provider supplied is recorded as `inferred`, never `confirmed`
+    // — and it is asserted where the selection now happens.
+    const { PickRepository } = await import('@/pages/rooms/sources/PickRepository')
 
     const base = createMockServices()
     const services: StudioServices = {
@@ -205,19 +209,19 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
       <MemoryRouter>
         <QueryClientProvider client={queryClient}>
           <ServiceProvider services={services}>
-            <ProjectSetup />
+            <PickRepository kind="github" onDone={() => {}} />
           </ServiceProvider>
         </QueryClientProvider>
       </MemoryRouter>,
     )
 
-    await user.click(await screen.findByRole('option', { name: /identity-service/ }))
+    await user.click(await screen.findByRole('button', { name: /identity-service/ }))
 
     const branch = written.find((entry) => entry.field === 'primary_branch')
     expect(branch?.state).toBe('inferred')
     // Evidence travels with it. The domain refuses an inference without one,
     // and a reader deciding whether to trust a value needs to know who said it.
-    expect(branch?.evidence).toMatch(/GitHub reports this as the default branch/)
+    expect(branch?.evidence).toMatch(/reported as the default branch/)
   })
 
   it('still records the repository as the person’s choice', async () => {
@@ -225,7 +229,11 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
     // `confirmed` — the correction is about the branch that came along with it.
     const user = userEvent.setup()
     const written: { field: string; state?: string }[] = []
-    const { ProjectSetup } = await import('./SetupPage')
+    // **The picker moved to Sources** (`D-81`). Setup shows a summary and links
+    // there; selection has one home. The claim under test is unchanged — a
+    // value the provider supplied is recorded as `inferred`, never `confirmed`
+    // — and it is asserted where the selection now happens.
+    const { PickRepository } = await import('@/pages/rooms/sources/PickRepository')
 
     const base = createMockServices()
     const queryClient = new QueryClient({
@@ -251,13 +259,13 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
               },
             }}
           >
-            <ProjectSetup />
+            <PickRepository kind="github" onDone={() => {}} />
           </ServiceProvider>
         </QueryClientProvider>
       </MemoryRouter>,
     )
 
-    await user.click(await screen.findByRole('option', { name: /identity-service/ }))
+    await user.click(await screen.findByRole('button', { name: /identity-service/ }))
 
     const repository = written.find((entry) => entry.field === 'primary_repository')
     expect(repository?.state).toBeUndefined()

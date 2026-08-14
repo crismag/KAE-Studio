@@ -272,15 +272,25 @@ describe('the page never calls connecting analysis', () => {
 })
 
 describe('when there is nothing connected', () => {
-  it('sends a person to the page that can connect one', async () => {
+  it('does not send a person back to Setup to connect one', async () => {
+    /**
+     * The first-run loop (`D-85`). This page said *“Connect one in Project
+     * setup”*; Setup's empty state said *“Add a source”* and linked back here.
+     * Somebody with a new project could follow the buttons indefinitely.
+     *
+     * Adding happens here. Connecting an **account** happens in Settings, and
+     * those are different sentences — `§6`, and the reason connections moved.
+     */
     renderSources((services) =>
       withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
     )
 
-    expect(await screen.findByText(/No repository connected yet/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /connect one in project setup/i })).toHaveAttribute(
+    await screen.findByText(/nothing to read from yet/i)
+
+    expect(screen.queryByRole('link', { name: /project setup/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /connect an account in settings/i })).toHaveAttribute(
       'href',
-      '/setup',
+      '/settings/project',
     )
   })
 
@@ -289,7 +299,7 @@ describe('when there is nothing connected', () => {
       withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
     )
 
-    await screen.findByText(/No repository connected yet/i)
+    await screen.findByText(/nothing to read from yet/i)
     expect(screen.queryByLabelText(/find a file/i)).not.toBeInTheDocument()
   })
 })
@@ -353,7 +363,7 @@ describe('one Source abstraction, not two pages', () => {
  * Sources became durable, which means reading them can now fail. Before, an
  * empty process could only ever say "none", and that was true. Now the same
  * empty list can mean *"KAE-Memory did not answer"* — and the page's own empty
- * state, "No repository connected yet… connect one in Project setup", would be
+ * state, "Nothing to read from yet", would be
  * telling somebody who connected a repository last week to go and do it again.
  */
 describe('when the record cannot be read', () => {
@@ -379,7 +389,7 @@ describe('when the record cannot be read', () => {
     )
 
     await screen.findByText(/503/)
-    expect(screen.queryByText(/No repository connected yet/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/nothing to read from yet/i)).not.toBeInTheDocument()
   })
 
   it('says nothing when the record read', async () => {
@@ -389,7 +399,7 @@ describe('when the record cannot be read', () => {
       withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
     )
 
-    expect(await screen.findByText(/No repository connected yet/i)).toBeInTheDocument()
+    expect(await screen.findByText(/nothing to read from yet/i)).toBeInTheDocument()
     expect(screen.queryByText(/could not be read/i)).not.toBeInTheDocument()
   })
 })
@@ -510,5 +520,45 @@ describe('the documents already given', () => {
 
     await screen.findByText(/Read this/i)
     expect(screen.queryByText(/already given/i)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * `D-85` — the first-run loop, as a guard rather than a discovery.
+ *
+ * Sources said *“Connect one in Project setup”*; Setup's empty state said *“Add
+ * a source”* and linked back to Sources. Somebody with a new project could
+ * follow the buttons between two pages indefinitely and never reach a control
+ * that adds anything.
+ *
+ * The rule that prevents it: **a page's empty state does not delegate its own
+ * job.** Adding a source is Sources' job and happens here; connecting an
+ * account is Settings' job, and that is a different sentence.
+ */
+describe('no page sends a person to another page to do its own job', () => {
+  it('Sources adds sources itself', async () => {
+    renderSources((services) =>
+      withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
+    )
+
+    await screen.findByText(/nothing to read from yet/i)
+
+    // The control that does the thing is on this page.
+    expect(screen.getByRole('button', { name: /add a source/i })).toBeInTheDocument()
+    // And nothing points at Setup, which cannot add one.
+    expect(screen.queryByRole('link', { name: /setup/i })).not.toBeInTheDocument()
+  })
+
+  it('names Settings for the thing Settings actually owns', async () => {
+    // Not a redirect for adding — a pointer for connecting, which is `§6`'s
+    // split and the one delegation that is correct.
+    renderSources((services) =>
+      withAcquisition(services, { listSources: async () => ({ sources: [], unavailable: '' }) }),
+    )
+
+    await screen.findByText(/nothing to read from yet/i)
+    expect(
+      screen.getByRole('link', { name: /connect an account in settings/i }),
+    ).toBeInTheDocument()
   })
 })

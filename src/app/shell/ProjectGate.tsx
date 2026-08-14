@@ -173,6 +173,21 @@ export function ProjectGate({
             projects: [project, ...listing.projects.filter((p) => p.id !== project.id)],
           })
           choose(project.id)
+          // **A new project lands on Setup**, not on whatever route the person
+          // happened to be looking at when they created it — usually a
+          // dashboard describing a project with nothing in it (`D-85`).
+          //
+          // The hash, not `useNavigate`. This component **wraps**
+          // `RouterProvider` — it decides which project before any route
+          // renders — so it is outside the router by construction and
+          // `useNavigate()` throws *"may be used only in the context of a
+          // <Router>"*, blanking the whole application. The app uses
+          // `createHashRouter`, so the hash is the route (`D-86`).
+          //
+          // Only on creation. Choosing an existing project leaves the route
+          // alone, because somebody who deep-linked to a Room meant to go
+          // there.
+          window.location.hash = '#/setup'
         }}
       />
     )

@@ -69,10 +69,14 @@ describe('the project can be configured through the product', () => {
     // The six of `KNOWN_FIELDS`. A seventh would be a control whose save always
     // fails, which is the shape of half this audit's findings.
     //
-    // `primary_repository` is not among them any more: it is a picker, because
-    // `§6` says a workflow page selects a configured resource rather than
-    // asking somebody to type its name from memory.
-    expect(await screen.findByLabelText(/filter repositories/i)).toBeInTheDocument()
+    // `primary_repository` is not among them, and no longer has a picker here
+    // either: selection has **one home**, and it is Sources (`D-81`). Setup
+    // shows what is configured and links there, because two pickers with
+    // different behaviour is how they drift apart.
+    expect(
+      await screen.findByRole('link', { name: /manage sources|add a source/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText(/filter repositories/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/branch/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/what kind of project/i)).toBeInTheDocument()
@@ -82,10 +86,11 @@ describe('the project can be configured through the product', () => {
   it('shows what is already configured rather than an empty form', async () => {
     renderSetup()
 
-    // The configured repository is marked in the list rather than typed into a
-    // box, so "what is set" and "what is available" are one reading.
-    const chosen = await screen.findByRole('option', { name: /ministry\/reporting-platform/ })
-    expect(chosen).toHaveAttribute('aria-selected', 'true')
+    // What this project reads from, as a summary — the picker moved to Sources
+    // (`D-81`). The claim is the same: somebody arriving sees what is already
+    // configured rather than an empty form.
+    expect(await screen.findByText(/what this project reads from/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /manage sources|add a source/i })).toBeInTheDocument()
   })
 
   it('saves a changed field', async () => {
@@ -133,7 +138,7 @@ describe('the project can be configured through the product', () => {
 describe('setup reports state, not a score', () => {
   it('carries no percentage anywhere', async () => {
     renderSetup()
-    await screen.findByText(/where this project stands/i)
+    await screen.findByText(/what this project reads from/i)
 
     // `ADR-0003`: a percentage over two booleans says less than the booleans,
     // and `Setup 100%` reads as "the project is 100% understood".
@@ -141,26 +146,32 @@ describe('setup reports state, not a score', () => {
   })
 
   it('says what each state means, in words beside the colour', async () => {
+    /**
+     * The claim survives `D-82`; its carrier changed. A summary panel said
+     * *Sources: Configured — a repository is named, nothing has been read from
+     * it yet* above a list that says which repository and whether it was read.
+     * One subject stated twice is two things to keep in agreement, and this
+     * page had already drifted once.
+     *
+     * Now the state is **per source**, which is a stronger reading: a project
+     * with three sources and one read cannot be described by a single word.
+     */
     renderSetup()
 
-    expect(await screen.findByText(/^Sources$/)).toBeInTheDocument()
-    // The sentence for the state this project is actually in. The prototype has
-    // a repository named and nothing read from it, which is `configured` — and
-    // this used to assert the `verified` sentence against that same project,
-    // because the level was computed from a grant (`D-25`).
-    expect(screen.getByText(/nothing has been read from it yet/i)).toBeInTheDocument()
+    await screen.findByText(/what this project reads from/i)
+    expect(screen.getByText(/not read yet/i)).toBeInTheDocument()
   })
 
   it('distinguishes configured from verified', async () => {
-    // The distinction the whole summary exists for. A repository somebody typed
-    // is configured; only a checked connection is verified, and `ADR-0003` is
-    // explicit that verified means proved rather than declared.
+    // `ADR-0003`: verified means proved, not declared. A repository somebody
+    // named is not one KAE has read, and no grant changes that (`D-25`).
     renderSetup((services) => withSetup(services, { listConnections: async () => [] }))
 
-    await screen.findByText(/^Sources$/)
+    await screen.findByText(/what this project reads from/i)
 
-    expect(screen.getByText(/a repository is named\. nothing has been read/i)).toBeInTheDocument()
-    // Nothing on the page claims verification, because nothing has proved it.
+    expect(screen.getByText(/not read yet/i)).toBeInTheDocument()
+    // Nothing claims the stronger word, because nothing has proved it.
+    expect(screen.queryByText(/^Read$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Verified')).not.toBeInTheDocument()
   })
 })
@@ -176,7 +187,11 @@ describe('the output destination', () => {
   it('refuses a destination with no granted connection, and says why', async () => {
     renderSetup((services) => withSetup(services, { listConnections: async () => [] }))
 
-    expect(await screen.findByText(/grant a connection above first/i)).toBeInTheDocument()
+    // Points at Settings, where connections actually live. It said “above”,
+    // naming a panel that moved off this page two decisions ago (`D-85`).
+    expect(
+      await screen.findByText(/connect a github account in settings first/i),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /register destination/i })).toBeDisabled()
   })
 
@@ -268,27 +283,29 @@ describe('verified is earned, not granted', () => {
     }
   }
 
-  it('does not call a named repository verified', async () => {
+  it('does not call a named repository read', async () => {
+    /**
+     * `D-25` holds through `D-82`'s change of carrier. A summary panel said it
+     * in a sentence — *"a granted credential says KAE may look, not that it
+     * has"* — which is true and is an explanation of the product's model, not
+     * something a person came to this page to read.
+     *
+     * It is now a state **per source**, which says the same thing and scales:
+     * a project with three sources and one read cannot be described by one
+     * sentence.
+     */
     renderSetup(withSources('configured'))
 
-    await screen.findByText(/^Sources$/)
-    expect(screen.getByText(/nothing has been read from it yet/i)).toBeInTheDocument()
+    await screen.findByText(/what this project reads from/i)
+    expect(screen.getByText(/not read yet/i)).toBeInTheDocument()
   })
 
-  it('says a granted credential is permission rather than proof', async () => {
-    // The sentence that replaced the old description, and the distinction the
-    // whole state model turns on.
-    renderSetup(withSources('configured'))
-
-    await screen.findByText(/^Sources$/)
-    expect(screen.getByText(/says KAE may look, not that it has/i)).toBeInTheDocument()
-  })
-
-  it('calls a repository verified once its content has been reached', async () => {
+  it('calls a repository read once its content has been reached', async () => {
     renderSetup(withSources('readable'))
 
-    await screen.findByText(/^Sources$/)
-    expect(screen.getByText(/its content has been reached and read/i)).toBeInTheDocument()
+    await screen.findByText(/what this project reads from/i)
+    expect(screen.getByText(/^Read$/)).toBeInTheDocument()
+    expect(screen.queryByText(/not read yet/i)).not.toBeInTheDocument()
   })
 
   it('counts a pinned repository as reached too', async () => {
@@ -296,8 +313,8 @@ describe('verified is earned, not granted', () => {
     // `readable` would demote a source the moment it got more certain.
     renderSetup(withSources('pinned'))
 
-    await screen.findByText(/^Sources$/)
-    expect(screen.getByText(/its content has been reached and read/i)).toBeInTheDocument()
+    await screen.findByText(/what this project reads from/i)
+    expect(screen.getByText(/^Read$/)).toBeInTheDocument()
   })
 })
 
@@ -344,19 +361,21 @@ describe('a registered destination stays registered', () => {
   it('does not report an unreachable destination as none', async () => {
     renderSetup(withTarget(false))
 
-    await screen.findByText(/^Destinations$/)
+    await screen.findByText(/where outputs go/i)
     expect(screen.queryByText(/nowhere to go/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/a destination is registered/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/cannot be reached/i).length).toBeGreaterThan(0)
   })
 
   it('says why it cannot be reached, in the backend`s words where there are any', async () => {
     renderSetup(withTarget(false, 'The connection for this target was revoked.'))
 
-    // Twice on the page: once in the summary caveat, once on the destination
-    // itself further down. Both are the reason, and asserting through the
-    // summary alone would pass if the caveat never rendered.
+    // Once now, on the destination itself. It used to appear twice — a summary
+    // caveat at the top of the page and the destination further down — and
+    // `D-82` removed the summary because one subject stated twice is two
+    // things to keep in agreement. The reason still reaches a person, beside
+    // the thing it is about.
     const shown = await screen.findAllByText(/the connection for this target was revoked/i)
-    expect(shown.length).toBeGreaterThanOrEqual(2)
+    expect(shown.length).toBeGreaterThanOrEqual(1)
   })
 
   it('falls back to a reason of its own rather than saying nothing', async () => {
@@ -371,7 +390,7 @@ describe('a registered destination stays registered', () => {
     // The other half. A caveat on every project is one nobody reads.
     renderSetup(withTarget(true))
 
-    await screen.findByText(/^Destinations$/)
+    await screen.findByText(/where outputs go/i)
     expect(screen.queryByText(/cannot be reached/i)).not.toBeInTheDocument()
   })
 
@@ -386,7 +405,7 @@ describe('a registered destination stays registered', () => {
   it('says a registered destination that is not the default has nowhere to go', async () => {
     renderSetup(withTarget(true, null, false))
 
-    expect(await screen.findByText(/is registered and is not the default/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/not the default/i)).length).toBeGreaterThan(0)
     expect(screen.getByText(/nowhere to go/i)).toBeInTheDocument()
   })
 
@@ -394,9 +413,11 @@ describe('a registered destination stays registered', () => {
     // The `D-26` half, against the new condition: it *is* registered.
     renderSetup(withTarget(true, null, false))
 
-    await screen.findByText(/^Destinations$/)
-    expect(screen.queryByText(/no output destination/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/a destination is registered/i)).toBeInTheDocument()
+    await screen.findByText(/where outputs go/i)
+    // Registered is registered (`D-26`). The word is `No default chosen` —
+    // never `None`, which would describe a project nobody configured.
+    expect(screen.queryByText(/^None$/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('No default chosen').length).toBeGreaterThan(0)
   })
 
   it('sends nobody to Settings to choose a default', async () => {
@@ -406,7 +427,7 @@ describe('a registered destination stays registered', () => {
     // one.
     renderSetup(withTarget(true, null, false))
 
-    await screen.findByText(/is registered and is not the default/i)
+    await screen.findByText(/not the default/i)
     expect(screen.queryByText(/grant the connection in settings/i)).not.toBeInTheDocument()
   })
 
@@ -420,6 +441,6 @@ describe('a registered destination stays registered', () => {
       }),
     )
 
-    expect(await screen.findByText(/nowhere to go/i)).toBeInTheDocument()
+    expect((await screen.findAllByText('None')).length).toBeGreaterThan(0)
   })
 })

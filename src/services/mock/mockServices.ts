@@ -1092,7 +1092,34 @@ function referenceFor(target: ArtifactDestination['type']): string {
  */
 class MockAcquisition implements AcquisitionPort {
   private connections: ProviderConnection[] = []
-  private sources: ProjectSource[] = []
+  /**
+   * The repository this project is configured for, as a Source.
+   *
+   * `D-55`: a named `primary_repository` **is** a Source, and the prototype had
+   * the configuration without the record — so `/setup` showed *nothing to read
+   * from* for a project it also described as configured. A fixture that
+   * contradicts the product's own rule teaches the wrong model (`D-82`).
+   */
+  private sources: ProjectSource[] = [
+    {
+      sourceId: 'src_fixture_repo',
+      projectId: 'proj-ministry-reporting',
+      kind: 'github',
+      connectionId: 'connection-1',
+      location: 'ministry/reporting-platform',
+      reference: 'main',
+      state: 'configured',
+      snapshot: null,
+      lastError: '',
+      analysis: {
+        capability: 'source.analysis',
+        reason:
+          'Reading a repository into proposed findings is not implemented. A source can be connected, read and pinned to an exact commit; nothing yet turns that snapshot into project knowledge.',
+        state: 'planned',
+        provedInstead: ['connection verified', 'source readable', 'revision pinned'],
+      },
+    },
+  ]
   private counter = 0
 
   availableRepositories(query = ''): Promise<RepositoryListing> {
