@@ -163,15 +163,51 @@ goes into the disclosure that already exists on those rows.
 in Conversation."* A column that is always empty is removed until something
 fills it.
 
-## Slices (ship in order, each independently deployable)
+## Slices — **all five shipped, 2026-08-14**
 
-| | Slice | Exit proof |
-|---|---|---|
-| **N1** | Shell: five primary destinations, Understanding and Settings as groups; every badge names its noun | Live sweep shows no primary destination whose only controls are the shell's |
-| **N2** | Counts reconcile: one counting rule, questions never counted as requirements, the same number identical on every page | A test asserts Dashboard, Decisions and the badge read one function of one payload |
-| **N3** | Decisions: `/reviews` + `/requirements` merged, grouped, ranked, paginated; confirm/reject in place | 174 items reachable without 174 redirects; no page over ~60 controls |
-| **N4** | Identifiers behind provenance; empty sections get sentences; `revision unreported` spelled once | Sweep finds no UUID, area key or error code as primary text |
-| **N5** | Home: one primary action, working journey strip, `Needs you` ranked | A first-time user reaches a useful action in one click from Home |
+| | Slice | Exit proof | State |
+|---|---|---|---|
+| **N1** | Shell: five primary destinations, Understanding and Settings as groups; every badge names its noun | No primary destination whose only controls are the shell's | **done** — `D-95` |
+| **N2** | Counts reconcile: one counting rule, questions never counted as requirements | 174 / 59 / 9 identical on every page that shows them | **done** — `D-96` |
+| **N3** | Decisions grouped and paged; confirm and reject in place | 350 visible controls → 13; 174 redirect sentences → 0 | **done** — `D-97` |
+| **N4** | Identifiers behind provenance; empty sections get sentences | Sweep finds no visible UUID, area key or error code on any route | **done** — `D-98` |
+| **N5** | Home: one primary action, working journey strip | The first `Needs you` row carries the verb; the strip marks Discovery | **done** — `D-98` |
+
+### The sweep, before and after
+
+Re-runnable: `node sweep.mjs` against a running deployment.
+
+| | Before | After |
+|---|---:|---:|
+| `/reviews` visible controls | 350 | **13** |
+| `/requirements` visible controls | 188 | **26** |
+| Redirect sentences on `/requirements` | 174 | **0** |
+| Routes showing a machine identifier | 5 | **0** |
+| Primary destinations | 14 | **5** |
+| Routes overflowing a 1440px window | 1 | **0** |
+
+**A measurement trap worth keeping:** a closed `<details>` keeps its contents
+laid out and skips only painting, so `getBoundingClientRect` reports a collapsed
+group as though every row were on screen. `sweep.mjs` uses
+`Element.checkVisibility()`; the same page reads 216 the wrong way and 13 the
+right one.
+
+## What N1–N5 did not do
+
+The three open decisions below are **unresolved and were not worked around**.
+`OD-NAV-2` in particular: the queue groups without ranking, because a blocking
+relation nobody has verified cannot be invented into a priority order a reader
+would believe.
+
+Still true after this package, and still worth doing:
+
+- `/setup` carries 70 controls, nearly all of them a 68-repository picker inside
+  a form. It is a picker doing its job, and it is also the last long page.
+- Four Understanding surfaces remain read-only by capability, not by choice —
+  Modules, Architecture, Dependencies, Plan. Grouping made that honest; it did
+  not make them work.
+- The `Rooms` grid on Home still lists surfaces the sidebar now groups, so the
+  home page and the navigation disagree about how many places there are.
 
 ## Files this touches
 
