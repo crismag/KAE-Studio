@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { ProposedStatements } from './ProposedStatements'
 import { QualityReview } from './QualityReview'
 import { PageLayout } from '@/components/project/PageLayout'
 import {
@@ -295,6 +296,15 @@ export function Reviews() {
                 ) : items.length === 0 ? (
                   <div className="px-5 py-4">
                     <p className="text-[12.5px] text-ink-subtle">Nothing outstanding here.</p>
+                  </div>
+                ) : group.kind === 'agent_proposal' ? (
+                  // **Grouped and paged** (`NAV-01` N3). This was one flat list
+                  // of every proposed statement — 174 rows and 350 buttons on
+                  // the live project, in an order nobody chose.
+                  <div className="px-5 py-4">
+                    <ProposedStatements findings={items}>
+                      {(f) => <FindingCard key={f.id} finding={f} />}
+                    </ProposedStatements>
                   </div>
                 ) : (
                   <ul className="divide-y divide-line">

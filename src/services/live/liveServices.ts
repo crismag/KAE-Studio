@@ -635,6 +635,9 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       // `validated` is Memory's word for confirmed by a person. Anything else
       // is a candidate, and the distinction must survive into the UI.
       status: lifecycleStatus(s.lifecycle),
+      // Carried so a proposed row can be confirmed or refused where it is read
+      // (`NAV-01` N3). Reject needs it for optimistic concurrency.
+      version: s.version,
       satisfies: [],
       verifiedBy: [],
       updatedAt: s.updatedAt,
@@ -681,6 +684,9 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
           ? 'Recorded as a material unknown: the model could not determine this and did not guess.'
           : `Derived from conversation as ${KIND_LABEL[s.kind] ?? s.kind}. Proposed, not confirmed.`,
       subjectIds: [s.kind, `v${s.version}`],
+      // The same value as data, so Reviews can group by it without parsing a
+      // display chip back into meaning (`NAV-01` N3).
+      statementKind: s.kind,
       version: s.version,
     })),
     health: {

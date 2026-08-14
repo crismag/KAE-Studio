@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as Collapsible from '@radix-ui/react-collapsible'
-import { ArrowRight, ChevronRight, HelpCircle, Quote, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, HelpCircle, Quote, TriangleAlert, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { formatDateTime } from '@/lib/format'
 import { PageLayout } from '@/components/project/PageLayout'
@@ -18,7 +18,7 @@ import {
   PanelTitle,
   Skeleton,
 } from '@/components/ui/primitives'
-import { useProjection } from '@/hooks/useProject'
+import { useConfirmFinding, useProjection, useRejectFinding } from '@/hooks/useProject'
 import { projectCounts } from '@/lib/counts'
 import { plural } from '@/lib/plural'
 import type { AcceptanceTest, ProjectModule, Requirement } from '@/domain/types'
@@ -115,28 +115,95 @@ function Provenance({ knowledgeId, status }: { knowledgeId: string; status: stri
 }
 
 /**
- * U4. What a person can do about this row now.
+ * U4. What a person can do about this row now — **here**, not elsewhere
+ * (`NAV-01` N3).
  *
  * Derived from the item's own state, not planned. Studio has no planning engine
  * and must not grow one — where the domain has no next action, this renders
  * nothing rather than inventing advice.
+ *
+ * ## Why this stopped being a sentence
+ *
+ * It read *"Review this on the Reviews page: confirm it, correct it, or reject
+ * it"* — on 174 of this page's rows in the live project. A page whose main
+ * content is a hundred and seventy-four redirects is not a page. The gesture
+ * exists, `POST /knowledge/{id}/confirm` and its reject counterpart, and Reviews
+ * has always had the buttons.
+ *
+ * An open question keeps its sentence, because for that one the sentence is
+ * true: answering it happens in conversation, and a Confirm button on *"I could
+ * not determine this"* would be agreeing to an absence.
  */
-function NextAction({ status, category }: { status: string; category: string }) {
-  const action =
-    status === 'proposed'
-      ? category === 'open_question'
-        ? 'Answer this, or record it as an assumption — it is a gap KAE found, not a claim.'
-        : 'Review this on the Reviews page: confirm it, correct it, or reject it.'
-      : status === 'contested'
-        ? 'Two statements disagree. Resolving it needs a person.'
-        : null
+function NextAction({ requirement }: { requirement: Requirement }) {
+  const confirm = useConfirmFinding()
+  const reject = useRejectFinding()
 
-  if (!action) return null
+  if (requirement.status === 'contested') {
+    return <Advice>Two statements disagree. Resolving it needs a person.</Advice>
+  }
+  if (requirement.status !== 'proposed') return null
+  if (requirement.category === 'open_question') {
+    return (
+      <Advice>
+        Answer this, or record it as an assumption — it is a gap KAE found, not a claim.
+      </Advice>
+    )
+  }
+  // No version, no rejection: the route refuses one carrying an invented
+  // number, and a button that always fails is worse than no button.
+  if (requirement.version === undefined) {
+    return <Advice>Review this on the Reviews page: confirm it, correct it, or reject it.</Advice>
+  }
 
+  const busy = confirm.isPending || reject.isPending
+
+  return (
+    <div className="mt-2">
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={() => confirm.mutate(requirement.id)}
+        >
+          <Check className="size-3.5" aria-hidden="true" />
+          Confirm
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() =>
+            reject.mutate({
+              findingId: requirement.id,
+              reason: 'Rejected in review.',
+              expectedVersion: requirement.version as number,
+            })
+          }
+        >
+          <X className="size-3.5" aria-hidden="true" />
+          Reject
+        </Button>
+      </div>
+      {/* A write that failed must never look like a write that did nothing —
+          the same treatment `FindingCard` gives it, for the same reason. */}
+      {(confirm.isError || reject.isError) && (
+        <p role="alert" className="mt-2 text-[12px] leading-relaxed text-blocking">
+          {confirm.isError
+            ? 'That confirmation was not recorded. Nothing changed in the project.'
+            : 'That rejection was not recorded. The statement is unchanged.'}{' '}
+          Someone may have edited this statement first — reload to see where it now stands.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function Advice({ children }: { children: React.ReactNode }) {
   return (
     <p className="mt-2 text-[12px] leading-relaxed text-accent-ink">
       <ArrowRight className="mr-1 inline size-3" aria-hidden="true" />
-      {action}
+      {children}
     </p>
   )
 }
@@ -332,7 +399,7 @@ function RequirementRow({
               <span>Updated {formatDateTime(requirement.updatedAt)}</span>
             </div>
 
-            <NextAction status={requirement.status} category={requirement.category} />
+            <NextAction requirement={requirement} />
 
             {requirement.clarificationNeeded && (
               <p className="mt-2 flex items-start gap-2 rounded-md border border-attention-line bg-attention-soft/50 px-3 py-2 text-[12.5px] leading-relaxed text-ink-muted">

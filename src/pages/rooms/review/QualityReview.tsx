@@ -73,47 +73,106 @@ export function QualityReview({ review }: { review: ProjectReview }) {
           </p>
         ) : (
           <ul className="space-y-2.5">
-            {review.findings.map((finding, index) => (
-              // Index in the key because a finding has no identifier by
-              // design, and inventing one here would be the first step toward
-              // a control that addresses it.
-              <li
-                key={`${finding.kind}-${finding.subjectKey}-${index}`}
-                className="rounded-md border border-line bg-surface-sunken px-3 py-2.5"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={tone(finding.severity)}>{finding.severity || 'ungraded'}</Badge>
-                  <span className="text-[11.5px] text-ink-subtle">{readable(finding.kind)}</span>
-                  {finding.areaKey && (
-                    <span className="text-[11.5px] text-ink-subtle">· {finding.areaKey}</span>
-                  )}
-                </div>
-                <p className="mt-1 text-[13px] leading-relaxed text-ink">{finding.summary}</p>
-                {/* Memory's sentence, unedited. It says what would make this
-                    disappear, and a paraphrase of an instruction is advice
-                    nobody can follow. */}
-                {finding.recommendedAction && (
-                  <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
-                    {finding.recommendedAction}
-                  </p>
-                )}
-                {/* Which statements this is about. A contradiction's action —
-                    "supersede one item" — names nothing without them, and an
-                    instruction a reader cannot locate is not advice (`D-37`). */}
-                {finding.knowledgeItemIds.length > 0 && (
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5">
-                    {finding.knowledgeItemIds.map((id) => (
-                      <Mono key={id} className="text-ink">
-                        {id}
-                      </Mono>
-                    ))}
-                  </p>
-                )}
-              </li>
-            ))}
+            {byKind(review.findings).map((group) =>
+              group.items.length === 1 ? (
+                <Finding key={group.kind} finding={group.items[0]} />
+              ) : (
+                <li key={group.kind}>
+                  <details className="rounded-md border border-line bg-surface-sunken">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-3 py-2.5">
+                      <Badge tone={tone(group.items[0].severity)}>
+                        {group.items[0].severity || 'ungraded'}
+                      </Badge>
+                      <span className="text-[13px] text-ink">{summarise(group)}</span>
+                      <span className="text-[11.5px] text-ink-subtle">
+                        · {group.items.length} areas
+                      </span>
+                    </summary>
+                    <ul className="space-y-2.5 px-3 pb-3">
+                      {group.items.map((finding, index) => (
+                        <Finding key={`${finding.subjectKey}-${index}`} finding={finding} />
+                      ))}
+                    </ul>
+                  </details>
+                </li>
+              ),
+            )}
           </ul>
         )}
       </PanelBody>
     </Panel>
   )
+}
+
+/**
+ * One finding, whole.
+ *
+ * Extracted rather than duplicated when grouping arrived — a second copy of this
+ * markup is how the collapsed and expanded views come to disagree about what a
+ * finding shows.
+ */
+function Finding({ finding }: { finding: ProjectReview['findings'][number] }) {
+  return (
+    <li className="rounded-md border border-line bg-surface-sunken px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={tone(finding.severity)}>{finding.severity || 'ungraded'}</Badge>
+        <span className="text-[11.5px] text-ink-subtle">{readable(finding.kind)}</span>
+        {finding.areaKey && (
+          <span className="text-[11.5px] text-ink-subtle">· {finding.areaKey}</span>
+        )}
+      </div>
+      <p className="mt-1 text-[13px] leading-relaxed text-ink">{finding.summary}</p>
+      {/* Memory's sentence, unedited. It says what would make this
+                    disappear, and a paraphrase of an instruction is advice
+                    nobody can follow. */}
+      {finding.recommendedAction && (
+        <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+          {finding.recommendedAction}
+        </p>
+      )}
+      {/* Which statements this is about. A contradiction's action —
+                    "supersede one item" — names nothing without them, and an
+                    instruction a reader cannot locate is not advice (`D-37`). */}
+      {finding.knowledgeItemIds.length > 0 && (
+        <p className="mt-1 flex flex-wrap items-center gap-1.5">
+          {finding.knowledgeItemIds.map((id) => (
+            <Mono key={id} className="text-ink">
+              {id}
+            </Mono>
+          ))}
+        </p>
+      )}
+    </li>
+  )
+}
+
+/**
+ * Findings of one kind together, in the order Memory returned them.
+ *
+ * Memory sorts most severe first and that order is kept — re-sorting here would
+ * put Studio's judgement of severity above the one computing it.
+ */
+function byKind(findings: ProjectReview['findings']): {
+  kind: string
+  items: ProjectReview['findings']
+}[] {
+  const groups = new Map<string, ProjectReview['findings']>()
+  for (const finding of findings) {
+    groups.set(finding.kind, [...(groups.get(finding.kind) ?? []), finding])
+  }
+  return [...groups.entries()].map(([kind, items]) => ({ kind, items }))
+}
+
+/**
+ * What a group of one kind says, in one line.
+ *
+ * Built from Memory's own word for the kind and the number of areas, never from
+ * paraphrasing the findings — a summary that restates seven sentences as one is
+ * a claim about all seven that nothing checked.
+ */
+function summarise(group: { kind: string; items: ProjectReview['findings'] }): string {
+  const areas = group.items.length
+  if (group.kind === 'partial_area') return `${areas} areas need more confirmed evidence`
+  if (group.kind === 'missing_area') return `${areas} areas have no confirmed knowledge`
+  return `${areas} findings of kind ${readable(group.kind)}`
 }

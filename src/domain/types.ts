@@ -223,6 +223,18 @@ export interface Requirement {
   satisfies: string[]
   verifiedBy: string[]
   updatedAt: string
+  /**
+   * The knowledge version this row was rendered from (`NAV-01` N3).
+   *
+   * Needed to act on the row **where it is read**. A rejection carries the
+   * version so KAE-Memory can refuse one aimed at wording that has since
+   * changed, and without it this page could only ever send a person somewhere
+   * else to decide — which is what 174 of its rows used to do.
+   *
+   * Optional: an adapter that does not send one gets read-only rows rather than
+   * a rejection with an invented version, which the route would refuse anyway.
+   */
+  version?: number
   trace: TraceReference[]
   clarificationNeeded?: string
 }
@@ -348,6 +360,20 @@ export interface ReviewFinding {
   detail: string
   /** Display chips. Presentation only — never parse these back into data. */
   subjectIds: string[]
+  /**
+   * What kind of statement this is — `goal`, `rule`, `actor`, `constraint`,
+   * `entity`, `unknown` (`NAV-01` N3).
+   *
+   * **Carried as data because grouping needs it.** It was already on screen,
+   * inside `subjectIds` as a display chip, and the comment above says why
+   * reading it back from there is not allowed: the array is presentation, its
+   * order and contents are a rendering decision, and a page that parsed it
+   * would break the first time somebody added a chip.
+   *
+   * Optional: a backend or adapter that does not send one leaves a finding
+   * ungrouped rather than guessing a kind for it.
+   */
+  statementKind?: string
   /**
    * The knowledge version this finding was rendered from, for optimistic
    * concurrency on reject.
