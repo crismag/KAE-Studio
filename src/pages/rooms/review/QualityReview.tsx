@@ -26,7 +26,16 @@
 
 import { Badge, Mono, Panel, PanelBody, PanelHeader, PanelTitle } from '@/components/ui/primitives'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
+import { plural } from '@/lib/plural'
 import type { ProjectReview } from '@/domain/types'
+
+/**
+ * How many statements a finding may name before the list stops helping.
+ *
+ * A contradiction names two. A coverage finding can name every candidate in the
+ * project, and did.
+ */
+const NAMEABLE = 6
 
 /** `critical` is the only grade that stops anything downstream. */
 function tone(severity: string): 'blocking' | 'attention' | 'neutral' {
@@ -117,8 +126,11 @@ function Finding({ finding }: { finding: ProjectReview['findings'][number] }) {
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={tone(finding.severity)}>{finding.severity || 'ungraded'}</Badge>
         <span className="text-[11.5px] text-ink-subtle">{readable(finding.kind)}</span>
+        {/* Memory's key, made readable (`NAV-01` N4). `problem_and_value`
+            beside a sentence that already names the area is a machine word
+            asking to be translated by the reader. */}
         {finding.areaKey && (
-          <span className="text-[11.5px] text-ink-subtle">· {finding.areaKey}</span>
+          <span className="text-[11.5px] text-ink-subtle">· {readable(finding.areaKey)}</span>
         )}
       </div>
       <p className="mt-1 text-[13px] leading-relaxed text-ink">{finding.summary}</p>
@@ -133,13 +145,25 @@ function Finding({ finding }: { finding: ProjectReview['findings'][number] }) {
       {/* Which statements this is about. A contradiction's action —
                     "supersede one item" — names nothing without them, and an
                     instruction a reader cannot locate is not advice (`D-37`). */}
-      {finding.knowledgeItemIds.length > 0 && (
+      {/* **Named when naming helps** (`NAV-01` N4). `D-37` put these here so a
+          contradiction's *"supersede one item"* names the two items — an
+          instruction a reader cannot locate is not advice. A finding about 174
+          statements names them all the same way, and on the live project that
+          was 174 UUIDs in a chip cloud, longer than everything else on the page
+          combined. Past a handful the count is the information and the list is
+          noise; the statements themselves are grouped below. */}
+      {finding.knowledgeItemIds.length > 0 && finding.knowledgeItemIds.length <= NAMEABLE && (
         <p className="mt-1 flex flex-wrap items-center gap-1.5">
           {finding.knowledgeItemIds.map((id) => (
             <Mono key={id} className="text-ink">
               {id}
             </Mono>
           ))}
+        </p>
+      )}
+      {finding.knowledgeItemIds.length > NAMEABLE && (
+        <p className="mt-1 text-[11.5px] text-ink-subtle">
+          About {plural(finding.knowledgeItemIds.length, 'statement')}, listed below.
         </p>
       )}
     </li>

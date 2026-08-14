@@ -28,7 +28,7 @@
  * cannot, cannot.
  */
 
-import { Panel, PanelBody, PanelHeader, PanelTitle, Badge, Mono } from '@/components/ui/primitives'
+import { Panel, PanelBody, PanelHeader, PanelTitle, Badge } from '@/components/ui/primitives'
 import { SeverityBadge } from '@/components/project/SeverityBadge'
 import type { AssumedEntry, PreliminaryContext, UnknownEntry } from '@/domain/types'
 
@@ -192,9 +192,14 @@ function AssumptionRow({ assumption }: { assumption: AssumedEntry }) {
 }
 
 function UnknownRow({ unknown }: { unknown: UnknownEntry }) {
+  // **The question first** (`NAV-01` N4). `question:partial_area:problem_and_value:-`
+  // led each row, so a panel about what the project has not decided opened with
+  // a Memory key. It is a support handle rather than a fact about the project:
+  // available on hover and to a screen reader, not occupying the line a person
+  // reads.
   return (
-    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <Mono className="text-ink">{unknown.clarificationId}</Mono>
+    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-1" title={unknown.clarificationId}>
+      <span className="sr-only">Reference {unknown.clarificationId}</span>
       <span className="text-[13px] leading-relaxed text-ink">{unknown.question}</span>
       <SeverityBadge severity={unknown.severity} />
       {/* `open` means nobody was asked. Anything else means somebody was asked

@@ -5,16 +5,29 @@ import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { unavailableReason } from '@/components/project/unavailableReason'
-import {
-  Mono,
-  Panel,
-  PanelBody,
-  PanelHeader,
-  PanelTitle,
-  Skeleton,
-} from '@/components/ui/primitives'
+import { Panel, PanelBody, PanelHeader, PanelTitle, Skeleton } from '@/components/ui/primitives'
 import { useProjection } from '@/hooks/useProject'
 import type { DefinitionStatement } from '@/domain/types'
+
+/**
+ * A heading with nothing under it says nothing (`NAV-01` N4).
+ *
+ * The live sweep found **THE PROBLEM** and **THE VALUE** rendered as headings
+ * with empty space beneath — on the page that explains what the project is. A
+ * bare label reads as a rendering failure; the same emptiness with a sentence
+ * reads as a state of the project, and names the one place it changes.
+ */
+function NotEstablished() {
+  return (
+    <p className="mt-1.5 text-[13px] italic leading-relaxed text-ink-subtle">
+      Not established yet. It is settled through conversation in the{' '}
+      <Link className="not-italic underline" to="/workspace">
+        Workspace
+      </Link>
+      .
+    </p>
+  )
+}
 
 function StatementList({ items }: { items: DefinitionStatement[] }) {
   return (
@@ -24,8 +37,14 @@ function StatementList({ items }: { items: DefinitionStatement[] }) {
           key={item.id}
           className="flex items-start justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
         >
-          <div className="flex min-w-0 gap-3">
-            <Mono className="mt-0.5 shrink-0">{item.id}</Mono>
+          {/* **The sentence, and only the sentence** (`NAV-01` N4). The
+              identifier led the row, so the page that explains what a project
+              *is* opened with `07975a71-5831-4a4f-b678-ea8c37ab49e2`. It is
+              worth keeping — it is how a person names one statement to somebody
+              else — and it is worth no line of its own, the same treatment it
+              gets on every other surface. */}
+          <div className="min-w-0" title={item.id}>
+            <span className="sr-only">Reference {item.id}</span>
             <p className="text-[13.5px] leading-relaxed text-ink">{item.text}</p>
           </div>
           <div className="shrink-0">
@@ -63,6 +82,13 @@ export function ProjectDefinition() {
   // `undefined` and the panels rendered exactly as blankly as before. A repair
   // that looks right and does nothing is the same defect it was repairing.
   const valueGap = unavailableReason(projection.unavailable, 'definition.value')
+  // **A column empty on every row is not a column** (`NAV-01` N4). KAE-Memory
+  // holds a stakeholder as one `actor` statement with no separate role or
+  // interest, so on a real project these two read "Not recorded" all the way
+  // down — twice the width for none of the information, and a table that looks
+  // like nobody filled it in. Said once beneath instead, and the columns return
+  // the moment any source carries them.
+  const anyRoles = projection.definition.stakeholders.some((s) => s.role || s.interest)
   const inScopeGap = unavailableReason(projection.unavailable, 'definition.inScope')
   const outOfScopeGap = unavailableReason(projection.unavailable, 'definition.outOfScope')
   const workflowsGap = unavailableReason(projection.unavailable, 'definition.workflows')
@@ -82,9 +108,13 @@ export function ProjectDefinition() {
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
                 The problem
               </h3>
-              <p className="mt-1.5 max-w-3xl text-[13.5px] leading-relaxed text-ink">
-                {definition.problem}
-              </p>
+              {definition.problem ? (
+                <p className="mt-1.5 max-w-3xl text-[13.5px] leading-relaxed text-ink">
+                  {definition.problem}
+                </p>
+              ) : (
+                <NotEstablished />
+              )}
             </div>
             <div>
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
@@ -92,17 +122,23 @@ export function ProjectDefinition() {
               </h3>
               {valueGap ? (
                 <CapabilityNote className="mt-1.5 max-w-3xl" reason={valueGap} />
-              ) : (
+              ) : definition.value ? (
                 <p className="mt-1.5 max-w-3xl text-[13.5px] leading-relaxed text-ink">
                   {definition.value}
                 </p>
+              ) : (
+                <NotEstablished />
               )}
             </div>
             <div>
               <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
                 Objectives
               </h3>
-              <StatementList items={definition.objectives} />
+              {definition.objectives.length > 0 ? (
+                <StatementList items={definition.objectives} />
+              ) : (
+                <NotEstablished />
+              )}
             </div>
           </PanelBody>
         </Panel>
@@ -118,12 +154,16 @@ export function ProjectDefinition() {
                   <th scope="col" className="px-5 py-2.5 font-semibold">
                     Stakeholder
                   </th>
-                  <th scope="col" className="hidden px-5 py-2.5 font-semibold sm:table-cell">
-                    Role
-                  </th>
-                  <th scope="col" className="px-5 py-2.5 font-semibold">
-                    Interest
-                  </th>
+                  {anyRoles && (
+                    <>
+                      <th scope="col" className="hidden px-5 py-2.5 font-semibold sm:table-cell">
+                        Role
+                      </th>
+                      <th scope="col" className="px-5 py-2.5 font-semibold">
+                        Interest
+                      </th>
+                    </>
+                  )}
                   <th scope="col" className="px-5 py-2.5 font-semibold">
                     Status
                   </th>
@@ -131,22 +171,26 @@ export function ProjectDefinition() {
               </thead>
               <tbody className="divide-y divide-line">
                 {definition.stakeholders.map((s) => (
-                  <tr key={s.id} className="align-top">
+                  <tr key={s.id} className="align-top" title={s.id}>
                     <td className="px-5 py-3">
                       <p className="text-[13.5px] font-medium text-ink">{s.name}</p>
-                      <Mono>{s.id}</Mono>
+                      <span className="sr-only">Reference {s.id}</span>
                     </td>
-                    {/* Absence renders as absence. KAE-Memory holds a
-                        stakeholder as one `actor` statement with no separate
-                        role or interest, so these are genuinely empty for a
-                        real project — and a blank cell reads as "nobody filled
-                        this in" rather than "this source does not carry it". */}
-                    <td className="hidden px-5 py-3 text-[13px] text-ink-muted sm:table-cell">
-                      {s.role || <span className="italic text-ink-subtle">Not recorded</span>}
-                    </td>
-                    <td className="px-5 py-3 text-[13px] leading-relaxed text-ink-muted">
-                      {s.interest || <span className="italic text-ink-subtle">Not recorded</span>}
-                    </td>
+                    {/* Absence renders as absence, where the columns exist at
+                        all — some sources carry a role and some do not, and a
+                        blank cell reads as "nobody filled this in". */}
+                    {anyRoles && (
+                      <>
+                        <td className="hidden px-5 py-3 text-[13px] text-ink-muted sm:table-cell">
+                          {s.role || <span className="italic text-ink-subtle">Not recorded</span>}
+                        </td>
+                        <td className="px-5 py-3 text-[13px] leading-relaxed text-ink-muted">
+                          {s.interest || (
+                            <span className="italic text-ink-subtle">Not recorded</span>
+                          )}
+                        </td>
+                      </>
+                    )}
                     <td className="px-5 py-3">
                       <StatusBadge status={s.status} />
                     </td>
@@ -154,6 +198,14 @@ export function ProjectDefinition() {
                 ))}
               </tbody>
             </table>
+            {!anyRoles && (
+              // Said once, where the columns would have been. A limit of what
+              // KAE-Memory holds, not a gap in this project.
+              <p className="px-5 py-3 text-[12px] leading-relaxed text-ink-subtle">
+                KAE records a stakeholder as one statement, with no separate role or interest, so
+                neither is shown.
+              </p>
+            )}
           </PanelBody>
         </Panel>
 
@@ -193,10 +245,10 @@ export function ProjectDefinition() {
           <PanelBody className="space-y-6">
             {workflowsGap && <CapabilityNote reason={workflowsGap} />}
             {definition.workflows.map((wf) => (
-              <div key={wf.id}>
+              <div key={wf.id} title={wf.id}>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-[13.5px] font-semibold text-ink">{wf.name}</h3>
-                  <Mono>{wf.id}</Mono>
+                  <span className="sr-only">Reference {wf.id}</span>
                   <StatusBadge status={wf.status} />
                 </div>
                 <ol className="mt-3 space-y-0">

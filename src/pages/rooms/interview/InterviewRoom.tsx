@@ -470,7 +470,7 @@ export function CoverageSection({
 function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
   const defer = useDeferDecision()
   return (
-    <li className="rounded-md border border-line bg-surface px-3 py-2.5">
+    <li className="rounded-md border border-line bg-surface px-3 py-2.5" title={decision.id}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-[12.5px] font-medium leading-snug text-ink">{decision.question}</p>
         {decision.deferred && <StatusBadge status="deferred" />}
@@ -482,7 +482,13 @@ function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
         <SeverityBadge severity={decision.severity} />
       </p>
       <div className="mt-2 flex items-center gap-3">
-        <span className="font-mono text-[10.5px] text-ink-subtle">{decision.id}</span>
+        {/* **Not on the row** (`NAV-01` N4). A decision's id is a Memory key —
+            `question:partial_area:problem_and_value:-` on the live project —
+            and it sat under the question in the panel a person reads while
+            deciding. It is a support handle, not a fact about the project, so
+            it is available on hover and to a screen reader rather than
+            occupying a line. */}
+        <span className="sr-only">Reference {decision.id}</span>
         {/* Only for a question somebody has actually been asked.
             Deferring needs a message id, and a candidate has none — offering
             the control for one would either fail or ask the question in order

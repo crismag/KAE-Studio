@@ -90,6 +90,24 @@ describe('the journey', () => {
 })
 
 describe('what needs you', () => {
+  it('makes one row the primary one, so the page answers what now', async () => {
+    /**
+     * `NAV-01` N5. Three rows of equal weight ask a person to rank their own
+     * work on the page that exists to answer *what now*. The ranking already
+     * existed — it is the order the rows are built in — and nothing on screen
+     * showed it.
+     */
+    renderDashboard()
+
+    const first = await screen.findByText(/proposed statement.* awaiting your decision/i)
+    const row = first.closest('a')
+
+    // The verb appears on the first row and only there.
+    expect(row).toHaveTextContent(/Review them/)
+    const decisions = screen.getByText(/open decision/i).closest('a')
+    expect(decisions).not.toHaveTextContent(/Decide them/)
+  })
+
   it('counts things that exist and links each one somewhere', async () => {
     renderDashboard()
 

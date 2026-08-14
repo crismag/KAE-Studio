@@ -103,15 +103,19 @@ function Refusal({ error }: { error: unknown }) {
   return (
     <div
       role="alert"
+      title={typed?.code}
       className="flex items-start gap-2.5 rounded-panel border border-attention-line bg-attention-soft/40 px-4 py-3"
     >
       <AlertCircle className="mt-0.5 size-4 shrink-0 text-attention" aria-hidden="true" />
       <div className="min-w-0 text-[12.5px] leading-relaxed">
         <p className="text-ink">{typed?.message ?? String(error)}</p>
         {typed?.remedy && <p className="mt-1 text-ink-muted">{typed.remedy}</p>}
-        {typed?.code && (
-          <Mono className="mt-1.5 block text-[11px] text-ink-subtle">{typed.code}</Mono>
-        )}
+        {/* **Not as a third line** (`NAV-01` N4). `artifacts_not_configured`
+            sat under a sentence and a remedy that already said everything it
+            says, in a vocabulary belonging to the backend. It is worth keeping
+            for anybody quoting this to somebody else, and it is not worth a
+            line of its own. */}
+        {typed?.code && <span className="sr-only">Error code {typed.code}</span>}
       </div>
     </div>
   )

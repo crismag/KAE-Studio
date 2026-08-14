@@ -86,7 +86,7 @@ export function Blockers({ blockers }: { blockers: ProjectBlocker[] }) {
                   {blocker.owner
                     ? `${blocker.owner} owns closing this`
                     : 'Nobody has been named to close this'}
-                  {blocker.areaKey && ` · ${blocker.areaKey}`}
+                  {blocker.areaKey && ` · ${blocker.areaKey.replace(/_/g, ' ')}`}
                 </p>
               </li>
             ))}

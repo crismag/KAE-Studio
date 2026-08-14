@@ -200,24 +200,33 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
     proposed > 0 && {
       text: `${proposed} proposed statement${proposed === 1 ? '' : 's'} awaiting your decision`,
       to: '/reviews',
+      verb: 'Review them',
       tone: 'accent' as const,
     },
     decisions > 0 && {
       text: `${decisions} open decision${decisions === 1 ? '' : 's'}`,
       to: '/workspace',
+      verb: 'Decide them',
       tone: 'attention' as const,
     },
     contradictions > 0 && {
       text: `${contradictions} unresolved contradiction${contradictions === 1 ? '' : 's'}`,
       to: '/reviews',
+      verb: 'Resolve them',
       tone: 'blocking' as const,
     },
     lost && {
       text: 'Part of what you gave KAE was never read',
       to: '/ingestion',
+      verb: 'See what',
       tone: 'attention' as const,
     },
-  ].filter(Boolean) as { text: string; to: string; tone: 'accent' | 'attention' | 'blocking' }[]
+  ].filter(Boolean) as {
+    text: string
+    to: string
+    verb: string
+    tone: 'accent' | 'attention' | 'blocking'
+  }[]
 
   return (
     <Panel>
@@ -252,12 +261,20 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
             </p>
           )
         ) : (
+          /* **One of these is first** (`NAV-01` N5). Three rows of equal weight
+             ask a person to rank their own work on the page that exists to
+             answer *what now* — and the ordering that decides which is first is
+             already here, in the order the rows are built. */
           <ul className="space-y-2">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <li key={item.to + item.text}>
                 <Link
                   to={item.to}
-                  className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 text-[12.5px] text-ink transition-colors hover:bg-surface-sunken"
+                  className={
+                    index === 0
+                      ? 'flex items-center gap-2.5 rounded-md border border-accent-line bg-accent-soft px-3.5 py-3 text-[13px] font-medium text-ink transition-colors hover:bg-accent-soft/70'
+                      : 'flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 text-[12.5px] text-ink transition-colors hover:bg-surface-sunken'
+                  }
                 >
                   <TriangleAlert
                     className={`size-3.5 shrink-0 ${
@@ -266,6 +283,11 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
                     aria-hidden="true"
                   />
                   <span className="min-w-0 flex-1">{item.text}</span>
+                  {/* The verb, on the one row that is first. The rest are a
+                      list; this is what to do next. */}
+                  {index === 0 && (
+                    <span className="shrink-0 text-[12px] text-accent-ink">{item.verb}</span>
+                  )}
                   <ArrowRight className="size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
                 </Link>
               </li>

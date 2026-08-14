@@ -110,7 +110,12 @@ export function Memory() {
       actions={
         <Badge tone="neutral">
           <Database className="size-3" aria-hidden="true" />
-          revision {project?.memoryRevision ?? '—'}
+          {/* The same words the footer uses (`NAV-01` N4). Two spellings of one
+              unknown — `revision —` here and `revision unreported` below — read
+              as two different facts about the same missing number. */}
+          {project?.memoryRevision === undefined
+            ? 'revision unreported'
+            : `revision ${project.memoryRevision}`}
         </Badge>
       }
     >
@@ -166,7 +171,12 @@ export function Memory() {
                 <li key={r.id} className="px-5 py-3.5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 gap-3">
-                      <Mono className="mt-0.5 shrink-0">{r.id}</Mono>
+                      {/* **The statement first** (`NAV-01` N4). The identifier
+                          led every one of 180 rows, in the widest column, so
+                          the page that answers *why does KAE believe this*
+                          opened with a UUID rather than a belief. It belongs
+                          with the provenance — which is the one place somebody
+                          wants it, and where a disclosure already existed. */}
                       <div className="min-w-0">
                         <p className="text-[13.5px] leading-relaxed text-ink">{r.statement}</p>
                         <details className="mt-1.5 group">
@@ -174,6 +184,9 @@ export function Memory() {
                             Where this came from
                           </summary>
                           <div className="mt-2 border-l border-line pl-3">
+                            <p className="mb-2 text-[11.5px] text-ink-subtle">
+                              Statement <Mono className="text-ink">{r.id}</Mono>
+                            </p>
                             <RecordProvenance knowledgeId={r.id} status={r.status} />
                           </div>
                         </details>
