@@ -20,6 +20,7 @@ only registering one can show.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -33,7 +34,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from kae_studio.acquisition.github_app import AppUnavailable, GitHubApp
 from kae_studio.acquisition.github_source import SourceReadError
-from kae_studio.config import Settings
+from kae_studio.config import ConfigurationError, Settings
 
 INSTALLATION = 999
 
@@ -269,6 +270,47 @@ class TestWhatTheDeploymentSays:
         assert "PRIVATE KEY" not in repr(state)
 
 
+class TestTheKeyAsAFile:
+    """GitHub hands an operator a `.pem`, so a deployment can name the file.
+
+    A multi-line PEM in an environment variable survives `export` and then does
+    not survive a systemd unit, a Docker `--env-file`, or a shell that helpfully
+    collapses it.
+    """
+
+    def test_a_named_file_is_read_as_the_key(self, private_key: str, tmp_path: Path) -> None:
+        pem = tmp_path / "app.private-key.pem"
+        pem.write_text(private_key, encoding="utf-8")
+
+        settings = Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "t",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+                "STUDIO_GITHUB_APP_ID": "12345",
+                "STUDIO_GITHUB_APP_PRIVATE_KEY_FILE": str(pem),
+            }
+        )
+
+        assert settings.github_app
+        assert settings.github_app_private_key == private_key
+
+    def test_a_file_that_cannot_be_read_is_an_error_not_a_shrug(self, tmp_path: Path) -> None:
+        """Silence here is how a deployment reads nothing while its settings
+        say it should — the failure mode this estate keeps finding."""
+
+        with pytest.raises(ConfigurationError, match="could not be read"):
+            Settings.from_environment(
+                {
+                    "KAE_MEMORY_TOKEN": "t",
+                    "STUDIO_SESSION_SECRET": "x" * 40,
+                    "STUDIO_NO_AUTH": "1",
+                    "STUDIO_GITHUB_APP_ID": "12345",
+                    "STUDIO_GITHUB_APP_PRIVATE_KEY_FILE": str(tmp_path / "absent.pem"),
+                }
+            )
+
+
 class TestConfigurationMistakes:
     def test_an_app_with_no_key_is_refused_at_construction(self) -> None:
         # Rather than at the first read, which would be a 401 an operator would
@@ -394,6 +436,30 @@ class TestWhyThePickerIsEmpty:
         # Never the sentence for a deployment that configured nothing.
         assert "STUDIO_GITHUB_SOURCE_TOKEN" not in reason
 
+    def test_a_token_still_reads_while_the_app_awaits_its_install(
+        self, monkeypatch: pytest.MonkeyPatch, private_key: str
+    ) -> None:
+        """Registering an App is not granting one, and only the owner can grant.
+
+        Between *the App exists* and *the App is installed* there is a gap only a
+        person on GitHub can close. A deployment holding a personal token as well
+        plainly wants to read something meanwhile, and going dark until the
+        install happens would take away a picker that works — while still
+        carrying the sentence that says what is missing.
+        """
+
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+        from kae_studio.api import _source_client
+
+        monkeypatch.setattr(GitHubApp, "installations", lambda _self: [])
+        client, reason = _source_client(
+            self.settings_for(private_key, STUDIO_GITHUB_SOURCE_TOKEN="ghp_x")
+        )
+
+        assert client is not None
+        # Not silently. The state is still on the record.
+        assert "not installed anywhere" in reason
+
     def test_installed_several_times_names_them_and_asks_for_one(
         self, monkeypatch: pytest.MonkeyPatch, private_key: str
     ) -> None:
@@ -510,3 +576,127 @@ def test_the_installation_token_is_cached_across_clients(private_key: str) -> No
 
 def test_app_unavailable_is_one_sentence_a_person_can_act_on() -> None:
     assert issubclass(AppUnavailable, RuntimeError)
+
+
+class TestListingInstallations:
+    """`/api/github/installations` — read-only, and that is deliberate (`D-90`).
+
+    Listing is free: `GitHubApp.installations()` exists and needs no storage.
+    **Choosing** one durably needs somewhere to keep the choice and there is
+    nowhere — `KNOWN_FIELDS` refuses a seventh configuration field, Studio holds
+    no durable state of its own (`D-21`, `D-22`), and an installation is a fact
+    about the deployment rather than about one project.
+
+    So the product can name the accounts and must not pretend to select between
+    them. A picker that appeared to choose and forgot on restart would be worse
+    than the sentence it replaced.
+    """
+
+    def client(self, private_key: str, github: FakeGitHub | None = None, **env: str) -> Any:
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+        from fastapi.testclient import TestClient
+
+        from kae_studio.api import create_app
+        from kae_studio.config import Settings
+
+        settings = Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "t",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+                **env,
+            }
+        )
+        client = TestClient(create_app(settings))
+        client.__enter__()
+        return client
+
+    def test_a_deployment_with_no_app_lists_nothing_and_calls_it_nothing(
+        self, private_key: str
+    ) -> None:
+        # Not an error: no App is a supported deployment, and `/api/status`
+        # already reports `github_app: not configured`.
+        client = self.client(private_key)
+        try:
+            body = client.get("/api/github/installations").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert body == {"installations": [], "unavailable_reason": "", "selected": ""}
+
+    def test_it_names_the_accounts_the_app_is_installed_on(
+        self, private_key: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The whole point: Settings can say *crismag*, not `env:KAE_GITHUB_TOKEN`."""
+
+        monkeypatch.setattr(
+            GitHubApp,
+            "installations",
+            lambda _self: [
+                {"installation_id": 1, "account": "crismag", "repository_selection": "selected"},
+                {"installation_id": 2, "account": "an-org", "repository_selection": "all"},
+            ],
+        )
+        client = self.client(
+            private_key,
+            STUDIO_GITHUB_APP_ID="12345",
+            STUDIO_GITHUB_APP_PRIVATE_KEY=private_key,
+        )
+        try:
+            body = client.get("/api/github/installations").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [i["account"] for i in body["installations"]] == ["crismag", "an-org"]
+        # Nothing chosen, which is the case that needs a person — and the
+        # backend still refuses to guess (`D-58`).
+        assert body["selected"] == ""
+
+    def test_it_reports_which_one_this_deployment_reads_as(
+        self, private_key: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            GitHubApp,
+            "installations",
+            lambda _self: [
+                {"installation_id": 1, "account": "crismag", "repository_selection": "selected"}
+            ],
+        )
+        client = self.client(
+            private_key,
+            STUDIO_GITHUB_APP_ID="12345",
+            STUDIO_GITHUB_APP_PRIVATE_KEY=private_key,
+            STUDIO_GITHUB_APP_INSTALLATION_ID="1",
+        )
+        try:
+            body = client.get("/api/github/installations").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert body["selected"] == "1"
+
+    def test_refused_credentials_are_a_reason_not_an_empty_list(
+        self, private_key: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An empty list and a refused App are different situations.
+
+        Rendering both as *no accounts* is `D-58`'s defect: one is nothing to
+        show, the other is a configuration mistake with a remedy.
+        """
+
+        def refuse(_self: Any) -> Any:
+            raise AppUnavailable("GitHub refused this App's credentials.")
+
+        monkeypatch.setattr(GitHubApp, "installations", refuse)
+        client = self.client(
+            private_key,
+            STUDIO_GITHUB_APP_ID="12345",
+            STUDIO_GITHUB_APP_PRIVATE_KEY=private_key,
+        )
+        try:
+            body = client.get("/api/github/installations").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert body["installations"] == []
+        assert "refused" in body["unavailable_reason"]

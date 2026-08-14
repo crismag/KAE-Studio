@@ -50,18 +50,19 @@ describe('what the menu offers', () => {
 
   it('says nothing about a prerequisite until the control is reached for', async () => {
     const user = userEvent.setup()
-    open()
+    // Not connected, so cloning has an unmet prerequisite to withhold.
+    open({ connected: false })
 
     await user.click(screen.getByRole('button', { name: /add a source/i }))
 
     // The menu is open and no explanation is on screen. This is the assertion
     // the whole redesign turns on.
-    expect(screen.queryByText(/cannot clone a repository/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/nothing to copy from/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/wider grant than reading/i)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /clone a repository here first/i }))
 
-    expect(await screen.findByText(/cannot clone a repository/i)).toBeInTheDocument()
+    expect(await screen.findByText(/nothing to copy from/i)).toBeInTheDocument()
     // Still only the one reached for.
     expect(screen.queryByText(/wider grant than reading/i)).not.toBeInTheDocument()
   })
@@ -105,23 +106,67 @@ describe('what each branch needs is computed, not written down', () => {
     expect(folder?.needs).toContain('KAE_LOCAL_SOURCE_ROOTS')
   })
 
-  it('GitHub is ready only once an account is connected', () => {
+  it('separates “not connected” from “connected and sees nothing”', () => {
+    /**
+     * Three states, not two (`D-89`). The live evidence: an account is granted,
+     * the GitHub listing is empty, and the menu told the person to *connect an
+     * account in Settings* — to do again the thing they had already done.
+     *
+     * Connected-with-nothing-visible is this Studio's access, not a missing
+     * connect step.
+     */
     const without = options({ localRoots: 29, connected: false }).find((o) => o.id === 'github')
-    const withAccount = options({ localRoots: 29, connected: true }).find((o) => o.id === 'github')
+    const scoped = options({ localRoots: 29, connected: true, githubCount: 0 }).find(
+      (o) => o.id === 'github',
+    )
+    const ready = options({ localRoots: 29, connected: true, githubCount: 4 }).find(
+      (o) => o.id === 'github',
+    )
 
     expect(without?.needs).toContain('Connect one in Settings')
-    expect(withAccount?.needs).toBe('')
+
+    expect(scoped?.needs).toMatch(/cannot see any GitHub repositories/i)
+    expect(scoped?.needs).not.toMatch(/connect one in settings/i)
+
+    expect(ready?.needs).toBe('')
+    expect(ready?.means).toContain('4')
   })
 
-  it('never calls an unbuilt capability a configuration gap', () => {
+  it('cloning spans two prerequisites and names whichever is missing', () => {
     /**
-     * Cloning is not switched off — nothing in the estate runs `git clone`.
-     * "Not configured" would imply somebody could configure it, which is the
-     * illusion this codebase keeps having to remove.
+     * It was **Not yet** and now runs (`D-93`). Cloning is the one branch that
+     * needs both halves — something to copy *from*, somewhere to copy *to* —
+     * and naming one while the other is also missing sends somebody to fix half
+     * of it and try again.
      */
-    const clone = options({ localRoots: 29, connected: true }).find((o) => o.id === 'clone')
+    const ready = options({ localRoots: 29, connected: true }).find((o) => o.id === 'clone')
+    const noAccount = options({ localRoots: 29, connected: false }).find((o) => o.id === 'clone')
+    const noRoots = options({ localRoots: 0, connected: true }).find((o) => o.id === 'clone')
 
-    expect(clone?.needs).toMatch(/cannot clone/i)
-    expect(clone?.needs).not.toMatch(/configur/i)
+    expect(ready?.needs).toBe('')
+    expect(noAccount?.needs).toMatch(/nothing to copy from/i)
+    expect(noRoots?.needs).toMatch(/KAE_LOCAL_SOURCE_ROOTS/)
+  })
+})
+
+describe('the menu yields to the picker', () => {
+  it('renders nothing once a kind has been chosen', () => {
+    /**
+     * It stayed open **above** the picker, so a person saw a kind menu, a
+     * repository list and two Cancel buttons — and could choose a second kind
+     * while a picker for the first was on screen (`D-89`).
+     */
+    const { container } = render(
+      <AddSource localRoots={29} connected chosen="folder" onChoose={() => {}} />,
+    )
+
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('is there while nothing has been chosen', () => {
+    // The other half: a rule that always hides is not a rule.
+    render(<AddSource localRoots={29} connected chosen={null} onChoose={() => {}} />)
+
+    expect(screen.getByRole('button', { name: /add a source/i })).toBeInTheDocument()
   })
 })

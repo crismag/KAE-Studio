@@ -18,9 +18,10 @@ The place a credential is authorised, revoked, and seen.
 
 ## User questions it answers
 
+- Can I connect my GitHub account from here?
 - What has this project been given access to?
 - Who granted it, and when?
-- What is this deployment configured to reach at all?
+- Why are there no repositories to pick?
 - Why can I not publish?
 
 ## Entry conditions
@@ -36,9 +37,13 @@ missing (`D-41`).
 
 ## Contextual toolbelt
 
-`§9`. **Record a connection** (as a reference, never a secret), **grant** it,
-and read **who granted it and when** — the date the grant was made, which is
-what `last_verified_at` holds.
+`§9`. **Connect via the GitHub App** when this Studio has one. If the host
+already holds a token, **allow this project to use it** without pasting a
+secret. **Grant** a recorded connection, and read **who granted it and when**.
+
+The environment-variable form is Advanced only. `env:KAE_GITHUB_TOKEN` is a
+pointer to a server secret, not a user connector. Do not name
+`STUDIO_GITHUB_APP_SLUG` on this page (`D-78`).
 
 **Never _last checked_.** Nothing here has reached GitHub. That timestamp is
 stamped by `authorize_connection` and by nothing else, so a label saying the
@@ -80,7 +85,8 @@ is the flow rather than either page.
   Studio's acquisition service keeps a working copy and adopts from the record
   rather than owning it (`D-22`).
 - **Which repository a project uses.** That is a selection, and selections are
-  `/setup`'s (`§6`).
+  **Sources'** (`§6`, `D-81`). This page connects the account; Sources chooses
+  what to read through it, and `/setup` summarises the result.
 - **Global or deployment settings.** `§19`: _do not make global Settings a
   dumping ground for project-specific decisions._ The converse holds too —
   everything here is one project's.

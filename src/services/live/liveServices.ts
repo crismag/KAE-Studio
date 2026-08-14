@@ -1731,6 +1731,29 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
   }
 
   const acquisition: AcquisitionPort = {
+    installations: async () => {
+      const body = await call<{
+        installations: { installation_id: number; account: string; repository_selection: string }[]
+        unavailable_reason: string
+        selected: string
+      }>('/api/github/installations')
+      return {
+        installations: (body.installations ?? []).map((row) => ({
+          installationId: row.installation_id,
+          account: row.account,
+          repositorySelection: row.repository_selection,
+        })),
+        unavailableReason: body.unavailable_reason ?? '',
+        selected: body.selected ?? '',
+      }
+    },
+    cloneRepository: async (fullName) => {
+      const body = await callArtifacts<{ location: string; kind: string }>(
+        '/api/repositories/clone',
+        { method: 'POST', body: JSON.stringify({ full_name: fullName }) },
+      )
+      return { location: body.location, kind: body.kind ?? 'local' }
+    },
     availableRepositories: async (query) => {
       const body = await callArtifacts<{
         repositories: {

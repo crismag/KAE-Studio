@@ -38,6 +38,8 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
     ...base,
     acquisition: {
       availableRepositories: (q) => port.availableRepositories(q),
+      installations: () => port.installations(),
+      cloneRepository: (fullName: string) => port.cloneRepository(fullName),
       listConnections: () => port.listConnections(),
       addConnection: (input) => port.addConnection(input),
       checkConnectivity: (id, location) => port.checkConnectivity(id, location),
@@ -133,6 +135,34 @@ describe('choosing a repository', () => {
     )
 
     expect(await screen.findByText(/no gitHub credential is configured/i)).toBeInTheDocument()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('does not offer a search over an empty GitHub list', async () => {
+    // Granted access that can see folders but no GitHub repositories. An empty
+    // search box here reads as "type the name", which is the interaction this
+    // picker exists to replace — and "scoped to another account" would guess.
+    renderWith(<RepositoryPicker kind="github" onSelect={() => {}} />, (services) =>
+      withAcquisition(services, {
+        availableRepositories: async () => ({
+          repositories: [
+            {
+              kind: 'local',
+              fullName: '/mnt/ai/workspaces/example',
+              defaultBranch: '',
+              private: false,
+              description: '',
+              updatedAt: '2026-08-10T09:00:00Z',
+            },
+          ],
+          truncated: false,
+          unavailableReason: '',
+        }),
+      }),
+    )
+
+    expect(await screen.findByText(/cannot see any GitHub repositories/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/filter/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
@@ -279,12 +309,18 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
 })
 
 describe('configuring GitHub lives in Settings', () => {
-  it('is where the credential reference is added', async () => {
+  it('does not tell a user to set an operator environment variable', async () => {
     renderWith(<ProjectSettings />)
 
-    // Renamed by `D-79`: the token path is now labelled for what it is rather
-    // than presented as the way to connect. The claim — that configuring
-    // GitHub lives here and not on `/setup` — is unchanged.
+    await screen.findByRole('heading', { name: /^GitHub$/i })
+    expect(screen.queryByText(/STUDIO_GITHUB_APP_SLUG/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the server-token reference behind Advanced', async () => {
+    renderWith(<ProjectSettings />)
+
+    // Operator path, not the product connector. Still present so a deployment
+    // that records `env:KAE_GITHUB_TOKEN` can keep doing so.
     expect(await screen.findByLabelText(/environment variable/i)).toBeInTheDocument()
     expect(
       screen.getByText(/the name of the variable holding the token, not the token/i),
@@ -315,10 +351,11 @@ describe('configuring GitHub lives in Settings', () => {
     expect(sent).toEqual(['env:KAE_GITHUB_TOKEN'])
   })
 
-  it('shows a connection that has not been granted as not granted', async () => {
+  it('names a token connection GitHub, not the environment variable', async () => {
     renderWith(<ProjectSettings />)
 
-    expect(await screen.findByText(/env:KAE_GITHUB_TOKEN/)).toBeInTheDocument()
+    expect(await screen.findByText('Connected')).toBeInTheDocument()
+    expect(screen.queryByText(/^env:KAE_GITHUB_TOKEN$/)).not.toBeInTheDocument()
   })
 })
 

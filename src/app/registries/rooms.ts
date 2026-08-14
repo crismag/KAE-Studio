@@ -83,10 +83,14 @@ export const SURFACES: SurfaceDefinition[] = [
     title: 'Project Setup',
     route: '/setup',
     kind: 'surface',
-    purpose: 'Say where this project reads from and where its outputs go',
+    purpose: 'See how this project is set up, and where its outputs go',
     readiness: 'partial',
+    // What this page **is**, not what it will become. It stopped selecting
+    // repositories in `D-81` — Sources does that — and describing it as a
+    // future intake sequence told the Dashboard to advertise a wizard nobody
+    // is building (`D-91`, `§6`).
     limit:
-      'Becomes the progressive intake flow in Stage 4. Today it is one page rather than a sequence.',
+      'Selecting sources happens in Sources; this page summarises what is configured. Publishing is off, so no destination has been proved writable.',
   },
   {
     id: 'interview',
@@ -206,10 +210,10 @@ export const SURFACES: SurfaceDefinition[] = [
   },
   {
     id: 'project-settings',
-    title: 'Project Settings',
+    title: 'GitHub',
     route: '/settings/project',
     kind: 'settings',
-    purpose: 'Configure how KAE reaches the services this project uses',
+    purpose: 'Connect GitHub so this project can read repositories',
     readiness: 'live',
   },
   {

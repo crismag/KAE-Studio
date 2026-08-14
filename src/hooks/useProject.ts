@@ -771,6 +771,39 @@ export function useRuns() {
  * the same for every project here. Keyed accordingly, which also means the list
  * is fetched once and shared by every surface that offers a picker.
  */
+/**
+ * Where the GitHub App is installed. Read-only (`D-90`).
+ *
+ * Refetches when the window regains focus, because the way somebody installs
+ * the App is to leave for GitHub and come back — and a Settings page still
+ * showing *no account* after they returned would be the product disagreeing
+ * with what they just did.
+ */
+export function useInstallations() {
+  const { acquisition } = useServices()
+  return useQuery({
+    queryKey: ['github-installations'],
+    queryFn: () => acquisition.installations(),
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
+  })
+}
+
+/**
+ * Copy a repository here, then let the caller add the copy as a folder.
+ *
+ * Invalidates the repository listing because the clone becomes a *local*
+ * repository the picker can offer — the reason this is worth doing at all.
+ */
+export function useCloneRepository() {
+  const { acquisition } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (fullName: string) => acquisition.cloneRepository(fullName),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['github-repositories'] }),
+  })
+}
+
 export function useAvailableRepositories(query?: string) {
   const { acquisition } = useServices()
   return useQuery({

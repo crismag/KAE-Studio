@@ -341,6 +341,23 @@ export interface AcquisitionPort {
    * a person cannot act on.
    */
   availableRepositories(query?: string): Promise<RepositoryListing>
+  /**
+   * Where the GitHub App is installed, and which one this deployment reads as.
+   *
+   * Read-only by decision (`D-90`): listing costs nothing, and choosing one
+   * durably has nowhere to live — so the product names the accounts and the
+   * host setting still selects between them.
+   */
+  installations(): Promise<InstallationListing>
+  /**
+   * Copy a GitHub repository onto this machine (`D-93`).
+   *
+   * The `+` menu offered this and said **Not yet**, truthfully. It resolves to
+   * *where the bytes landed* and **registers nothing** — choosing the copy as a
+   * source is the same act as choosing any other folder, and folding both into
+   * one call would make one button mean two things.
+   */
+  cloneRepository(fullName: string): Promise<{ location: string; kind: string }>
 
   listConnections(): Promise<ProviderConnection[]>
   addConnection(input: {
@@ -403,6 +420,14 @@ export interface AcquisitionPort {
 }
 
 /** What a credential can see, and why it can see nothing when it cannot. */
+export interface InstallationListing {
+  installations: { installationId: number; account: string; repositorySelection: string }[]
+  /** Empty when the listing worked. A sentence when it did not. */
+  unavailableReason: string
+  /** The installation id this deployment reads as, or `''` if none is set. */
+  selected: string
+}
+
 export interface RepositoryListing {
   repositories: {
     /**

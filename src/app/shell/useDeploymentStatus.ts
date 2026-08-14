@@ -40,9 +40,18 @@ export type DeploymentStatus = {
    * The GitHub App's URL slug, when this deployment has one registered.
    *
    * Absent means there is nothing to install, which is why the Connect control
-   * states a prerequisite instead of linking somewhere that 404s (`D-79`).
+   * is omitted rather than linking somewhere that 404s (`D-79`).
    */
   githubAppSlug?: string
+  /** Whether this host has a GitHub App id and key (`/api/status` `github_app`). */
+  githubApp?: string
+  /**
+   * Whether this host holds a personal token (`STUDIO_GITHUB_SOURCE_TOKEN`).
+   * That token is never shown and never typed in the browser.
+   */
+  githubSource?: string
+  /** Which credential acquisition will actually use. */
+  githubCredential?: string
   /** How many directories this deployment may read as sources (`D-67`). */
   localSources?: number
 }
@@ -87,6 +96,10 @@ export function useDeploymentStatus(): State {
               typeof raw.github_app_slug === 'string' && raw.github_app_slug
                 ? raw.github_app_slug
                 : undefined,
+            githubApp: typeof raw.github_app === 'string' ? raw.github_app : undefined,
+            githubSource: typeof raw.github_source === 'string' ? raw.github_source : undefined,
+            githubCredential:
+              typeof raw.github_credential === 'string' ? raw.github_credential : undefined,
           },
         })
       } catch {

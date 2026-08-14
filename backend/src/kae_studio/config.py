@@ -10,12 +10,42 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 
 def _is_true(value: str) -> bool:
     """Accept the spellings people actually write in a unit file or .env."""
 
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _private_key(env: Mapping[str, str]) -> str:
+    """The App's private key, from a file when the deployment has one.
+
+    GitHub hands an operator a `.pem`, and a multi-line PEM in an environment
+    variable survives `export` and then does not survive a systemd unit, a
+    Docker `--env-file`, or a shell that helpfully collapses it. Naming the file
+    is the form the credential already arrives in.
+
+    Not stripped: a PEM's trailing newline is part of it, and a key that fails to
+    parse for whitespace produces a 401 that reads as *GitHub refused these
+    credentials* and sends somebody to check the wrong thing entirely.
+
+    A named file that cannot be read is an error rather than a silent fallback to
+    *no App configured* — the second is how a deployment ends up quietly reading
+    nothing while its settings say it should.
+    """
+
+    path = env.get("STUDIO_GITHUB_APP_PRIVATE_KEY_FILE", "").strip()
+    if not path:
+        return env.get("STUDIO_GITHUB_APP_PRIVATE_KEY", "")
+    try:
+        return Path(path).expanduser().read_text(encoding="utf-8")
+    except OSError as error:
+        raise ConfigurationError(
+            f"STUDIO_GITHUB_APP_PRIVATE_KEY_FILE names {path}, which could not be read: "
+            f"{error.strerror}"
+        ) from None
 
 
 class ConfigurationError(RuntimeError):
@@ -175,7 +205,7 @@ class Settings:
             # that fails to parse for whitespace produces a 401 that reads as
             # "GitHub refused these credentials" and sends somebody to check the
             # wrong thing entirely.
-            github_app_private_key=env.get("STUDIO_GITHUB_APP_PRIVATE_KEY", ""),
+            github_app_private_key=_private_key(env),
             github_app_installation_id=env.get("STUDIO_GITHUB_APP_INSTALLATION_ID", "").strip(),
             github_app_slug=env.get("STUDIO_GITHUB_APP_SLUG", "").strip(),
             local_source_roots=tuple(

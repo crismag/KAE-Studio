@@ -56,6 +56,7 @@ import {
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
 import {
+  useAvailableRepositories,
   useConfigureField,
   useMemoryConnections,
   useProject,
@@ -74,6 +75,15 @@ import type { ConfiguredValue, ProjectSource, SetupState } from '@/domain/types'
  * reads it."* Rendering a seventh here would be a control whose save always
  * fails.
  */
+/**
+ * The fields that stay in *Reading options*.
+ *
+ * `working_directory` **left this list** (`D-91`). It renders beside the source
+ * it narrows instead, because a control three panels from its subject is one
+ * nobody finds — and two controls writing one field is two things to keep in
+ * agreement. With no source there is nothing to narrow, so it is absent rather
+ * than empty.
+ */
 const FIELDS: {
   name: string
   label: string
@@ -87,13 +97,6 @@ const FIELDS: {
     label: 'Branch',
     hint: 'KAE reads from this branch.',
     placeholder: 'main',
-    mono: true,
-  },
-  {
-    name: 'working_directory',
-    label: 'Working directory',
-    hint: 'Narrows what KAE reads. Leave empty for the whole repository.',
-    placeholder: 'packages/api',
     mono: true,
   },
   {
@@ -233,19 +236,35 @@ function Fact({
  */
 function ConnectionState() {
   const connections = useMemoryConnections()
+  const listing = useAvailableRepositories()
   const accounts = accountsFrom(connections.data ?? [])
   const connected = accounts.some((account) => account.granted)
+  const githubCount = (listing.data?.repositories ?? []).filter((row) => row.kind === 'github')
+    .length
+  const listingKnown = listing.isSuccess && !listing.data?.unavailableReason
+  const seesGithub = listingKnown && githubCount > 0
+  const authorisedEmpty = connected && listingKnown && githubCount === 0
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
       <span className="flex items-center gap-2 text-body text-ink">
-        <Badge tone={connected ? 'confirmed' : 'neutral'}>
-          {connected ? 'GitHub connected' : 'No GitHub account'}
+        <Badge tone={seesGithub ? 'confirmed' : authorisedEmpty ? 'attention' : 'neutral'}>
+          {seesGithub
+            ? 'GitHub connected'
+            : authorisedEmpty
+              ? 'GitHub authorised, no repositories visible'
+              : connected
+                ? 'GitHub authorised'
+                : 'No GitHub account'}
         </Badge>
         <span className="text-meta text-ink-muted">
-          {connected
+          {seesGithub
             ? 'Repositories on GitHub can be added as sources.'
-            : 'Folders on this machine still work without one.'}
+            : authorisedEmpty
+              ? 'This project may use GitHub, but KAE cannot see any repositories yet.'
+              : connected && listing.isPending
+                ? 'Checking which repositories KAE can see.'
+                : 'Folders on this machine still work without one.'}
         </span>
       </span>
       <Button asChild variant="secondary" size="sm">
@@ -263,8 +282,14 @@ function Configuration({ state, sources }: { state: SetupState; sources: Project
         <PanelHeader>
           <PanelTitle>What this project reads from</PanelTitle>
         </PanelHeader>
-        <PanelBody>
+        <PanelBody className="space-y-4">
           <ConfiguredSources sources={sources} />
+          {/* Beside what it narrows, not three panels away (`D-91`). */}
+          {sources.length > 0 && (
+            <div className="max-w-md border-t border-line pt-4">
+              <WorkingDirectory state={state} />
+            </div>
+          )}
         </PanelBody>
       </Panel>
 
@@ -283,7 +308,7 @@ function Configuration({ state, sources }: { state: SetupState; sources: Project
             Reading options
           </span>
           <span className="text-meta font-normal text-ink-muted">
-            Branch, working directory, project kind, output format
+            Branch, project kind, output format
           </span>
         </summary>
         <div className="border-t border-line px-4 py-4">
@@ -314,6 +339,41 @@ function Configuration({ state, sources }: { state: SetupState; sources: Project
  * absolute path for a folder, and leading with the path made this read as
  * developer output rather than as a product (`D-78`).
  */
+/**
+ * What KAE reads **inside** the chosen source.
+ *
+ * `working_directory` lived only in collapsed *Reading options*, three panels
+ * from the repository it narrows — so a monorepo looked like a project with
+ * hundreds of irrelevant files and the field that fixes it was somewhere a
+ * person had no reason to open (`D-91`, `OD-SRC-3`).
+ *
+ * Shown beside the source list once a source exists, and **not** a folder
+ * multi-select inside the picker: `OD-SRC-3` settles that a working directory
+ * is a setup field, and picking a root then narrowing it is the shipped shape.
+ */
+function WorkingDirectory({ state }: { state: SetupState }) {
+  const configure = useConfigureField()
+  const current = state.configuration.working_directory?.value ?? ''
+  const [draft, setDraft] = useState(current)
+
+  return (
+    <Field label="Read only this folder" hint="Empty means the whole repository.">
+      {(props) => (
+        <Input
+          {...props}
+          mono
+          value={draft}
+          placeholder="packages/api"
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() =>
+            draft !== current && configure.mutate({ field: 'working_directory', value: draft })
+          }
+        />
+      )}
+    </Field>
+  )
+}
+
 function ConfiguredSources({ sources }: { sources: ProjectSource[] }) {
   if (sources.length === 0) {
     return (
@@ -357,9 +417,11 @@ function ConfiguredSources({ sources }: { sources: ProjectSource[] }) {
           )
         })}
       </ul>
-      <Button asChild variant="secondary" size="sm">
-        <Link to="/sources">Manage sources</Link>
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/sources">Manage sources</Link>
+        </Button>
+      </div>
     </div>
   )
 }
@@ -474,9 +536,14 @@ function Destinations({ state }: { state: SetupState }) {
   const register = useRegisterTarget()
   const setDefault = useSetDefaultTarget()
   const connections = useMemoryConnections()
+  const listing = useAvailableRepositories()
   const [repository, setRepository] = useState('')
   const [path, setPath] = useState('docs/planning')
   const usable = (connections.data ?? []).find((c) => c.state === 'granted')
+  const githubCount = (listing.data?.repositories ?? []).filter((row) => row.kind === 'github')
+    .length
+  const listingKnown = listing.isSuccess && !listing.data?.unavailableReason
+  const noGithubToPick = Boolean(usable && listingKnown && githubCount === 0)
   const error = register.error instanceof Error ? register.error.message : null
 
   return (
@@ -563,9 +630,7 @@ function Destinations({ state }: { state: SetupState }) {
             unavailable={
               usable
                 ? undefined
-                : // Connections moved to Settings (`§6`), and this still said
-                  // “above”, pointing at a panel that is not on this page.
-                  'Connect a GitHub account in Settings first — a destination nobody has authorised cannot receive anything.'
+                : 'This project has no GitHub access yet. Open GitHub in Settings — you cannot paste a token here.'
             }
           >
             {() =>
@@ -576,6 +641,18 @@ function Destinations({ state }: { state: SetupState }) {
                     Change
                   </Button>
                 </div>
+              ) : noGithubToPick ? (
+                <p className="text-meta text-ink-muted">
+                  KAE cannot see any GitHub repositories to send output to.{' '}
+                  <Link className="underline" to="/settings/project">
+                    See GitHub in Settings
+                  </Link>
+                  . Folders as sources still work on{' '}
+                  <Link className="underline" to="/sources">
+                    Sources
+                  </Link>
+                  .
+                </p>
               ) : (
                 <RepositoryPicker
                   kind="github"

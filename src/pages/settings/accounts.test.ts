@@ -145,3 +145,37 @@ describe('a connected account offers nothing to finish', () => {
     expect(ungranted(account)).toBeDefined()
   })
 })
+
+/**
+ * `D-90` — the row is an account, and multi-install is named rather than faked.
+ *
+ * Settings showed `github` and `env:KAE_GITHUB_TOKEN`: what the record holds,
+ * and neither of them what a person calls this connection. An App installation
+ * knows the account; a token does not, and inventing one would be worse than
+ * the provider's name.
+ *
+ * `OD-SRC-2` is answered by what can be stored, not by what would look best.
+ * Listing installations is free. **Choosing** one durably has nowhere to live —
+ * `KNOWN_FIELDS` refuses a seventh configuration field, Studio holds no durable
+ * state of its own (`D-21`, `D-22`), and an installation belongs to the
+ * deployment rather than to a project — so the product names them and the host
+ * setting still decides.
+ */
+describe('an account is named where KAE knows it', () => {
+  it('groups duplicates whatever the display name becomes', () => {
+    // The `D-79` claim, restated against the change: naming is presentation and
+    // must not alter which records collapse together.
+    const rows = [connection(), connection(), connection({ state: 'never_granted' })]
+
+    expect(accountsFrom(rows)).toHaveLength(1)
+    expect(accountsFrom(rows)[0].records).toHaveLength(3)
+  })
+
+  it('keeps the credential reference, because that is what a token is', () => {
+    // Not shown as the headline any more, and not discarded: it is the only
+    // thing that distinguishes two token connections to one provider.
+    const [account] = accountsFrom([connection({ credentialReference: 'env:WORK_TOKEN' })])
+
+    expect(account.credentialReference).toBe('env:WORK_TOKEN')
+  })
+})

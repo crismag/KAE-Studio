@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
 import { ProjectSetup } from './SetupPage'
-import type { SetupPort, StudioServices } from '@/services/interfaces'
+import type { AcquisitionPort, SetupPort, StudioServices } from '@/services/interfaces'
 
 /**
  * Override part of the setup port without losing the rest.
@@ -42,6 +42,28 @@ function withSetup(base: StudioServices, over: Partial<SetupPort>): StudioServic
       listConnections: (id) => port.listConnections(id),
       recordConnection: (id, input) => port.recordConnection(id, input),
       authorizeConnection: (id, connectionId) => port.authorizeConnection(id, connectionId),
+      ...over,
+    },
+  }
+}
+
+function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): StudioServices {
+  const port = base.acquisition
+  return {
+    ...base,
+    acquisition: {
+      availableRepositories: (q) => port.availableRepositories(q),
+      installations: () => port.installations(),
+      cloneRepository: (fullName: string) => port.cloneRepository(fullName),
+      listConnections: () => port.listConnections(),
+      addConnection: (input) => port.addConnection(input),
+      checkConnectivity: (id, location) => port.checkConnectivity(id, location),
+      listSources: (projectId) => port.listSources(projectId),
+      addSource: (projectId, input) => port.addSource(projectId, input),
+      pinSource: (sourceId) => port.pinSource(sourceId),
+      listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
+      sample: (sourceId, path) => port.sample(sourceId, path),
+      ingestFiles: (sourceId, projectId, paths) => port.ingestFiles(sourceId, projectId, paths),
       ...over,
     },
   }
@@ -78,7 +100,10 @@ describe('the project can be configured through the product', () => {
     ).toBeInTheDocument()
     expect(screen.queryByLabelText(/filter repositories/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/branch/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/working directory/i)).toBeInTheDocument()
+    // `working_directory` **moved beside the source it narrows** (`D-91`), and
+    // is absent when there is nothing to narrow. Its label changed with its
+    // placement: *Read only this folder* says what it does where it now sits.
+    expect(screen.getByLabelText(/read only this folder/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/what kind of project/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/output format/i)).toBeInTheDocument()
   })
@@ -190,9 +215,31 @@ describe('the output destination', () => {
     // Points at Settings, where connections actually live. It said “above”,
     // naming a panel that moved off this page two decisions ago (`D-85`).
     expect(
-      await screen.findByText(/connect a github account in settings first/i),
+      await screen.findByText(/this project has no github access yet/i),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /register destination/i })).toBeDisabled()
+  })
+
+  it('does not offer a destination picker when GitHub lists nothing', async () => {
+    renderSetup((services) =>
+      withAcquisition(services, {
+        availableRepositories: async () => ({
+          repositories: [],
+          truncated: false,
+          unavailableReason: '',
+        }),
+      }),
+    )
+
+    expect(
+      await screen.findByText(/cannot see any GitHub repositories to send output to/i),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /see github in settings/i })).toHaveAttribute(
+      'href',
+      '/settings/project',
+    )
+    expect(screen.queryByLabelText(/filter destination repositories/i)).not.toBeInTheDocument()
+    expect(await screen.findByText(/no repositories visible/i)).toBeInTheDocument()
   })
 
   it('states that write access is unproved rather than implying it works', async () => {
@@ -269,6 +316,8 @@ describe('verified is earned, not granted', () => {
         ...services,
         acquisition: {
           availableRepositories: (q) => port.availableRepositories(q),
+          installations: () => port.installations(),
+          cloneRepository: (fullName: string) => port.cloneRepository(fullName),
           listConnections: () => port.listConnections(),
           addConnection: (input) => port.addConnection(input),
           checkConnectivity: (id, location) => port.checkConnectivity(id, location),

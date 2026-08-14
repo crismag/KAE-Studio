@@ -37,9 +37,13 @@ than a wizard.
 
 ## Contextual toolbelt
 
-`§9`. **Pick a repository** (searchable, from what the credential can actually
-reach), **set a branch**, **name a destination**, **choose the default**, and
-**test access**.
+`§9`. **See what this project reads from** and how far KAE has got with it,
+**narrow it to one folder**, **set a branch**, **name a destination** and
+**choose the default**.
+
+**Picking a repository is not here** (`D-81`). Selection has one home and it is
+Sources; this page links there. Two pickers with different behaviour is how they
+drift, and one of them was unused for two decisions before anybody noticed.
 
 **Test read and test write are not here.** Access exists and is checked; a
 bounded read probe and a write probe are `D-8`'s neighbourhood, and a control

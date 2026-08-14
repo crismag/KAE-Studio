@@ -41,6 +41,7 @@ import type {
 import type {
   AcquisitionPort,
   FileExcerpt,
+  InstallationListing,
   RepositoryListing,
   IngestOutcome,
   SourceFileListing,
@@ -1121,6 +1122,22 @@ class MockAcquisition implements AcquisitionPort {
     },
   ]
   private counter = 0
+
+  installations(): Promise<InstallationListing> {
+    // One account, named. The prototype must show the shape a real deployment
+    // has, and `github` + `env:…` was never that (`D-90`).
+    return delay({
+      installations: [{ installationId: 1, account: 'ministry', repositorySelection: 'selected' }],
+      unavailableReason: '',
+      selected: '1',
+    })
+  }
+
+  cloneRepository(fullName: string): Promise<{ location: string; kind: string }> {
+    // Where the live one would put it, in the prototype's fictional workspace.
+    const name = fullName.split('/').pop() ?? fullName
+    return Promise.resolve({ location: `/workspaces/${name}`, kind: 'local' })
+  }
 
   availableRepositories(query = ''): Promise<RepositoryListing> {
     // A plausible set for the prototype, filtered the way the live one is.

@@ -55,7 +55,7 @@
  */
 
 import { useState } from 'react'
-import { FileCode, Lock, Search } from 'lucide-react'
+import { ChevronRight, FileCode, Lock, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { PageLayout } from '@/components/project/PageLayout'
@@ -73,6 +73,8 @@ import {
 import { QueryState } from '@/components/ui/QueryState'
 import { Activity as RunActivity, Coverage, PasteDocument } from './intake'
 import { AddSource, type Branch } from './AddSource'
+import { plural } from '@/lib/plural'
+import { CloneRepository } from './CloneRepository'
 import { PickRepository } from './PickRepository'
 import {
   useIngestFiles,
@@ -80,6 +82,7 @@ import {
   useSourceFiles,
   useAvailableRepositories,
   useHasConnection,
+  useProjection,
   useSourcesOfKind,
   useSourcesUnavailable,
 } from '@/hooks/useProject'
@@ -87,6 +90,11 @@ import { CapabilityNote } from '@/components/project/CapabilityNote'
 import type { ProjectSource, SourceState } from '@/domain/types'
 
 export function SourcesRoom() {
+  // Whether this room has anything to show a detail panel for. The run log is
+  // evidence about sources; with none, it is not the page (`D-89`).
+  const sources = useSourcesOfKind()
+  const hasSources = (sources.data?.length ?? 0) > 0
+
   return (
     <PageLayout
       title="Sources"
@@ -103,10 +111,33 @@ export function SourcesRoom() {
           they had added it — and the owner's model is an accumulating list. */}
       <div className="space-y-5">
         <Repositories />
-        <div className="space-y-5">
-          <Coverage />
-          <RunActivity />
-        </div>
+        {/* **Secondary when there is nothing to select** (`D-89`). On a
+            first-run project the run log was the page: a wall of *succeeded ·
+            Reading a document* beneath one small Add-a-source block. Selection
+            is the job here; the log is evidence about it. */}
+        {hasSources ? (
+          <div className="space-y-5">
+            <Coverage />
+            <RunActivity />
+          </div>
+        ) : (
+          <details className="group rounded-lg border border-line bg-surface">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-body font-medium text-ink hover:bg-surface-sunken">
+              <span className="flex items-center gap-2">
+                <ChevronRight
+                  className="size-3.5 text-ink-subtle transition-transform group-open:rotate-90"
+                  aria-hidden="true"
+                />
+                What KAE has read so far
+              </span>
+              <span className="text-meta font-normal text-ink-muted">Coverage and run history</span>
+            </summary>
+            <div className="space-y-5 border-t border-line px-4 py-4">
+              <Coverage />
+              <RunActivity />
+            </div>
+          </details>
+        )}
       </div>
     </PageLayout>
   )
@@ -143,8 +174,18 @@ function Repositories() {
   // readable repositories. The listing knows the real number, and it is the
   // number a person is choosing from.
   const available = useAvailableRepositories()
-  const localRoots = (available.data?.repositories ?? []).filter((r) => r.kind === 'local').length
+  const reachable = available.data?.repositories ?? []
+  const localRoots = reachable.filter((r) => r.kind === 'local').length
+  const githubCount = reachable.filter((r) => r.kind === 'github').length
   const connected = useHasConnection()
+  // Whether this project knows anything at all, which is a different question
+  // from whether it has sources. A project built entirely from conversation has
+  // knowledge and no sources, and saying "nothing to read from yet" to it is
+  // false in the way that matters (`D-89`).
+  const projection = useProjection()
+  // `requirements` is the projection's list of statements — proposed and
+  // confirmed alike — which is what *has KAE learned anything* means here.
+  const derived = projection.data?.requirements.length ?? 0
 
   return (
     <>
@@ -160,30 +201,49 @@ function Repositories() {
         of="Your sources"
         skeleton={<Skeleton className="h-48" />}
         empty={
-          // **Carries the control that fixes it.** This rendered an explanation
-          // and a link to Setup, and Setup linked back — a first-run loop
-          // between two pages, neither of which could add a source. Worse, the
-          // empty branch replaced the whole panel including `AddSource`, so a
-          // project with nothing in it had **no way to add anything** (`D-85`).
+          // **Carries the control that fixes it** (`D-85`), and distinguishes
+          // two states this collapsed into one (`D-89`).
+          //
+          // *Nothing to read from yet* was shown to a project with 174 proposed
+          // statements and 29 messages read. Its knowledge came from the
+          // **interview**, which is not a Source and should not be listed as
+          // one — `§7`'s kinds are repository, folder, paste, upload, and a
+          // conversation turn is deliberately none of them. So the count was
+          // right and the sentence was wrong.
           unreadable.data ? null : (
             <div className="max-w-lg space-y-4">
               <div>
-                <h2 className="text-lead font-semibold text-ink">Nothing to read from yet</h2>
+                <h2 className="text-lead font-semibold text-ink">
+                  {derived > 0 ? 'Built from conversation so far' : 'Nothing to read from yet'}
+                </h2>
                 <p className="mt-1 text-body text-ink-muted">
-                  KAE reads repositories, folders and documents you give it. A folder on this
-                  machine needs no account.
+                  {derived > 0
+                    ? `KAE has ${plural(derived, 'statement')} from this project's conversation. Add a source to read code or documents as well.`
+                    : 'KAE reads repositories, folders and documents you give it. A folder on this machine needs no account.'}
                 </p>
-                <p className="mt-2 text-meta text-ink-subtle">
-                  To read a repository on GitHub,{' '}
-                  <Link className="underline" to="/settings/project">
-                    connect an account in Settings
-                  </Link>{' '}
-                  first.
-                </p>
+                {/* Keyed off what is actually true of this deployment, rather
+                    than always telling somebody to connect (`D-89`). */}
+                {!connected && (
+                  <p className="mt-2 text-meta text-ink-subtle">
+                    To read a repository on GitHub,{' '}
+                    <Link className="underline" to="/settings/project">
+                      connect an account in Settings
+                    </Link>{' '}
+                    first.
+                  </p>
+                )}
               </div>
-              <AddSource localRoots={localRoots} connected={connected} onChoose={setBranch} />
+              <AddSource
+                localRoots={localRoots}
+                connected={connected}
+                githubCount={githubCount}
+                chosen={branch}
+                onChoose={setBranch}
+              />
               {branch === 'paste' ? (
                 <PasteDocument />
+              ) : branch === 'clone' ? (
+                <CloneRepository onDone={() => setBranch(null)} />
               ) : branch === 'folder' || branch === 'github' ? (
                 <PickRepository
                   kind={branch === 'folder' ? 'local' : 'github'}
@@ -200,10 +260,18 @@ function Repositories() {
             <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
               <div className="space-y-3">
                 <SourceList sources={rows} selectedId={chosen?.sourceId} onSelect={setSelectedId} />
-                <AddSource localRoots={localRoots} connected={connected} onChoose={setBranch} />
+                <AddSource
+                  localRoots={localRoots}
+                  connected={connected}
+                  githubCount={githubCount}
+                  chosen={branch}
+                  onChoose={setBranch}
+                />
               </div>
               {branch === 'paste' ? (
                 <PasteDocument />
+              ) : branch === 'clone' ? (
+                <CloneRepository onDone={() => setBranch(null)} />
               ) : branch === 'folder' || branch === 'github' ? (
                 <PickRepository
                   kind={branch === 'folder' ? 'local' : 'github'}

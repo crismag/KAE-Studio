@@ -39,9 +39,12 @@ interface Option {
 export function options({
   localRoots,
   connected,
+  githubCount = 0,
 }: {
   localRoots: number
   connected: boolean
+  /** How many GitHub repositories KAE can actually see right now. */
+  githubCount?: number
 }): Option[] {
   return [
     {
@@ -59,17 +62,34 @@ export function options({
       id: 'github',
       icon: Github,
       title: 'A repository on GitHub',
-      means: connected ? 'From an account you have connected' : 'From a connected account',
-      needs: connected ? '' : 'No GitHub account is connected yet. Connect one in Settings first.',
+      means: connected
+        ? githubCount > 0
+          ? `${githubCount} available from your connected account`
+          : 'An account is connected, and KAE can see no repositories through it'
+        : 'From a connected account',
+      // **Three states, not two** (`D-89`). Connected-with-nothing-visible is
+      // this Studio's access, not a missing connect step — and telling that
+      // person to *connect an account* sends them to do again the thing they
+      // already did.
+      needs: !connected
+        ? 'No GitHub account is connected yet. Connect one in Settings first.'
+        : githubCount === 0
+          ? 'KAE cannot see any GitHub repositories through this Studio’s access. Folders on this machine still work. Open GitHub in Settings to see why.'
+          : '',
     },
     {
       id: 'clone',
       icon: GitBranch,
       title: 'Clone a repository here first',
       means: 'Copies it to this machine, then reads the copy',
-      // Not a configuration gap. Nothing in the estate runs `git clone`, and
-      // saying "not configured" would imply somebody could configure it.
-      needs: 'KAE cannot clone a repository yet. Nothing here copies one to this machine.',
+      // Real since `D-93`, and its prerequisites are the union of the two
+      // branches it spans: something to copy *from*, somewhere to copy *to*.
+      // Stating one when both are missing sends somebody to fix half of it.
+      needs: !connected
+        ? 'No GitHub account is connected yet, so there is nothing to copy from. Connect one in Settings first.'
+        : !localRoots
+          ? 'This deployment writes no local directories, so there is nowhere to put the copy. An operator sets KAE_LOCAL_SOURCE_ROOTS.'
+          : '',
     },
     {
       id: 'create',
@@ -92,15 +112,25 @@ export function options({
 export function AddSource({
   localRoots,
   connected,
+  githubCount = 0,
+  chosen,
   onChoose,
 }: {
   localRoots: number
   connected: boolean
+  githubCount?: number
+  /** The branch the caller is currently showing, if any. */
+  chosen?: Branch | null
   onChoose: (branch: Branch) => void
 }) {
   const [open, setOpen] = useState(false)
   const [reached, setReached] = useState<Branch | null>(null)
-  const list = options({ localRoots, connected })
+  const list = options({ localRoots, connected, githubCount })
+
+  // **The menu yields to the picker** (`D-89`). It stayed open above the list,
+  // so a person saw a kind menu, a repository list and *two* Cancel buttons —
+  // and could pick a second kind while a picker for the first was on screen.
+  if (chosen) return null
 
   if (!open) {
     return (

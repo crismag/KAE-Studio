@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .acquisition import ANALYSIS_UNAVAILABLE, GitHubSourceClient, SourceKind, SourceReadError
+from .acquisition.clone import CloneError, clone
 from .acquisition.github_app import AppUnavailable, GitHubApp
 from .acquisition.local_source import LocalSourceClient, resolve_roots
 from .acquisition.service import AcquisitionService, UnknownResource
@@ -170,6 +171,12 @@ class ConnectivityIn(BaseModel):
     location: str = Field(min_length=1)
 
 
+class CloneIn(BaseModel):
+    """Which repository to copy here. `owner/name`, as the picker reports it."""
+
+    full_name: str = Field(min_length=3)
+
+
 class SourceIn(BaseModel):
     kind: str = "github"
     # **Not required.** `D-68` decided a local directory needs no authorisation
@@ -275,11 +282,20 @@ def _source_client(settings: Settings) -> tuple[GitHubSourceClient | None, str]:
         if len(found) == 1:
             return app.source_client(found[0]["installation_id"]), ""
         if not found:
-            return None, (
+            reason = (
                 "The KAE GitHub App is configured and is not installed anywhere, "
                 "so it can reach no repositories. Install it against the "
                 "repositories KAE may read."
             )
+            # A registered App is not yet a *granted* one — installing it is an
+            # act on the owner's GitHub account and nobody else can perform it.
+            # A deployment holding a personal token as well plainly wants to read
+            # something in the meantime, and going dark until the install happens
+            # would take away a picker that works. The reason is still carried,
+            # so the state is visible rather than papered over.
+            if settings.github_source_token:
+                return GitHubSourceClient(settings.github_source_token), reason
+            return None, reason
         accounts = ", ".join(sorted(row["account"] for row in found if row["account"]))
         return None, (
             f"The KAE GitHub App is installed {len(found)} times ({accounts}) and "
@@ -1701,6 +1717,111 @@ def create_app(settings: Settings) -> FastAPI:
     # verified. Both answer from the same function; the name is the only
     # difference, and the old one stopped being true when the listing began
     # carrying local directories (`D-71`).
+    @app.post("/api/repositories/clone", status_code=status.HTTP_201_CREATED)
+    async def clone_repository(
+        body: CloneIn, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Copy a GitHub repository onto this machine, then read it as a folder.
+
+        The `+` menu said **Not yet** and was right: nothing ran `git clone`.
+        With a credential present and roots configured, it can (`D-93`).
+
+        Deliberately **not** a source registration. This puts a checkout on
+        disk; choosing it as a source is the same act as choosing any other
+        folder, and doing both here would make one button mean two things.
+
+        The **first** configured root receives the copy. A deployment that reads
+        several directories has no basis in the request for choosing between
+        them, and asking a person to pick one would put a filesystem layout in
+        front of somebody who asked for a repository.
+        """
+
+        roots = resolve_roots(settings.local_source_roots)
+        if not roots:
+            raise HTTPException(
+                status.HTTP_501_NOT_IMPLEMENTED,
+                "This deployment writes no local directories, so there is nowhere to clone into. "
+                "Set KAE_LOCAL_SOURCE_ROOTS on the host.",
+            )
+        if not settings.github_source_token and not settings.github_app_id:
+            raise HTTPException(
+                status.HTTP_501_NOT_IMPLEMENTED,
+                "This deployment holds no GitHub credential, so a private repository cannot be "
+                "cloned. Connect an account in Settings.",
+            )
+
+        try:
+            target = await run_in_threadpool(
+                clone, body.full_name, roots[0], settings.github_source_token
+            )
+        except CloneError as error:
+            # 409, not 500. Every one of these is a condition a person can act
+            # on — a name that does not resolve, a directory already there, a
+            # credential that cannot read it.
+            raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from None
+
+        return {
+            "location": str(target),
+            "kind": "local",
+            # What was proved, in the vocabulary the rest of acquisition uses:
+            # the bytes are here. Nothing has read them.
+            "proves": "this repository is now on this machine and can be read as a folder.",
+        }
+
+    @app.get("/api/github/installations")
+    async def github_installations(
+        request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Where the GitHub App is installed, and how widely.
+
+        **Read-only, and that is the whole of what S3 can honestly offer**
+        (`D-90`). Listing is free — `GitHubApp.installations()` already exists
+        and needs no storage. *Choosing* one durably needs somewhere to keep the
+        choice, and there is nowhere: `KNOWN_FIELDS` refuses a seventh
+        configuration field, Studio holds no durable state of its own (`D-21`,
+        `D-22`), and an installation is a fact about **this deployment** rather
+        than about one project, so a per-project field would model it wrongly
+        even if one existed.
+
+        So this names the accounts and the reason string keeps saying which
+        setting selects between them. A picker that appeared to choose and
+        silently forgot on restart would be worse than the sentence.
+        """
+
+        if not settings.github_app:
+            return {
+                "installations": [],
+                # Not an error. A deployment with no App is a supported
+                # deployment, and `github_app: not configured` at `/api/status`
+                # already says so.
+                "unavailable_reason": "",
+                "selected": settings.github_app_installation_id or "",
+            }
+
+        app_client = GitHubApp(settings.github_app_id, settings.github_app_private_key)
+        try:
+            found = await run_in_threadpool(app_client.installations)
+        except AppUnavailable as error:
+            return {"installations": [], "unavailable_reason": str(error), "selected": ""}
+
+        return {
+            "installations": found,
+            # A registered App that nobody has installed is the state this
+            # deployment is in the moment the owner creates one, and the empty
+            # list alone reads as *KAE cannot see your account* — which sends
+            # somebody to check the key rather than to click Install.
+            "unavailable_reason": ""
+            if found
+            else (
+                "This GitHub App is registered and not installed on any account yet, "
+                "so it can reach no repositories. Install it on the account whose "
+                "repositories KAE may read."
+            ),
+            # Which one this deployment reads as, when it has been told. Empty
+            # with several installed is the case that needs a person.
+            "selected": settings.github_app_installation_id or "",
+        }
+
     @app.get("/api/repositories")
     @app.get("/api/github/repositories")
     async def github_repositories(

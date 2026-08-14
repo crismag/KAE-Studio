@@ -7,33 +7,22 @@
  * > resources.
  *
  * A project asks **which repository?** Settings owns **how GitHub is
- * connected.** These panels used to sit on `/setup` beside five configuration
- * fields and a destination form — seven responsibilities on one page, which is
- * what `§5` means by *"too information-heavy"*.
- *
- * Moved rather than rebuilt: the same components, the same hooks, the same
- * behaviour, one route over. The directive is explicit that structural
- * relocation must not be combined with visual redesign.
- *
- * ## Still project-scoped, and that is deliberate
- *
- * Memory records connections per project (`provider_connections`), so this is
- * *Project Settings* rather than global Settings. When `U7` multi-user arrives,
- * a genuinely global connection — one GitHub account, many projects — becomes
- * the right shape. It is not the right shape while one deployment-wide token
- * does the reaching.
+ * connected.** The browser never holds a token (`§19`). The product action is
+ * installing KAE's GitHub App. A host environment variable is not a user
+ * connector, and naming it on this page made the page look broken.
  */
 
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { formatDate } from '@/lib/format'
-import { Github, Lock, Plus } from 'lucide-react'
+import { ChevronRight, Github, Lock, Plus } from 'lucide-react'
 
 import { PageLayout } from '@/components/project/PageLayout'
 import { Field, Input } from '@/components/ui/form'
 import {
   Badge,
   Button,
-  Mono,
+  EmptyState,
   Panel,
   PanelBody,
   PanelHeader,
@@ -43,18 +32,22 @@ import {
 import { QueryState } from '@/components/ui/QueryState'
 import {
   useAuthorizeMemoryConnection,
+  useAvailableRepositories,
   useMemoryConnections,
   useRecordMemoryConnection,
 } from '@/hooks/useProject'
 import { accountsFrom, ungranted, type Account } from './accounts'
 import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
-import { CapabilityNote } from '@/components/project/CapabilityNote'
+import { useInstallations } from '@/hooks/useProject'
+import { plural } from '@/lib/plural'
+import type { InstallationListing } from '@/services/interfaces'
+import type { MemoryConnection } from '@/domain/types'
 
 export function ProjectSettings() {
   return (
     <PageLayout
-      title="Connections"
-      lead="Accounts KAE can reach. Connect one here and any project can use it — connecting reads nothing on its own."
+      title="GitHub"
+      lead="Connect an account so this project can read repositories. Connecting reads nothing on its own — you pick repositories on Sources."
     >
       <Connections />
     </PageLayout>
@@ -63,16 +56,23 @@ export function ProjectSettings() {
 
 export function Connections() {
   const connections = useMemoryConnections()
-  const record = useMemoryConnectionForm()
+  const installs = useInstallations()
+  const listing = useAvailableRepositories()
+  const deployment = useDeploymentStatus()
+  const slug = deployment.state === 'ready' ? deployment.status.githubAppSlug : undefined
+  const tokenOnHost =
+    deployment.state === 'ready' && deployment.status.githubSource === 'configured'
+  const githubCount = (listing.data?.repositories ?? []).filter((row) => row.kind === 'github')
+    .length
 
   return (
     <div className="space-y-4">
       <Panel>
         <PanelHeader>
-          <PanelTitle>GitHub</PanelTitle>
+          <PanelTitle>This project</PanelTitle>
           <Badge tone="neutral">
             <Lock className="mr-1 size-3" aria-hidden="true" />
-            KAE never sees a token
+            KAE never holds a token in the browser
           </Badge>
         </PanelHeader>
         <PanelBody className="space-y-3">
@@ -83,16 +83,25 @@ export function Connections() {
           >
             {(rows) => {
               const accounts = accountsFrom(rows)
-              return accounts.length === 0 ? (
-                <ConnectGitHub />
-              ) : (
+              if (accounts.length === 0) {
+                return <NoAccountYet slug={slug} tokenOnHost={tokenOnHost} />
+              }
+              return (
                 <>
                   <ul className="space-y-2">
                     {accounts.map((account) => (
-                      <AccountRow key={account.key} account={account} />
+                      <AccountRow
+                        key={account.key}
+                        account={account}
+                        installations={installs.data}
+                      />
                     ))}
                   </ul>
-                  <ConnectGitHub compact />
+                  <Installations listing={installs.data} />
+                  {accounts.some((account) => account.granted) && (
+                    <GrantedNext githubCount={githubCount} listingPending={listing.isPending} />
+                  )}
+                  {slug ? <ConnectGitHub compact /> : null}
                 </>
               )
             }}
@@ -100,22 +109,48 @@ export function Connections() {
         </PanelBody>
       </Panel>
 
-      {record}
+      <TokenReferenceForm />
     </div>
   )
 }
 
 /**
- * The install hand-off (`D-78`), and what it says while there is no App.
+ * What a person can do when this project has no GitHub grant yet.
  *
- * `§19` forbids a control that looks available and is not. It does **not**
- * require the explanation before anybody asks — so the button is present and
- * states its prerequisite where a person reaching for it will read it, rather
- * than as a paragraph above the panel (`D-78`).
+ * Three states, because collapsing them is how this page used to offer a
+ * control that could not run:
+ *
+ * - **App slug** — Connect goes to GitHub. That is the product connector.
+ * - **Host token, no App** — this Studio can already call GitHub; the user
+ *   grants *this project*, and never pastes a secret.
+ * - **Neither** — there is nothing to connect from here. Say so. Do not name
+ *   operator environment variables (`D-78`).
  */
+function NoAccountYet({ slug, tokenOnHost }: { slug?: string; tokenOnHost: boolean }) {
+  if (slug) return <ConnectGitHub />
+  if (tokenOnHost) return <UseHostGitHub />
+  return (
+    <EmptyState title="GitHub is not available to connect from this Studio">
+      <p>
+        You cannot add a GitHub account here. Connecting your own GitHub is done by installing
+        KAE’s GitHub App, and this Studio does not have one yet. A personal token is never typed
+        into this page.
+      </p>
+      <p className="mt-2">
+        Folders on this machine still work.{' '}
+        <Link className="underline" to="/sources">
+          Add a source
+        </Link>{' '}
+        to pick one.
+      </p>
+    </EmptyState>
+  )
+}
+
 function ConnectGitHub({ compact = false }: { compact?: boolean }) {
   const deployment = useDeploymentStatus()
   const slug = deployment.state === 'ready' ? deployment.status.githubAppSlug : undefined
+  if (!slug) return null
 
   return (
     <div
@@ -132,41 +167,147 @@ function ConnectGitHub({ compact = false }: { compact?: boolean }) {
           </p>
           <p className="mt-0.5 text-[12px] text-ink-muted">
             {compact
-              ? 'A second account, or an organisation.'
-              : 'You choose the repositories on GitHub. KAE reads only those, and never holds a token.'}
+              ? 'A second account, or an organisation. GitHub asks which repositories KAE may read.'
+              : 'GitHub asks which repositories KAE may read. KAE never holds a token.'}
           </p>
         </div>
-        {slug ? (
-          <Button asChild size={compact ? 'sm' : 'md'}>
-            <a href={`https://github.com/apps/${slug}/installations/new`} rel="noreferrer">
-              <Github className="size-3.5" aria-hidden="true" />
-              Connect
-            </a>
-          </Button>
-        ) : (
-          <CapabilityNote
-            className="max-w-md"
-            reason="No GitHub App is registered for this deployment, so there is nothing to install yet. An operator sets STUDIO_GITHUB_APP_SLUG once the App exists."
-          />
-        )}
+        <Button asChild size={compact ? 'sm' : 'md'}>
+          <a href={`https://github.com/apps/${slug}/installations/new`} rel="noreferrer">
+            <Github className="size-3.5" aria-hidden="true" />
+            Connect
+          </a>
+        </Button>
       </div>
     </div>
   )
 }
 
 /**
- * One row per account, from records that accumulated one per attempt (`D-79`).
+ * This host already has a GitHub token. The user is granting the *project*,
+ * not pasting a secret.
  *
- * Six identical `github` rows was not a rendering choice — it was every write
- * attempt, shown. This groups them; nothing is deleted and every record stays
- * separately addressable.
+ * `KAE_GITHUB_TOKEN` / `STUDIO_GITHUB_SOURCE_TOKEN` live on the server. Memory
+ * records `env:KAE_GITHUB_TOKEN` as a pointer to that secret. Showing the
+ * pointer as a form made people think they were supposed to type a token.
  */
-function AccountRow({ account }: { account: Account }) {
+function UseHostGitHub() {
+  const record = useRecordMemoryConnection()
   const authorize = useAuthorizeMemoryConnection()
-  // Only where the account does **not** work. A connected account with a
-  // leftover ungranted record rendered `Connected` beside `Grant access`, which
-  // reads as a contradiction — and it is noise, because the account already
-  // reaches the provider. Caught by looking at the page, not the test.
+  const error =
+    (record.error instanceof Error ? record.error.message : null) ||
+    (authorize.error instanceof Error ? authorize.error.message : null)
+  const pending = record.isPending || authorize.isPending
+
+  return (
+    <div className="space-y-3">
+      <p className="text-body text-ink-muted">
+        This Studio can already talk to GitHub using access configured on the server. You do not
+        paste a token here. Allow this project to use that access, then pick repositories on
+        Sources.
+      </p>
+      <Button
+        disabled={pending}
+        onClick={() => {
+          void (async () => {
+            const created = (await record.mutateAsync({
+              credentialReference: 'env:KAE_GITHUB_TOKEN',
+            })) as MemoryConnection
+            await authorize.mutateAsync(created.connectionId)
+          })()
+        }}
+      >
+        <Github className="size-3.5" aria-hidden="true" />
+        {pending ? 'Allowing…' : 'Allow this project to use GitHub'}
+      </Button>
+      {error && <p className="text-[11.5px] text-blocking">{error}</p>}
+    </div>
+  )
+}
+
+function GrantedNext({
+  githubCount,
+  listingPending,
+}: {
+  githubCount: number
+  listingPending: boolean
+}) {
+  if (listingPending) return null
+  if (githubCount > 0) {
+    return (
+      <p className="text-meta text-ink-muted">
+        {plural(githubCount, 'repository')} available.{' '}
+        <Link className="underline" to="/sources">
+          Choose repositories on Sources
+        </Link>
+        .
+      </p>
+    )
+  }
+  return (
+    <p className="text-meta text-ink-muted">
+      This project is allowed to use GitHub, but KAE cannot see any repositories through the
+      server’s access. Folders on this machine still work.{' '}
+      <Link className="underline" to="/sources">
+        Add a source
+      </Link>
+      .
+    </p>
+  )
+}
+
+/**
+ * The accounts this App is installed on, and which one is being read (`D-90`).
+ *
+ * **Not a picker.** Choosing durably has nowhere to live (`OD-SRC-2`).
+ */
+function Installations({ listing }: { listing?: InstallationListing }) {
+  if (!listing || listing.installations.length === 0) return null
+
+  const chosen = listing.selected
+  return (
+    <div className="rounded-md border border-line bg-surface-sunken px-3.5 py-3">
+      <p className="text-meta font-medium text-ink">
+        Installed on {plural(listing.installations.length, 'account')}
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {listing.installations.map((install) => {
+          const reading = String(install.installationId) === chosen
+          return (
+            <li
+              key={install.installationId}
+              className="flex flex-wrap items-center justify-between gap-2 text-meta"
+            >
+              <span className="flex items-center gap-2 text-ink">
+                {install.account}
+                <span className="text-caption text-ink-subtle">
+                  {install.repositorySelection === 'all'
+                    ? 'all repositories'
+                    : 'selected repositories'}
+                </span>
+              </span>
+              {reading && <Badge tone="confirmed">KAE reads this one</Badge>}
+            </li>
+          )
+        })}
+      </ul>
+      {!chosen && listing.installations.length > 1 && (
+        <p className="mt-2 text-caption text-ink-muted">
+          KAE does not know which of these accounts to read yet. This Studio has to be told which
+          one, then restarted.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function AccountRow({
+  account,
+  installations,
+}: {
+  account: Account
+  installations?: InstallationListing
+}) {
+  const authorize = useAuthorizeMemoryConnection()
   const pending = account.granted ? undefined : ungranted(account)
   const error = authorize.error instanceof Error ? authorize.error.message : null
 
@@ -174,27 +315,17 @@ function AccountRow({ account }: { account: Account }) {
     <li className="rounded-md border border-line px-3.5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
+          <p className="flex items-center gap-2 text-body font-medium text-ink">
             <Github className="size-3.5 text-ink-subtle" aria-hidden="true" />
-            {account.provider}
+            {accountName(account, installations)}
             <Badge tone={account.granted ? 'confirmed' : 'attention'}>
               {account.granted ? 'Connected' : 'Not connected'}
             </Badge>
           </p>
           <p className="mt-1 text-[11.5px] text-ink-subtle">
-            <Mono>{account.credentialReference ?? 'no reference'}</Mono>
-            {account.authorizedBy && ` · connected by ${account.authorizedBy}`}
-            {/* **Connected**, never *last checked*: the timestamp is stamped
-                when somebody authorises, and nothing since has reached the
-                provider (`D-25`, `D-60`). */}
+            {account.authorizedBy && `connected by ${account.authorizedBy}`}
             {account.grantedAt && ` on ${formatDate(account.grantedAt)}`}
           </p>
-          {account.records.length > 1 && (
-            <p className="mt-1 text-[11.5px] text-ink-subtle">
-              {account.records.length} records for this account. Kept as they are — one of them is
-              the connection this project uses.
-            </p>
-          )}
         </div>
         {pending && (
           <Button
@@ -211,21 +342,39 @@ function AccountRow({ account }: { account: Account }) {
   )
 }
 
-function useMemoryConnectionForm() {
+function accountName(account: Account, installations?: InstallationListing): string {
+  const only = installations?.installations
+  if (only && only.length === 1) return only[0].account
+  if (only && only.length > 1) return only.map((row) => row.account).join(', ')
+  return account.provider === 'github' ? 'GitHub' : account.provider
+}
+
+/**
+ * Operator path. A reference to a host secret, never the secret.
+ *
+ * Kept because deployments still record `env:KAE_GITHUB_TOKEN`. It is not how a
+ * person connects GitHub, so it sits behind a disclosure (`D-78`).
+ */
+function TokenReferenceForm() {
   const record = useRecordMemoryConnection()
   const [reference, setReference] = useState('env:KAE_GITHUB_TOKEN')
   const error = record.error instanceof Error ? record.error.message : null
 
   return (
-    <Panel>
-      <PanelHeader>
-        <PanelTitle>Connect by token instead</PanelTitle>
-        <Badge tone="neutral">Superseded</Badge>
-      </PanelHeader>
-      <PanelBody>
+    <details className="group rounded-lg border border-line bg-surface">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-4 py-3 text-body font-medium text-ink hover:bg-surface-sunken">
+        <ChevronRight
+          className="size-3.5 text-ink-subtle transition-transform group-open:rotate-90"
+          aria-hidden="true"
+        />
+        Advanced
+        <span className="text-meta font-normal text-ink-muted">Server token reference</span>
+      </summary>
+      <div className="border-t border-line px-4 py-4">
         <p className="mb-3 text-[12px] leading-relaxed text-ink-muted">
-          The older way, kept because deployments still use it. KAE reads the token from an
-          environment variable on the server — it is never typed here, and never stored.
+          KAE reads a token from an environment variable on the server — never typed here, never
+          stored. This records the *name* of that variable for this project. It does not create a
+          GitHub account.
         </p>
         <Field
           label="Environment variable"
@@ -251,7 +400,7 @@ function useMemoryConnectionForm() {
             </div>
           )}
         </Field>
-      </PanelBody>
-    </Panel>
+      </div>
+    </details>
   )
 }

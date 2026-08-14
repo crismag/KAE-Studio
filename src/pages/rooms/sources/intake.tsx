@@ -35,6 +35,7 @@ import { AlertTriangle, FileText, FolderGit2, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { CapabilityNote } from '@/components/project/CapabilityNote'
+import { plural } from '@/lib/plural'
 import { PageLayout } from '@/components/project/PageLayout'
 import { readFailure, readRole } from './runVocabulary'
 import { Field, Input, Textarea } from '@/components/ui/form'
@@ -240,8 +241,7 @@ function IngestResult({ outcome }: { outcome: DocumentIngestOutcome }) {
       role={lost ? 'alert' : undefined}
     >
       <p className="text-[12.5px] font-medium text-ink">
-        {outcome.document} — {outcome.chunks} section{outcome.chunks === 1 ? '' : 's'} stored and
-        queued
+        {outcome.document} — {plural(outcome.chunks, 'section')} stored and queued
       </p>
       <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
         The text is saved. Reading it happens in the background — watch the activity below, and new
@@ -255,8 +255,8 @@ function IngestResult({ outcome }: { outcome: DocumentIngestOutcome }) {
         // `AUD-024`. A document cut at a chunk limit used to report success
         // with most of itself unread.
         <p className="mt-2 text-[12px] font-medium text-ink">
-          {outcome.truncatedChunks} section{outcome.truncatedChunks === 1 ? ' was' : 's were'} not
-          stored, so part of this document has not been read.
+          {plural(outcome.truncatedChunks, 'section was', 'sections were')} not stored, so part of
+          this document has not been read.
         </p>
       )}
       {outcome.warnings.map((warning) => (
@@ -372,7 +372,7 @@ export function Coverage() {
           </PanelHeader>
           <PanelBody>
             <p className="text-[12.5px] text-ink-muted">
-              {read.succeeded} section{read.succeeded === 1 ? '' : 's'} read
+              {plural(read.succeeded, 'section')} read
               {read.abandoned > 0 && `, ${read.abandoned} abandoned after repeated failures`}.
             </p>
             {!read.complete && (
@@ -448,7 +448,7 @@ function RunRow({ run }: { run: AgentRunRecord }) {
         )}
         {typeof written === 'number' && written > 0 && (
           <span className="text-[11.5px] text-ink-subtle">
-            · {written} statement{written === 1 ? '' : 's'}
+            · {plural(written, 'statement')}
           </span>
         )}
       </div>

@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=
+# Machine-facing summary for SRC-01. Human authority is EXECUTION_CONTEXT.md.
+# Not pinned to a Memory revision. Generated 2026-08-13 from live review.
+
+id: SRC-01
+name: Sources and Project Setup product UI
+status: proposed
+readiness: draft
+evidence:
+  kind: live_browser
+  url: http://localhost:5199/#/sources
+  date: 2026-08-13
+  project_label: "Cris Test1: New Project"
+  memory_revision: unreported
+
+mission: >
+  Connect GitHub or pick a local folder, select repo(s)/workspaces, show them as
+  this project's sources, and keep Setup as a summary lens.
+
+sequence:
+  - S1-truthful-empty
+  - S2-shared-picker
+  - S3-account-identity
+  - S4-setup-lens
+
+surfaces:
+  - id: sources
+    route: /sources
+    owns: selection
+  - id: project-settings
+    route: /settings/project
+    owns: connections
+  - id: setup
+    route: /setup
+    owns: summary_and_destinations
+  - id: project-gate
+    route: /
+    owns: project_choice
+
+observed_defects:
+  - empty_list_vs_coverage_activity_reviews
+  - connect_copy_vs_granted_connection
+  - github_picker_empty_scope_not_explained_on_empty_state
+  - add_source_menu_stacked_on_picker
+  - local_picker_is_absolute_path_dump
+  - activity_dominates_empty_first_run
+
+contracts_fixed:
+  - section-6-settings-vs-workflow
+  - D-80-one-source-list
+  - D-81-picker-on-sources
+  - D-85-add-source-on-empty
+  - ADR-0003-no-percentage
+  - D-25-verified-means-reached
+  - D-56-app-wins-over-token
+  - D-78-honest-unavailable
+
+open_decisions:
+  - OD-SRC-1
+  - OD-SRC-2
+  - OD-SRC-3
+
+out_of_scope:
+  - clone
+  - create_repository
+  - browser_oauth
+  - revoke
+  - analysis
+  - upload_decode
+  - wizard
+  - other_rooms_redesign
+
+first_slice: S1-truthful-empty
+handoff: development/tasks/sources-setup-ui/EXECUTION_HANDOFF.md

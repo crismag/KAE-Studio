@@ -69,32 +69,16 @@ export function RepositoryPicker({
               }
             />
           ) : (
-            <>
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
-                  aria-hidden="true"
-                />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search"
-                  className="pl-8"
-                  aria-label={label}
-                />
-              </div>
-              <Options
-                repositories={result.repositories.filter(
-                  (repo) =>
-                    (!kind || repo.kind === kind) &&
-                    repo.fullName.toLowerCase().includes(query.trim().toLowerCase()),
-                )}
-                query={query}
-                value={value}
-                truncated={result.truncated}
-                onSelect={onSelect}
-              />
-            </>
+            <PickerBody
+              kind={kind}
+              query={query}
+              onQuery={setQuery}
+              label={label}
+              value={value}
+              repositories={result.repositories}
+              truncated={result.truncated}
+              onSelect={onSelect}
+            />
           )
         }
       </QueryState>
@@ -102,13 +86,85 @@ export function RepositoryPicker({
   )
 }
 
+function PickerBody({
+  kind,
+  query,
+  onQuery,
+  label,
+  value,
+  repositories,
+  truncated,
+  onSelect,
+}: {
+  kind?: 'local' | 'github'
+  query: string
+  onQuery: (value: string) => void
+  label: string
+  value: string
+  repositories: {
+    kind: 'local' | 'github'
+    fullName: string
+    defaultBranch: string
+    private: boolean
+    description: string
+  }[]
+  truncated: boolean
+  onSelect: (repository: PickedRepository) => void
+}) {
+  const visible = repositories.filter(
+    (repo) =>
+      (!kind || repo.kind === kind) && repo.fullName.toLowerCase().includes(query.trim().toLowerCase()),
+  )
+  const noneOfKind = !query.trim() && visible.length === 0
+
+  if (noneOfKind) {
+    return (
+      <EmptyState title="Nothing to choose from">
+        {kind === 'github'
+          ? 'KAE cannot see any GitHub repositories. This Studio may not have GitHub access, or that access cannot see any repos. Folders on this machine still work — add one on Sources.'
+          : kind === 'local'
+            ? 'No folders on this machine are available to read.'
+            : 'KAE can reach no repositories of this kind.'}
+      </EmptyState>
+    )
+  }
+
+  return (
+    <>
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
+          aria-hidden="true"
+        />
+        <Input
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          placeholder="Search"
+          className="pl-8"
+          aria-label={label}
+        />
+      </div>
+      <Options
+        kind={kind}
+        repositories={visible}
+        query={query}
+        value={value}
+        truncated={truncated}
+        onSelect={onSelect}
+      />
+    </>
+  )
+}
+
 function Options({
+  kind,
   repositories,
   query,
   value,
   truncated,
   onSelect,
 }: {
+  kind?: 'local' | 'github'
   repositories: {
     kind: 'local' | 'github'
     fullName: string
@@ -126,7 +182,9 @@ function Options({
       <EmptyState title={query ? 'Nothing matches that' : 'Nothing to choose from'}>
         {query
           ? `No repository KAE can reach matches “${query}”.`
-          : 'KAE can reach no repositories of this kind. It may be scoped to none, or to another account.'}
+          : kind === 'github'
+            ? 'KAE cannot see any GitHub repositories.'
+            : 'KAE can reach no repositories of this kind.'}
       </EmptyState>
     )
   }
