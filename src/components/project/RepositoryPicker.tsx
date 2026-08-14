@@ -113,7 +113,8 @@ function PickerBody({
 }) {
   const visible = repositories.filter(
     (repo) =>
-      (!kind || repo.kind === kind) && repo.fullName.toLowerCase().includes(query.trim().toLowerCase()),
+      (!kind || repo.kind === kind) &&
+      repo.fullName.toLowerCase().includes(query.trim().toLowerCase()),
   )
   const noneOfKind = !query.trim() && visible.length === 0
 

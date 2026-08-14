@@ -62,8 +62,9 @@ export function Connections() {
   const slug = deployment.state === 'ready' ? deployment.status.githubAppSlug : undefined
   const tokenOnHost =
     deployment.state === 'ready' && deployment.status.githubSource === 'configured'
-  const githubCount = (listing.data?.repositories ?? []).filter((row) => row.kind === 'github')
-    .length
+  const githubCount = (listing.data?.repositories ?? []).filter(
+    (row) => row.kind === 'github',
+  ).length
 
   return (
     <div className="space-y-4">
@@ -132,9 +133,9 @@ function NoAccountYet({ slug, tokenOnHost }: { slug?: string; tokenOnHost: boole
   return (
     <EmptyState title="GitHub is not available to connect from this Studio">
       <p>
-        You cannot add a GitHub account here. Connecting your own GitHub is done by installing
-        KAE’s GitHub App, and this Studio does not have one yet. A personal token is never typed
-        into this page.
+        You cannot add a GitHub account here. Connecting your own GitHub is done by installing KAE’s
+        GitHub App, and this Studio does not have one yet. A personal token is never typed into this
+        page.
       </p>
       <p className="mt-2">
         Folders on this machine still work.{' '}

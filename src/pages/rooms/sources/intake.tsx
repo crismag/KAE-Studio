@@ -447,9 +447,7 @@ function RunRow({ run }: { run: AgentRunRecord }) {
           <span className="text-[11.5px] text-ink-subtle">attempt {run.attemptNumber}</span>
         )}
         {typeof written === 'number' && written > 0 && (
-          <span className="text-[11.5px] text-ink-subtle">
-            · {plural(written, 'statement')}
-          </span>
+          <span className="text-[11.5px] text-ink-subtle">· {plural(written, 'statement')}</span>
         )}
       </div>
 

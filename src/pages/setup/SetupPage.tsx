@@ -239,8 +239,9 @@ function ConnectionState() {
   const listing = useAvailableRepositories()
   const accounts = accountsFrom(connections.data ?? [])
   const connected = accounts.some((account) => account.granted)
-  const githubCount = (listing.data?.repositories ?? []).filter((row) => row.kind === 'github')
-    .length
+  const githubCount = (listing.data?.repositories ?? []).filter(
+    (row) => row.kind === 'github',
+  ).length
   const listingKnown = listing.isSuccess && !listing.data?.unavailableReason
   const seesGithub = listingKnown && githubCount > 0
   const authorisedEmpty = connected && listingKnown && githubCount === 0
@@ -540,8 +541,9 @@ function Destinations({ state }: { state: SetupState }) {
   const [repository, setRepository] = useState('')
   const [path, setPath] = useState('docs/planning')
   const usable = (connections.data ?? []).find((c) => c.state === 'granted')
-  const githubCount = (listing.data?.repositories ?? []).filter((row) => row.kind === 'github')
-    .length
+  const githubCount = (listing.data?.repositories ?? []).filter(
+    (row) => row.kind === 'github',
+  ).length
   const listingKnown = listing.isSuccess && !listing.data?.unavailableReason
   const noGithubToPick = Boolean(usable && listingKnown && githubCount === 0)
   const error = register.error instanceof Error ? register.error.message : null

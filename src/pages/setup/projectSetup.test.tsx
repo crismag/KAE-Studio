@@ -214,9 +214,7 @@ describe('the output destination', () => {
 
     // Points at Settings, where connections actually live. It said “above”,
     // naming a panel that moved off this page two decisions ago (`D-85`).
-    expect(
-      await screen.findByText(/this project has no github access yet/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/this project has no github access yet/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /register destination/i })).toBeDisabled()
   })
 

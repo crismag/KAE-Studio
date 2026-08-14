@@ -54,7 +54,9 @@ function show(over: Partial<AcquisitionPort> = {}) {
     } as AcquisitionPort,
   }
   return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <ServiceProvider services={services}>
         <MemoryRouter>
           <CloneRepository onDone={() => {}} />
