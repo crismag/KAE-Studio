@@ -65,9 +65,14 @@ is not a sequence with an end.
 
 ## Owns
 
-`SetupPage.tsx` and `RepositoryPicker.tsx`, which nothing else uses, and the
+`SetupPage.tsx`, and the
 `githubConnect` test that spans this page and Settings — the connect flow
 crosses the `§6` boundary by design, so its test names both sides.
+
+`RepositoryPicker` **is shared and is not this page's** — it lives in
+`components/project/` because Sources, this page's destination field and the
+Planning Room all pick a repository, and two implementations of one control
+drift (`D-87`).
 
 `StageReadiness` **stays shared**: the Architecture and Planning Rooms use it to
 say what they are waiting for.

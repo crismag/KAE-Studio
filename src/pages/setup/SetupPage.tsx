@@ -41,6 +41,7 @@ import { ChevronRight } from 'lucide-react'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { PageLayout } from '@/components/project/PageLayout'
 import { accountsFrom } from '@/pages/settings/accounts'
+import { RepositoryPicker } from '@/components/project/RepositoryPicker'
 import { Field, FieldSet, Input, Select } from '@/components/ui/form'
 import {
   Badge,
@@ -550,6 +551,11 @@ function Destinations({ state }: { state: SetupState }) {
         )}
 
         <FieldSet legend="Add a destination" className="max-w-xl border-t border-line pt-4">
+          {/* **Chosen, not typed** (`D-87`). This was a text box taking
+              `owner/repository` from memory — the exact interaction removed
+              from source selection two decisions earlier, still sitting one
+              panel below it. A repository nobody can reach fails at publish
+              time, which is the last place to discover a typo. */}
           <Field
             label="Repository"
             hint="Where generated documents are written. KAE opens a pull request; it never force-pushes."
@@ -562,16 +568,24 @@ function Destinations({ state }: { state: SetupState }) {
                   'Connect a GitHub account in Settings first — a destination nobody has authorised cannot receive anything.'
             }
           >
-            {(props) => (
-              <Input
-                {...props}
-                mono
-                value={repository}
-                onChange={(event) => setRepository(event.target.value)}
-                placeholder="owner/repository"
-              />
-            )}
+            {() =>
+              repository ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-accent-line bg-accent-soft px-3 py-2">
+                  <Mono>{repository}</Mono>
+                  <Button variant="ghost" size="sm" onClick={() => setRepository('')}>
+                    Change
+                  </Button>
+                </div>
+              ) : (
+                <RepositoryPicker
+                  kind="github"
+                  label="Filter destination repositories"
+                  onSelect={(repo) => setRepository(repo.fullName)}
+                />
+              )
+            }
           </Field>
+
           <Field label="Path" hint="Where inside the repository.">
             {(props) => (
               <Input

@@ -28,7 +28,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { RepositoryPicker } from './RepositoryPicker'
+import { RepositoryPicker } from '@/components/project/RepositoryPicker'
 import { ProjectSettings } from '@/pages/settings/SettingsPage'
 import type { AcquisitionPort, StudioServices } from '@/services/interfaces'
 
@@ -67,7 +67,7 @@ function renderWith(node: React.ReactNode, patch?: (s: StudioServices) => Studio
 
 describe('choosing a repository', () => {
   it('offers what the credential can actually reach', async () => {
-    renderWith(<RepositoryPicker value="" onSelect={() => {}} />)
+    renderWith(<RepositoryPicker kind="github" onSelect={() => {}} />)
 
     expect(
       await screen.findByRole('option', { name: /ministry\/reporting-platform/ }),
@@ -77,7 +77,7 @@ describe('choosing a repository', () => {
 
   it('filters the list', async () => {
     const user = userEvent.setup()
-    renderWith(<RepositoryPicker value="" onSelect={() => {}} />)
+    renderWith(<RepositoryPicker kind="github" onSelect={() => {}} />)
 
     await user.type(await screen.findByLabelText(/filter repositories/i), 'identity')
 
@@ -88,7 +88,7 @@ describe('choosing a repository', () => {
   it('reports the repository and its own default branch', async () => {
     const user = userEvent.setup()
     const chosen: { fullName: string; defaultBranch: string }[] = []
-    renderWith(<RepositoryPicker value="" onSelect={(repo) => chosen.push(repo)} />)
+    renderWith(<RepositoryPicker kind="github" onSelect={(repo) => chosen.push(repo)} />)
 
     await user.click(await screen.findByRole('option', { name: /identity-service/ }))
 
@@ -98,7 +98,9 @@ describe('choosing a repository', () => {
   })
 
   it('marks what is already configured', async () => {
-    renderWith(<RepositoryPicker value="ministry/reporting-docs" onSelect={() => {}} />)
+    renderWith(
+      <RepositoryPicker kind="github" value="ministry/reporting-docs" onSelect={() => {}} />,
+    )
 
     const chosen = await screen.findByRole('option', { name: /reporting-docs/ })
     expect(chosen).toHaveAttribute('aria-selected', 'true')
@@ -106,20 +108,20 @@ describe('choosing a repository', () => {
 
   it('says when a filter matches nothing this credential can see', async () => {
     const user = userEvent.setup()
-    renderWith(<RepositoryPicker value="" onSelect={() => {}} />)
+    renderWith(<RepositoryPicker kind="github" onSelect={() => {}} />)
 
     await user.type(await screen.findByLabelText(/filter repositories/i), 'zzz')
 
     // Deliberately not "no results". The set is scoped to what the credential
     // can reach, and "no such repository" and "not visible to this token" need
     // opposite responses.
-    expect(screen.getByText(/No repository this credential can see matches/i)).toBeInTheDocument()
+    expect(screen.getByText(/No repository KAE can reach matches/i)).toBeInTheDocument()
   })
 
   it('states the limit instead of showing an empty list', async () => {
     // The state that matters most. An empty dropdown with a note underneath is
     // a dropdown people keep clicking.
-    renderWith(<RepositoryPicker value="" onSelect={() => {}} />, (services) =>
+    renderWith(<RepositoryPicker kind="github" onSelect={() => {}} />, (services) =>
       withAcquisition(services, {
         availableRepositories: async () => ({
           repositories: [],
@@ -137,21 +139,25 @@ describe('choosing a repository', () => {
   it('keeps a configured repository visible when the credential cannot see it', async () => {
     // Access revoked or a token rescoped. Hiding it would make the page look
     // like nothing is configured, which is a different and wrong claim.
-    renderWith(<RepositoryPicker value="ministry/archived" onSelect={() => {}} />)
+    renderWith(<RepositoryPicker kind="github" value="ministry/archived" onSelect={() => {}} />)
 
-    expect(
-      await screen.findByText(/which this credential cannot currently see/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/which KAE cannot currently see/i)).toBeInTheDocument()
   })
 
-  it('says selection is not reading', async () => {
-    renderWith(<RepositoryPicker value="" onSelect={() => {}} />)
+  it('says selection is not reading, where selecting means that', async () => {
+    /**
+     * The sentence moved to the **caller** (`D-87`). The shared widget cannot
+     * carry it: the same control picks a publication destination one page over,
+     * where *"records where KAE reads from"* would be false.
+     */
+    const { PickRepository } = await import('@/pages/rooms/sources/PickRepository')
+    renderWith(<PickRepository kind="github" onDone={() => {}} />)
 
     expect(await screen.findByText(/It reads nothing until you ask it to/i)).toBeInTheDocument()
   })
 
   it('surfaces a refused listing rather than an empty picker', async () => {
-    renderWith(<RepositoryPicker value="" onSelect={() => {}} />, (services) =>
+    renderWith(<RepositoryPicker kind="github" onSelect={() => {}} />, (services) =>
       withAcquisition(services, {
         availableRepositories: async () => {
           throw new Error('GitHub is rate limiting this credential')
@@ -215,7 +221,7 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
       </MemoryRouter>,
     )
 
-    await user.click(await screen.findByRole('button', { name: /identity-service/ }))
+    await user.click(await screen.findByRole('option', { name: /identity-service/ }))
 
     const branch = written.find((entry) => entry.field === 'primary_branch')
     expect(branch?.state).toBe('inferred')
@@ -265,7 +271,7 @@ describe('a value GitHub supplied is not a value a person confirmed', () => {
       </MemoryRouter>,
     )
 
-    await user.click(await screen.findByRole('button', { name: /identity-service/ }))
+    await user.click(await screen.findByRole('option', { name: /identity-service/ }))
 
     const repository = written.find((entry) => entry.field === 'primary_repository')
     expect(repository?.state).toBeUndefined()

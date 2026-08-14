@@ -745,3 +745,78 @@ class TestARepositoryNamedBeforeD23:
         assert [s["location"] for s in listed["sources"]] == ["kae/ministry-reporting"]
         assert listed["sources"][0]["scope"]["include_paths"] == ["docs/", "src/"]
         assert memory.rows["p1"][0]["scope"]["include_paths"] == ["docs/", "src/"]
+
+
+class TestALocalSourceCanActuallyBeAdded:
+    """`D-88` — the folder branch could not add anything.
+
+    `D-68` decided a local directory needs no authorisation and therefore no
+    connection. `SourceIn.connection_id` still required one, so every local
+    source was rejected by request validation before the service that
+    implements the rule ever saw it — and the `+` menu's *a folder on this
+    machine*, the one branch that needs no credential, silently failed.
+    """
+
+    def test_a_local_source_needs_no_connection_id(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            response = client.post(
+                "/api/projects/p1/sources",
+                json={"kind": "local", "location": "/mnt/ai/workspaces/KAE-Studio", "reference": ""},
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert response.status_code == 201, response.text
+        assert response.json()["kind"] == "local"
+
+    def test_a_github_source_still_needs_one(self) -> None:
+        # The check moved to the service, it did not go away: a GitHub source
+        # configured against a credential nobody issued is the thing it stops.
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            response = client.post(
+                "/api/projects/p1/sources",
+                json={"kind": "github", "location": "crismag/KAE-Studio", "reference": "main"},
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert response.status_code >= 400
+
+
+class TestTheRepairInfersTheKind:
+    """`D-55`'s repair registered every `primary_repository` as `github`.
+
+    Choosing a folder therefore produced a source badged **GitHub** whose
+    location was an absolute path, and the setup summary showed the path where a
+    repository name belongs (`D-88`).
+    """
+
+    def test_an_absolute_path_is_registered_as_local(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/setup/configuration",
+                json={"field": "primary_repository", "value": "/mnt/ai/workspaces/KAE-Studio"},
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert memory.rows["p1"][0]["kind"] == "local"
+
+    def test_an_owner_name_is_still_github(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            client.post(
+                "/api/projects/p1/setup/configuration",
+                json={"field": "primary_repository", "value": "crismag/KAE-Studio"},
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert memory.rows["p1"][0]["kind"] == "github"

@@ -172,7 +172,14 @@ class ConnectivityIn(BaseModel):
 
 class SourceIn(BaseModel):
     kind: str = "github"
-    connection_id: str = Field(min_length=1)
+    # **Not required.** `D-68` decided a local directory needs no authorisation
+    # to reach and so needs no connection; this route never got the memo and
+    # rejected every local source with a validation error, so the `+` menu's
+    # folder branch could not add anything at all (`D-88`).
+    #
+    # The rule is enforced where it belongs: `AcquisitionService.add_source`
+    # demands a connection for every kind except `local`.
+    connection_id: str = ""
     location: str = Field(min_length=1)
     reference: str = "HEAD"
     include_paths: list[str] = Field(default_factory=list)
@@ -652,11 +659,17 @@ def create_app(settings: Settings) -> FastAPI:
         # source alone: deleting acquired configuration is an act nobody has
         # designed, and a settings write is the worst place to invent one.
         if body.field == "primary_repository" and body.value.strip():
+            location = body.value.strip()
             await memory(request).register_source(
                 project_id,
                 {
-                    "kind": "github",
-                    "location": body.value.strip(),
+                    # **Inferred, not assumed.** This hardcoded `github`, so
+                    # choosing a folder on this machine registered a source
+                    # badged GitHub whose location was an absolute path — and
+                    # the summary then showed the path as the repository's name
+                    # (`D-88`).
+                    "kind": "local" if location.startswith("/") else "github",
+                    "location": location,
                     # Named, not read. `configured` is the honest state: nothing
                     # has contacted the provider, and `readable` on the strength
                     # of somebody typing a repository name would be a claim
