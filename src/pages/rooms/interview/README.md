@@ -43,7 +43,10 @@ ask — which is the one surface that works before anything else does.
 `§9`. The belt is the composer and the gestures a turn makes available:
 **attach** (which links to `/ingestion` rather than opening a picker in the
 composer — that page is where a person pastes text or uploads a file),
-**confirm**, **defer**, and **discuss this** from any area of the context panel.
+**confirm**, **defer**, and **discuss this** from any area of the context panel
+and from any open decision — the decision one because postponement is not a path
+to resolution (doc 01), and there is no gesture in Memory that answers a
+decision, so the conversation is the path (`WS-DEFER`).
 
 `§9`'s example also lists Voice, Transcript, Questions and Notes. **None
 exists**, and they are not stubbed here: `VC-04` has no audio anywhere in the

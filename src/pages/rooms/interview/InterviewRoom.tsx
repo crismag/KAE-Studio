@@ -480,7 +480,30 @@ export function CoverageSection({
   )
 }
 
-function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
+/**
+ * One open decision, with a way to settle it (`WS-DEFER`).
+ *
+ * Doc 01's actionability invariant: *"Every item surfaced for human attention
+ * must provide at least one direct, semantically appropriate path toward
+ * resolution. A defer/postpone control alone does not satisfy this
+ * requirement."* This row offered `Decide later` and, for a question nobody has
+ * been asked, no control at all — KAE naming something as needing a decision
+ * and offering only the postponement of it.
+ *
+ * **The path is the conversation, because there is no other.**
+ * `ProjectMemoryClient` has exactly one write for a decision — `deferDecision`
+ * — and nothing that answers one. Answering happens by saying something, which
+ * is what this room is for, so the honest control opens the subject here rather
+ * than linking somewhere: the row already sits inside the Workspace, and a link
+ * to the page you are on is a gesture that resolves nothing.
+ */
+function OpenDecisionRow({
+  decision,
+  onDiscuss,
+}: {
+  decision: OpenDecision
+  onDiscuss?: (question: string) => void
+}) {
   const defer = useDeferDecision()
   return (
     <li className="rounded-md border border-line bg-surface px-3 py-2.5" title={decision.id}>
@@ -502,6 +525,20 @@ function OpenDecisionRow({ decision }: { decision: OpenDecision }) {
             it is available on hover and to a screen reader rather than
             occupying a line. */}
         <span className="sr-only">Reference {decision.id}</span>
+        {/* First, and available whether or not the question has been asked —
+            an unasked candidate is the row that had nothing at all. Sending
+            rather than filling the composer, for `PPA-20`'s reason: a box
+            somebody must notice and then send is two acts that do nothing
+            before the one that does. */}
+        {onDiscuss && (
+          <button
+            type="button"
+            onClick={() => onDiscuss(decision.question)}
+            className="text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
+          >
+            Discuss this
+          </button>
+        )}
         {/* Only for a question somebody has actually been asked.
             Deferring needs a message id, and a candidate has none — offering
             the control for one would either fail or ask the question in order
@@ -654,9 +691,17 @@ export function ContentLoss({ coverage }: { coverage?: ProjectProjection['extrac
 
 function ContextPanelContent({
   onDiscuss,
+  onDiscussDecision,
   recommended,
 }: {
   onDiscuss?: (area: string) => void
+  /**
+   * Separate from `onDiscuss`, because a question is not an area. `onDiscuss`
+   * composes *"continue with scope and boundaries"*; the same sentence built
+   * around *"can an administrator override a rejection?"* is not English, and
+   * the two ask CIE for different things (`WS-DEFER`).
+   */
+  onDiscussDecision?: (question: string) => void
   /** The latest turn's ranking, if a turn has happened in this session. */
   recommended?: RecommendedAction
 }) {
@@ -719,7 +764,7 @@ function ContextPanelContent({
         <PanelBody className="px-3">
           <ul className="space-y-2">
             {projection.openDecisions.map((d) => (
-              <OpenDecisionRow key={d.id} decision={d} />
+              <OpenDecisionRow key={d.id} decision={d} onDiscuss={onDiscussDecision} />
             ))}
           </ul>
         </PanelBody>
@@ -910,6 +955,26 @@ export function InterviewRoom() {
     )
   }
 
+  /**
+   * Take up an open decision, in the room where deciding happens (`WS-DEFER`).
+   *
+   * The question is carried verbatim rather than summarised — Memory wrote it,
+   * and a paraphrase would be Studio deciding what was being asked.
+   *
+   * What it asks for is the decision *put to the person*, which is the act the
+   * panel was missing: a candidate nobody has been asked is unanswerable until
+   * somebody asks it, and this is the person asking for it, one at a time. That
+   * is the opposite of the projection materialising twenty questions on page
+   * load, which is why `asked` exists.
+   */
+  const discussDecision = (question: string) => {
+    sendMessage.mutate(
+      `Let's settle this one now: ${question} Start from what the project already ` +
+        `holds on it, then put it to me directly — one question, and say what turns ` +
+        `on the answer.`,
+    )
+  }
+
   const handleSuggestion = (text: string) => {
     if (text.endsWith('?')) {
       setDraft(text)
@@ -1017,7 +1082,11 @@ export function InterviewRoom() {
 
       {/* Desktop context panel */}
       <aside className="hidden w-[352px] shrink-0 overflow-y-auto border-l border-line bg-canvas px-4 py-4 kae-scrollbar xl:block">
-        <ContextPanelContent onDiscuss={discuss} recommended={recommended} />
+        <ContextPanelContent
+          onDiscuss={discuss}
+          onDiscussDecision={discussDecision}
+          recommended={recommended}
+        />
       </aside>
 
       {/* Context drawer below xl */}
@@ -1039,7 +1108,11 @@ export function InterviewRoom() {
                 </Button>
               </Dialog.Close>
             </div>
-            <ContextPanelContent onDiscuss={discuss} recommended={recommended} />
+            <ContextPanelContent
+              onDiscuss={discuss}
+              onDiscussDecision={discussDecision}
+              recommended={recommended}
+            />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
