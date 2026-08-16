@@ -1171,6 +1171,68 @@ export interface SetupState {
   targets: PublicationTarget[]
 }
 
+/* ---------------------------------------------------------------- synthesis */
+
+/**
+ * One thing synthesis decided is worth a person's time (`ADR-0007`).
+ *
+ * **Not a proposed knowledge row.** Extracted evidence is what KAE read and it
+ * lives on `/reviews`; this is the short list synthesis raised from it. On the
+ * owner's own project the two differ by two orders of magnitude — 803 proposed
+ * rows against 8 attention items — which is the whole point of the layer.
+ */
+export interface AttentionItem {
+  id: string
+  kind: string
+  title: string
+  explanation: string
+  status: string
+  /** What KAE suggests doing. `null` when it raised the item without advice. */
+  recommendation: string | null
+  /** The synthesized object this is about, when it is about one. */
+  synthesizedObjectId: string | null
+  priority: number
+  /**
+   * The gestures the item itself names.
+   *
+   * Rendered rather than mapped to buttons Studio chose: an interface that
+   * offered an action the backend refuses is how a Reject button ends up
+   * confirming (`SYN-4` owns turning these into controls).
+   */
+  actions: string[]
+  updatedAt: string | null
+}
+
+/** One object in the current project model — a goal or a theme, not a sentence. */
+export interface SynthesizedObject {
+  id: string
+  domain: string
+  identityKey: string
+  title: string
+  statement: string
+  lifecycle: string
+  authority: string
+  revision: number
+}
+
+/**
+ * What one unknown-synthesis run concluded, **including what it withheld**.
+ *
+ * `withheld` is carried rather than dropped for the reason Memory reports it: a
+ * queue of 8 drawn from 36 themes makes its own 28 exclusions the first thing
+ * anybody asks, and a surface showing only the 8 cannot answer.
+ */
+export interface UnknownSynthesisReport {
+  considered: number
+  resolved: number
+  themes: number
+  raised: { attentionItemId: string; question: string }[]
+  withheld: string[]
+  /** False when no vectors were available, so every unknown stood alone. */
+  clustered: boolean
+  rankedByBlocking: boolean
+}
+
 /* ---------------------------------------------------------------- ingestion */
 
 /**

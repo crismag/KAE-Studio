@@ -12,6 +12,7 @@
 import type {
   AcceptanceTest,
   ArchitectureGraph,
+  AttentionItem,
   ConversationMessage,
   Deliverable,
   InterviewSession,
@@ -26,6 +27,7 @@ import type {
   PublishTarget,
   Requirement,
   ReviewFinding,
+  SynthesizedObject,
 } from '@/domain/types'
 
 export const MEMORY_REVISION = 47
@@ -1726,3 +1728,101 @@ export const review: ProjectReview = {
     },
   ],
 }
+
+/* --------------------------------------------------- synthesis (`ADR-0007`) */
+
+/**
+ * The project model synthesis produced from the evidence above.
+ *
+ * Deliberately far shorter than `requirements`. These are the two layers
+ * `ADR-0007` separates: every requirement row is a sentence KAE extracted, and
+ * these are what it concluded the project is about.
+ */
+export const synthesizedModel: SynthesizedObject[] = [
+  {
+    id: 'syn-goal-001',
+    domain: 'goal',
+    identityKey: 'goal:monthly-reporting-without-manual-collation',
+    title: 'Monthly reporting without manual collation',
+    statement:
+      'Directorates submit figures once and the monthly return is assembled from them, so ' +
+      'nobody rebuilds the same spreadsheet each month.',
+    lifecycle: 'proposed',
+    authority: 'synthesized',
+    revision: 3,
+  },
+  {
+    id: 'syn-goal-002',
+    domain: 'goal',
+    identityKey: 'goal:corrections-are-traceable',
+    title: 'A published figure can be corrected traceably',
+    statement:
+      'A published return can be amended, and the amendment records who changed what and why.',
+    lifecycle: 'proposed',
+    authority: 'synthesized',
+    revision: 1,
+  },
+  {
+    id: 'syn-theme-001',
+    domain: 'unknown_theme',
+    identityKey: 'unknown:approval-authority',
+    title: 'Who approves a return before it is published',
+    statement:
+      'Nine unanswered questions ask some version of who signs a return off, and no source in ' +
+      'the project answers it.',
+    lifecycle: 'proposed',
+    authority: 'synthesized',
+    revision: 2,
+  },
+]
+
+/**
+ * Themes that were real and deliberately not raised.
+ *
+ * Held in the fixture rather than invented at the adapter, because the reason
+ * Memory reports `withheld` at all is that a short queue drawn from a long list
+ * of themes makes its own exclusions the first question anybody asks.
+ */
+export const WITHHELD_THEMES: string[] = [
+  'Which fields of the return are mandatory',
+  'How long a superseded return is retained',
+  'Whether directorate names are stable across years',
+]
+
+/**
+ * The queue, and it is short on purpose.
+ *
+ * A fixture that returned dozens of items would be a fixture of the pathology
+ * this layer exists to remove. The live project's shape is the one to imitate:
+ * 803 proposed rows, 36 themes, 8 items.
+ */
+export const attentionItems: AttentionItem[] = [
+  {
+    id: 'attn-001',
+    kind: 'material_unknown',
+    title: 'Who approves a return before it is published',
+    explanation:
+      'Nine unanswered questions across the record ask this, and nothing in the project ' +
+      'answers it. Publication cannot be specified until it is settled.',
+    recommendation: 'Say who signs a return off, and whether that differs by directorate.',
+    status: 'open',
+    synthesizedObjectId: 'syn-theme-001',
+    priority: 1,
+    actions: ['discuss', 'answer'],
+    updatedAt: '2026-07-28T09:41:00Z',
+  },
+  {
+    id: 'attn-002',
+    kind: 'material_unknown',
+    title: 'What happens to a figure after the return is published',
+    explanation:
+      'Corrections are a stated goal and no source says how one is made, so the goal has ' +
+      'nothing behind it.',
+    recommendation: 'Describe one correction that has actually happened.',
+    status: 'open',
+    synthesizedObjectId: 'syn-goal-002',
+    priority: 2,
+    actions: ['discuss'],
+    updatedAt: '2026-07-28T09:41:00Z',
+  },
+]

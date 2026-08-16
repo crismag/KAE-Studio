@@ -266,6 +266,46 @@ class MemoryClient:
             json={"idempotency_key": idempotency_key},
         )
 
+    async def attention(self, project_id: str, open_only: bool = True) -> Any:
+        """The human-attention queue — the third layer of `ADR-0007`.
+
+        Not the proposed-knowledge list. That list is extracted evidence and is
+        read from `/knowledge`; this one holds the few things synthesis decided
+        are worth a person's time, and on the owner's own project the two differ
+        by two orders of magnitude — 803 proposed rows against 8 items.
+        """
+
+        return await self._request(
+            "GET",
+            f"/v1/projects/{project_id}/attention",
+            params={"open_only": open_only},
+        )
+
+    async def synthesized_model(self, project_id: str, domain: str | None = None) -> Any:
+        """The current project model. Empty until a synthesizer has run."""
+
+        params = {"domain": domain} if domain else None
+        return await self._request("GET", f"/v1/projects/{project_id}/model", params=params)
+
+    async def run_unknown_synthesis(self, project_id: str, idempotency_key: str) -> Any:
+        """Turn current unknowns into themes, and the material few into attention.
+
+        The only route that *produces* the queue (`D-115`). The key is required
+        for `enqueue_review`'s reason: the run is work, and a retried request
+        without one buys it twice for a single intent.
+
+        The report carries what was **withheld** as well as what was promoted,
+        and every field of it is passed through. 36 themes becoming 8 items makes
+        the 28 exclusions the first question anybody asks, and an adapter that
+        summarised the report here would make them unanswerable upstream.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/model/unknowns/runs",
+            json={"idempotency_key": idempotency_key},
+        )
+
     # No contradictions listing exists over HTTP — the routes are POST to record
     # and POST to resolve. Readiness carries `unresolved_contradiction_count`,
     # so the count is reportable and the items are not. Recorded here rather

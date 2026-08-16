@@ -108,6 +108,24 @@ export const SURFACES: SurfaceDefinition[] = [
       'Recent changes and per-Room attention counts need contracts that do not exist — a change feed in Memory, and §4’s work-item model.',
   },
   {
+    id: 'attention',
+    group: 'primary',
+    title: 'What needs you',
+    route: '/attention',
+    kind: 'room',
+    purpose: 'Act on the few things synthesis raised, instead of on every sentence KAE read',
+    readiness: 'partial',
+    // Second, directly after Home, because it answers Home's second question
+    // and is the shortest list in the product. Reviews — the 803 rows it draws
+    // from — stays below it until `OD-SYN-3` retires it.
+    //
+    // What this page **is**. It reads the queue and produces it; it does not
+    // close an item, because which gestures an item accepts is carried on the
+    // item and turning those into controls is `SYN-4`.
+    limit:
+      'Items can be read and re-produced, not resolved from here. Only material unknowns raise items yet — the other five domain synthesizers are unbuilt.',
+  },
+  {
     id: 'setup',
     group: 'settings',
     title: 'Project Setup',

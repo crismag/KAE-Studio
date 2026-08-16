@@ -19,6 +19,7 @@ import type {
   ArtifactPreview,
   ArtifactProfile,
   ArtifactPublication,
+  AttentionItem,
   CapabilityGap,
   ConnectivityResult,
   ConversationMessage,
@@ -36,6 +37,8 @@ import type {
   PublisherAvailability,
   SetupState,
   SourceListing,
+  SynthesizedObject,
+  UnknownSynthesisReport,
   ValidationResult,
 } from '@/domain/types'
 import type {
@@ -59,6 +62,7 @@ import type {
   ProjectProjectionService,
   SetupPort,
   StudioServices,
+  SynthesisPort,
 } from '@/services/interfaces'
 import * as fixture from './fixtures/ministryReporting'
 
@@ -1411,6 +1415,36 @@ const ANALYSIS_GAP: CapabilityGap = {
   provedInstead: ['connection verified', 'source readable', 'revision pinned'],
 }
 
+/* ------------------------------------------------------- synthesis mock */
+
+class MockSynthesis implements SynthesisPort {
+  listAttention(_projectId: string): Promise<AttentionItem[]> {
+    return delay(fixture.attentionItems.map((item) => ({ ...item, actions: [...item.actions] })))
+  }
+
+  listSynthesizedModel(_projectId: string): Promise<SynthesizedObject[]> {
+    return delay(fixture.synthesizedModel.map((obj) => ({ ...obj })))
+  }
+
+  runUnknownSynthesis(_projectId: string): Promise<UnknownSynthesisReport> {
+    // Returns the queue that is already there rather than a second copy of it,
+    // because Memory's run is idempotent on unchanged unknowns and a mock that
+    // grew the queue on every press would teach the surface the wrong shape.
+    return delay({
+      considered: 41,
+      resolved: 5,
+      themes: fixture.attentionItems.length + fixture.WITHHELD_THEMES.length,
+      raised: fixture.attentionItems.map((item) => ({
+        attentionItemId: item.id,
+        question: item.title,
+      })),
+      withheld: [...fixture.WITHHELD_THEMES],
+      clustered: true,
+      rankedByBlocking: true,
+    })
+  }
+}
+
 /* ------------------------------------------------------------------ factory */
 
 export function createMockServices(): StudioServices {
@@ -1425,5 +1459,6 @@ export function createMockServices(): StudioServices {
     acquisition: new MockAcquisition(),
     setup: new MockSetup(),
     ingestion: new MockIngestion(),
+    synthesis: new MockSynthesis(),
   }
 }

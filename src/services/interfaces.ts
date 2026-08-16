@@ -25,6 +25,7 @@ import type {
   ArtifactPreview,
   ArtifactProfile,
   ArtifactPublication,
+  AttentionItem,
   ConnectivityResult,
   ConversationMessage,
   Deliverable,
@@ -41,6 +42,8 @@ import type {
   PublisherAvailability,
   SetupState,
   SourceListing,
+  SynthesizedObject,
+  UnknownSynthesisReport,
   ValidationResult,
 } from '@/domain/types'
 
@@ -510,6 +513,25 @@ export interface PublishInput {
   idempotencyKey: string
 }
 
+/**
+ * The synthesized model and the attention queue — `ADR-0007`'s other two layers.
+ *
+ * Separate from `ProjectMemoryClient` because the layers are separate: that port
+ * reads and writes extracted evidence, and a queue read through the same
+ * interface is how "unconfirmed row" and "needs a person" become one idea again.
+ *
+ * Reads and produces; it does not resolve. `POST /attention/{id}/resolve` exists
+ * in Memory, but which gestures an item accepts is carried on the item, and
+ * offering one it does not name is a button whose meaning the backend refuses
+ * (`SYN-4`).
+ */
+export interface SynthesisPort {
+  listAttention(projectId: string): Promise<AttentionItem[]>
+  listSynthesizedModel(projectId: string): Promise<SynthesizedObject[]>
+  /** Produce the queue. `listAttention` only reads what this wrote. */
+  runUnknownSynthesis(projectId: string): Promise<UnknownSynthesisReport>
+}
+
 export interface StudioServices {
   /**
    * The project every call in this bundle is about.
@@ -530,4 +552,5 @@ export interface StudioServices {
   acquisition: AcquisitionPort
   setup: SetupPort
   ingestion: IngestionPort
+  synthesis: SynthesisPort
 }

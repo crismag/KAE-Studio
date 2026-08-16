@@ -20,14 +20,26 @@ import { REDIRECTS, SURFACES, surfacesInGroup } from './rooms'
 import { ROUTES } from './routes'
 
 describe('the navigation has a shape a person can hold', () => {
-  it('offers five primary destinations', () => {
+  it('offers six primary destinations, and the sixth is a transition', () => {
     /**
-     * Not "few". Five, because the number is the point — one home and the four
-     * places work happens. A sixth is a decision somebody has to defend, and
-     * this is where they will meet it.
+     * Not "few". The number is the point — one home and the places work
+     * happens. A new one is a decision somebody has to defend, and this is
+     * where they meet it.
+     *
+     * **Attention is the sixth, and it is here because Reviews is leaving.**
+     * `SYN-3e` puts the synthesized queue in front of a person; `ADR-0007`
+     * marks the proposed-row queue transitional and `OD-SYN-3` keeps it until
+     * equivalence is shown on live data plus one working session. So the list
+     * is six for exactly as long as both queues exist, and returns to five when
+     * Reviews is retired rather than by adding a seventh.
+     *
+     * It sits second because it is the shortest list in the product — 8 items
+     * against Reviews' 803 on the owner's own project — and a person who reads
+     * it first has read the part that was chosen for them.
      */
     expect(surfacesInGroup('primary').map((s) => s.id)).toEqual([
       'dashboard',
+      'attention',
       'interview',
       'sources',
       'review',

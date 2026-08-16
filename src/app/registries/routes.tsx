@@ -24,6 +24,7 @@
 import type { ReactElement } from 'react'
 
 import { Architecture } from '@/pages/rooms/architecture/ArchitectureRoom'
+import { AttentionRoom } from '@/pages/rooms/attention/AttentionRoom'
 import { Dashboard } from '@/pages/dashboard/DashboardPage'
 import { Deliverables } from '@/pages/rooms/planning/DeliverablesSubflow'
 import { Dependencies } from '@/pages/rooms/architecture/DependenciesSubflow'
@@ -44,6 +45,7 @@ const PAGES: Record<string, () => ReactElement> = {
   dashboard: () => <Dashboard />,
   setup: () => <ProjectSetup />,
   interview: () => <InterviewRoom />,
+  attention: () => <AttentionRoom />,
   sources: () => <SourcesRoom />,
   definition: () => <ProjectDefinition />,
   requirements: () => <Requirements />,

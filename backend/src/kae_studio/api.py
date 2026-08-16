@@ -679,6 +679,56 @@ def create_app(settings: Settings) -> FastAPI:
 
         return await memory(request).runs(project_id)
 
+    @app.get("/api/projects/{project_id}/attention")
+    async def attention(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """The few things synthesis says are worth a person's time (`ADR-0007`).
+
+        Deliberately not `/knowledge`. Extracted rows are evidence and this is
+        the attention layer; a surface that read one as the other is the 174-row
+        queue the synthesis package exists to remove.
+        """
+
+        return await memory(request).attention(project_id)
+
+    @app.get("/api/projects/{project_id}/synthesized-model")
+    async def synthesized_model(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """The project's current model — goals and themes, not sentences.
+
+        Named `synthesized-model` rather than `model` because Studio's own
+        vocabulary already uses "model" for what a provider is.
+        """
+
+        return await memory(request).synthesized_model(project_id)
+
+    @app.post("/api/projects/{project_id}/attention/runs")
+    async def run_attention_synthesis(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Produce the queue. `GET /attention` only reads what this wrote.
+
+        The key is derived from the knowledge revision, as review's is: the run
+        reads every unknown the project holds, so one *change event* per state of
+        the project rather than one per press. **It does not skip the work** —
+        Memory re-synthesizes and upserts by identity key, so a second press on
+        unchanged knowledge costs the same and leaves the same queue. Unlike
+        review, this writes no area links, so the revision the key is taken at
+        survives the run and a rerun really does key the same.
+        """
+
+        readiness = await memory(request).readiness(project_id)
+        payload = readiness if isinstance(readiness, dict) else {}
+        revision = payload.get("current_knowledge_revision")
+        # Falls back as review's does, and for the same reason: a missing
+        # revision must not become a key shared across states of the project.
+        if revision is None:
+            revision = payload.get("knowledge_revision")
+        key = f"studio-unknowns-{project_id}-{revision if revision is not None else 'unknown'}"
+        return await memory(request).run_unknown_synthesis(project_id, key)
+
     @app.get("/api/projects/{project_id}/setup")
     async def setup_state(
         project_id: str, request: Request, _: Operator = Depends(require_operator)

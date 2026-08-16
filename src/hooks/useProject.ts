@@ -822,3 +822,45 @@ export function useAvailableRepositories(query?: string) {
     staleTime: 60_000,
   })
 }
+
+/**
+ * The attention queue — `ADR-0007`'s third layer, not the proposal list.
+ *
+ * Keyed separately from `projection` because they are separate reads of separate
+ * layers. Sharing a key would make producing the queue invalidate the evidence
+ * projection, which is the coupling the layers exist to remove.
+ */
+export function useAttention() {
+  const { synthesis, projectId } = useServices()
+  return useQuery({
+    queryKey: ['attention', projectId],
+    queryFn: () => synthesis.listAttention(projectId),
+  })
+}
+
+export function useSynthesizedModel() {
+  const { synthesis, projectId } = useServices()
+  return useQuery({
+    queryKey: ['synthesized-model', projectId],
+    queryFn: () => synthesis.listSynthesizedModel(projectId),
+  })
+}
+
+/**
+ * Produce the queue. The read above only ever shows what this wrote.
+ *
+ * Invalidates the model as well as the queue: a run writes themes into the model
+ * and raises the material few from them, so a surface that refreshed only the
+ * queue would show items whose object it had not re-read.
+ */
+export function useRunUnknownSynthesis() {
+  const { synthesis, projectId } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => synthesis.runUnknownSynthesis(projectId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['attention', projectId] })
+      void queryClient.invalidateQueries({ queryKey: ['synthesized-model', projectId] })
+    },
+  })
+}

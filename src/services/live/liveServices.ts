@@ -13,6 +13,7 @@
  */
 
 import type {
+  AttentionItem,
   BusinessWorkflow,
   ConversationMessage,
   DefinitionStatement,
@@ -42,6 +43,7 @@ import type {
   ProviderConnection,
   Requirement,
   StakeholderEntry,
+  SynthesizedObject,
   ValidationResult,
 } from '@/domain/types'
 import type {
@@ -59,6 +61,7 @@ import type {
   ProjectProjectionService,
   SetupPort,
   StudioServices,
+  SynthesisPort,
 } from '@/services/interfaces'
 
 const API = (import.meta.env.VITE_STUDIO_API as string | undefined) ?? 'http://127.0.0.1:8100'
@@ -353,6 +356,68 @@ function plan(wire: WirePlan): ArtifactPlan {
       generatable: e.generatable,
       options: e.options,
     })),
+  }
+}
+
+interface WireAttentionItem {
+  id: string
+  kind: string
+  title: string
+  explanation: string
+  status: string
+  recommendation: string | null
+  synthesized_object_id: string | null
+  priority: number
+  actions: string[]
+  updated_at: string | null
+}
+
+interface WireSynthesizedObject {
+  id: string
+  domain: string
+  identity_key: string
+  title: string
+  statement: string
+  lifecycle: string
+  authority: string
+  revision: number
+}
+
+interface WireUnknownSynthesisReport {
+  considered: number
+  resolved: number
+  themes: number
+  raised: { attention_item_id: string; question: string }[]
+  withheld: string[]
+  clustered: boolean
+  ranked_by_blocking: boolean
+}
+
+function attentionItem(wire: WireAttentionItem): AttentionItem {
+  return {
+    id: wire.id,
+    kind: wire.kind,
+    title: wire.title,
+    explanation: wire.explanation,
+    status: wire.status,
+    recommendation: wire.recommendation,
+    synthesizedObjectId: wire.synthesized_object_id,
+    priority: wire.priority,
+    actions: wire.actions,
+    updatedAt: wire.updated_at,
+  }
+}
+
+function synthesizedObject(wire: WireSynthesizedObject): SynthesizedObject {
+  return {
+    id: wire.id,
+    domain: wire.domain,
+    identityKey: wire.identity_key,
+    title: wire.title,
+    statement: wire.statement,
+    lifecycle: wire.lifecycle,
+    authority: wire.authority,
+    revision: wire.revision,
   }
 }
 
@@ -1935,6 +2000,42 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       ),
   }
 
+  const synthesis: SynthesisPort = {
+    listAttention: async (id) => {
+      const raw = await call<WireAttentionItem[]>(`/api/projects/${resolve(id)}/attention`)
+      return raw.map(attentionItem)
+    },
+
+    listSynthesizedModel: async (id) => {
+      const raw = await call<WireSynthesizedObject[]>(
+        `/api/projects/${resolve(id)}/synthesized-model`,
+      )
+      return raw.map(synthesizedObject)
+    },
+
+    runUnknownSynthesis: async (id) => {
+      const raw = await call<WireUnknownSynthesisReport>(
+        `/api/projects/${resolve(id)}/attention/runs`,
+        { method: 'POST' },
+      )
+      return {
+        considered: raw.considered,
+        resolved: raw.resolved,
+        themes: raw.themes,
+        raised: raw.raised.map((item) => ({
+          attentionItemId: item.attention_item_id,
+          question: item.question,
+        })),
+        // Carried, not summarised. A queue of 8 drawn from 36 themes makes its
+        // own 28 exclusions the first question a person asks, and an adapter
+        // that dropped them here would leave it unanswerable on the surface.
+        withheld: raw.withheld,
+        clustered: raw.clustered,
+        rankedByBlocking: raw.ranked_by_blocking,
+      }
+    },
+  }
+
   return {
     projectId: projectIdOverride ?? '',
     memory,
@@ -1945,5 +2046,6 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     acquisition,
     setup,
     ingestion,
+    synthesis,
   }
 }
