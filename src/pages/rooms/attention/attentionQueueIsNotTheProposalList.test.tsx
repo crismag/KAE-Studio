@@ -165,6 +165,17 @@ describe('a run says what it withheld', () => {
     expect(await screen.findByText(/already contradict each other/)).toBeTruthy()
   })
 
+  it('says an area one statement short of its minimum leads, which is the tie under conflict', async () => {
+    // `D-157`. The third tie-break, and the second time in two increments that
+    // the sentence stopped describing the queue beneath it. Named as the rule —
+    // which area is nearly met is in the item's own explanation (`D-151`).
+    harness({ runUnknownSynthesis: () => Promise.resolve(REPORT) })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+
+    expect(await screen.findByText(/a single confirmed statement short/)).toBeTruthy()
+  })
+
   it('says a corroboration ordering is not a blocking one, rather than saying nothing', async () => {
     harness({
       runUnknownSynthesis: () => Promise.resolve({ ...REPORT, rankedByBlocking: false }),

@@ -246,13 +246,15 @@ function RunReport({ report }: { report: UnknownSynthesisReport }) {
             front of two optional ones, which "ordered by what each question
             blocks" alone would not lead anybody to expect.
 
-            And the tie-break under it (`D-154`/`D-155`): equally weighted areas
-            are separated by whether their statements already contradict each
-            other. Which area is contested belongs to the item's explanation,
-            not here — this sentence states the rule the queue was ordered by. */}
+            And the tie-breaks under it (`D-154`/`D-155`, then `D-157`): equally
+            weighted areas are separated by whether their statements already
+            contradict each other, and below that by whether one more confirmed
+            statement would meet the area's minimum. Which area is contested or
+            nearly met belongs to the item's explanation, not here — this
+            sentence states the rule the queue was ordered by. */}
         <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-muted">
           {report.rankedByBlocking
-            ? 'Ordered by what each question blocks: the discovery areas it names that this project has not covered yet, weighing the areas readiness requires above the ones it does not, and among equally weighted areas putting the ones whose statements already contradict each other first.'
+            ? 'Ordered by what each question blocks: the discovery areas it names that this project has not covered yet, weighing the areas readiness requires above the ones it does not, putting the ones whose statements already contradict each other first among equally weighted areas, and then the ones a single confirmed statement short of what they ask for.'
             : 'Ordered by how often the project returned to each question, not by what it blocks — readiness has not been measured here, so KAE has no coverage to rank against.'}
         </p>
         {report.withheld.length > 0 && (
