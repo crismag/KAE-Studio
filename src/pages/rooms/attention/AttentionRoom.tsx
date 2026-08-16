@@ -239,10 +239,15 @@ function RunReport({ report }: { report: UnknownSynthesisReport }) {
         )}
         {/* Which of the two orderings a run performed (`D-150`). The field has
             crossed the wire since the queue existed and was read by nothing,
-            which was harmless only while it could not change. */}
+            which was harmless only while it could not change.
+
+            The blocking sentence names the weighing too (`D-152`): a question
+            standing in front of one required area outranks one standing in
+            front of two optional ones, which "ordered by what each question
+            blocks" alone would not lead anybody to expect. */}
         <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-muted">
           {report.rankedByBlocking
-            ? 'Ordered by what each question blocks: the discovery areas it names that this project has not covered yet.'
+            ? 'Ordered by what each question blocks: the discovery areas it names that this project has not covered yet, weighing the areas readiness requires above the ones it does not.'
             : 'Ordered by how often the project returned to each question, not by what it blocks — readiness has not been measured here, so KAE has no coverage to rank against.'}
         </p>
         {report.withheld.length > 0 && (

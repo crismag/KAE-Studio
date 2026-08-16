@@ -143,6 +143,17 @@ describe('a run says what it withheld', () => {
     expect(await screen.findByText(/Ordered by what each question blocks/)).toBeTruthy()
   })
 
+  it('says the blocked areas are weighed, since a count and a weight rank differently', async () => {
+    // `D-152`. Memory ranks a question blocking one required area above one
+    // blocking two optional areas; a sentence that says only "what each
+    // question blocks" describes an ordering this queue does not perform.
+    harness({ runUnknownSynthesis: () => Promise.resolve(REPORT) })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+
+    expect(await screen.findByText(/weighing the areas readiness requires/)).toBeTruthy()
+  })
+
   it('says a corroboration ordering is not a blocking one, rather than saying nothing', async () => {
     harness({
       runUnknownSynthesis: () => Promise.resolve({ ...REPORT, rankedByBlocking: false }),
