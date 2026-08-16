@@ -35,10 +35,11 @@
  *
  * Each card can answer **what evidence supports this** with the observations the
  * theme was drawn from, fetched when the disclosure is opened rather than with
- * the queue. **What it affects** is not answered and is not guessed: nothing in
- * Memory relates an attention item to what it blocks — every run says so as
- * `ranked_by_blocking: false` — and rendering the evidence's areas as
- * consequences would be invention. That relation is `SYN-11`.
+ * the queue. **What it affects** is not answered and is not guessed: Memory now
+ * ranks a run by what its questions block where readiness has been measured
+ * (`ranked_by_blocking`, said out loud in the run report), but the attention row
+ * carries no areas over the wire, so drawing consequences on a card would be
+ * inventing a field. That half is the next increment.
  *
  * ## What this page does not do
  *
@@ -236,6 +237,14 @@ function RunReport({ report }: { report: UnknownSynthesisReport }) {
             theme holds exactly one.
           </p>
         )}
+        {/* Which of the two orderings a run performed (`D-150`). The field has
+            crossed the wire since the queue existed and was read by nothing,
+            which was harmless only while it could not change. */}
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-muted">
+          {report.rankedByBlocking
+            ? 'Ordered by what each question blocks: the discovery areas it names that this project has not covered yet.'
+            : 'Ordered by how often the project returned to each question, not by what it blocks — readiness has not been measured here, so KAE has no coverage to rank against.'}
+        </p>
         {report.withheld.length > 0 && (
           <details className="mt-2.5 rounded-md border border-line bg-surface-sunken px-3 py-2.5">
             <summary className="cursor-pointer list-none text-[12.5px] text-ink">
@@ -324,9 +333,9 @@ function Item({
  * somebody stopped at.
  *
  * *What does it affect* is **not** here and is not guessed at. The theme's
- * members are observations, not the things a decision would change; nothing in
- * Memory relates an item to what it blocks, which is why every run reports
- * `ranked_by_blocking: false`. That relation is `SYN-11`.
+ * members are observations, not the things a decision would change, and the item
+ * carries no area of its own — what a run ranked by is reported once, on the run
+ * panel, rather than restated per card as a consequence it does not hold.
  */
 function Evidence({ objectId }: { objectId: string }) {
   const [asked, setAsked] = useState(false)

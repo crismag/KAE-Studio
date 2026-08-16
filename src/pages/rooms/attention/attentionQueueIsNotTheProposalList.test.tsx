@@ -134,6 +134,24 @@ describe('a run says what it withheld', () => {
 
     expect(await screen.findByText(/every unknown stood alone/)).toBeTruthy()
   })
+
+  it('says which ordering the run performed, so two different queues are not read alike', async () => {
+    harness({ runUnknownSynthesis: () => Promise.resolve(REPORT) })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+
+    expect(await screen.findByText(/Ordered by what each question blocks/)).toBeTruthy()
+  })
+
+  it('says a corroboration ordering is not a blocking one, rather than saying nothing', async () => {
+    harness({
+      runUnknownSynthesis: () => Promise.resolve({ ...REPORT, rankedByBlocking: false }),
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+
+    expect(await screen.findByText(/not by what it blocks/)).toBeTruthy()
+  })
 })
 
 /** An item that names no gesture Studio can perform, for the negative cases. */
