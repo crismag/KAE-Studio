@@ -24,10 +24,13 @@ import { surfacesInGroup } from '@/app/registries/rooms'
 
 /** What the grid is meant to offer: the primary surfaces, less Home itself. */
 const HOME = surfacesInGroup('primary').filter((surface) => surface.id !== 'dashboard')
-import type { ProjectProjection } from '@/domain/types'
+import type { AttentionItem, ProjectProjection } from '@/domain/types'
 import type { StudioServices } from '@/services/interfaces'
 
-function renderDashboard(shape?: (base: ProjectProjection) => ProjectProjection) {
+function renderDashboard(
+  shape?: (base: ProjectProjection) => ProjectProjection,
+  attention?: () => Promise<AttentionItem[]>,
+) {
   const services = createMockServices()
   const original = services.projection.getProjection.bind(services.projection)
   const patched: StudioServices = {
@@ -39,6 +42,13 @@ function renderDashboard(shape?: (base: ProjectProjection) => ProjectProjection)
         return shape ? shape(base) : base
       },
       classify: (id: string) => services.projection.classify(id),
+    },
+    // The panel's first row is a second layer's read (`D-158`), so a test about
+    // what the Dashboard says needs a person has to be able to set both.
+    synthesis: {
+      ...services.synthesis,
+      listAttention: (id, options) =>
+        attention ? attention() : services.synthesis.listAttention(id, options),
     },
   }
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
@@ -52,6 +62,15 @@ function renderDashboard(shape?: (base: ProjectProjection) => ProjectProjection)
     </MemoryRouter>,
   )
 }
+
+/**
+ * Synthesis raised nothing — **resolved**, not unknown.
+ *
+ * Every test asserting that the panel says nothing is waiting has to set this,
+ * because `nothing is waiting` is now a claim about two layers and the mock
+ * project has a live attention queue.
+ */
+const NOTHING_RAISED = () => Promise.resolve([] as AttentionItem[])
 
 describe('the journey', () => {
   it('marks the stage the project reports', async () => {
@@ -102,13 +121,87 @@ describe('what needs you', () => {
      */
     renderDashboard()
 
-    const first = await screen.findByText(/proposed statement.* awaiting your decision/i)
+    const first = await screen.findByText(/matters need your judgment/i)
     const row = first.closest('a')
 
     // The verb appears on the first row and only there.
-    expect(row).toHaveTextContent(/Review them/)
+    expect(row).toHaveTextContent(/See them/)
     const decisions = screen.getByText(/open decision/i).closest('a')
     expect(decisions).not.toHaveTextContent(/Decide them/)
+  })
+
+  it('puts what synthesis raised above what extraction counted', async () => {
+    /**
+     * Doc 17's own bad sentence sat at the top of the project's home page: a
+     * raw extraction count presented as human work (`D-158`). It is still here,
+     * because `/reviews` is transitional and this is the Dashboard's only
+     * pointer to it — but the panel renders `index === 0` prominently, so which
+     * row is first is the panel saying which of the two is work.
+     */
+    renderDashboard()
+
+    const rows = await screen.findAllByRole('link', {
+      name: /your judgment|awaiting your decision/i,
+    })
+    expect(rows[0]).toHaveTextContent(/matters need your judgment/i)
+    expect(rows[0]).toHaveAttribute('href', '/attention')
+    expect(rows[1]).toHaveTextContent(/proposed statement.* awaiting your decision/i)
+    expect(rows[1]).toHaveAttribute('href', '/reviews')
+  })
+
+  it('does not count what somebody postponed', async () => {
+    // Deferring means *stop recommending this*. A Dashboard row that counted a
+    // postponed item would make Defer a gesture that changes nothing on the
+    // surface a person looks at first.
+    const open: AttentionItem = {
+      id: 'attn-open',
+      kind: 'material_unknown',
+      title: 'Who approves a return',
+      explanation: 'Nothing answers it.',
+      recommendation: null,
+      status: 'open',
+      synthesizedObjectId: null,
+      priority: 1,
+      actions: ['answer'],
+      updatedAt: null,
+    }
+    renderDashboard(undefined, () =>
+      Promise.resolve([open, { ...open, id: 'attn-deferred', status: 'deferred' }]),
+    )
+
+    expect(await screen.findByText(/1 matter needs your judgment/i)).toBeInTheDocument()
+  })
+
+  it('does not say nothing is waiting when the queue could not be read', async () => {
+    // Unknown is not zero. `D-38` is the same defect one panel earlier — a
+    // hedge that blamed KAE's perception for a gap KAE was displaying.
+    renderDashboard(
+      (base) => ({
+        ...base,
+        findings: [],
+        openDecisions: [],
+        contradictions: { count: 0, listable: true, reason: '' },
+        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        blockers: [],
+        review: { available: true, reason: '', findings: [] },
+      }),
+      () => Promise.reject(new Error('the queue is unreachable')),
+    )
+
+    expect(
+      await screen.findByText(/could not be read, so this list is incomplete/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/nothing is waiting on you/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the rows it did read when the queue could not be read', async () => {
+    // Alongside the rows, not instead of them: hiding what resolved to report
+    // the absence of what did not is `G2`'s conservation defect on one panel.
+    renderDashboard(undefined, () => Promise.reject(new Error('the queue is unreachable')))
+
+    expect(
+      await screen.findByText(/proposed statement.* awaiting your decision/i),
+    ).toBeInTheDocument()
   })
 
   it('counts things that exist and links each one somewhere', async () => {
@@ -121,18 +214,21 @@ describe('what needs you', () => {
   it('renders no row for a count of zero', async () => {
     // A permanent list of zeroes is `Reviews 81` inverted: it trains the eye
     // past the panel, so the one time a row appears nobody sees it.
-    renderDashboard((base) => ({
-      ...base,
-      findings: [],
-      openDecisions: [],
-      contradictions: { count: 0, listable: true, reason: '' },
-      extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
-      // Cleared as well, since `D-38`. The prototype project has a critical
-      // blocker, so leaving these would make "nothing is waiting" false — and
-      // this test asserted that sentence against exactly that project.
-      blockers: [],
-      review: { available: true, reason: '', findings: [] },
-    }))
+    renderDashboard(
+      (base) => ({
+        ...base,
+        findings: [],
+        openDecisions: [],
+        contradictions: { count: 0, listable: true, reason: '' },
+        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        // Cleared as well, since `D-38`. The prototype project has a critical
+        // blocker, so leaving these would make "nothing is waiting" false — and
+        // this test asserted that sentence against exactly that project.
+        blockers: [],
+        review: { available: true, reason: '', findings: [] },
+      }),
+      NOTHING_RAISED,
+    )
 
     expect(
       await screen.findByText(/nothing is waiting on you that KAE can currently detect/i),
@@ -143,15 +239,18 @@ describe('what needs you', () => {
   it('says "that KAE can detect" rather than "all clear"', async () => {
     // The narrower claim is the true one: three of the five review groups are
     // not computed at all, so silence is not evidence of nothing.
-    renderDashboard((base) => ({
-      ...base,
-      findings: [],
-      openDecisions: [],
-      contradictions: { count: 0, listable: true, reason: '' },
-      extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
-      blockers: [],
-      review: { available: true, reason: '', findings: [] },
-    }))
+    renderDashboard(
+      (base) => ({
+        ...base,
+        findings: [],
+        openDecisions: [],
+        contradictions: { count: 0, listable: true, reason: '' },
+        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        blockers: [],
+        review: { available: true, reason: '', findings: [] },
+      }),
+      NOTHING_RAISED,
+    )
 
     expect(await screen.findByText(/that KAE can currently detect/i)).toBeInTheDocument()
     expect(screen.queryByText(/all clear/i)).not.toBeInTheDocument()
@@ -397,7 +496,7 @@ describe('nothing is waiting only when nothing is', () => {
   }
 
   it('does not claim nothing is waiting when a blocker is', async () => {
-    renderDashboard(quietExcept({ blockers: [CRITICAL_BLOCKER] }))
+    renderDashboard(quietExcept({ blockers: [CRITICAL_BLOCKER] }), NOTHING_RAISED)
 
     await screen.findByText(/needs you/i)
     expect(screen.queryByText(/nothing is waiting on you/i)).not.toBeInTheDocument()
@@ -406,7 +505,7 @@ describe('nothing is waiting only when nothing is', () => {
   it('points at what holds it rather than restating it', async () => {
     // `§13`, and `D-37` was two lists of one thing on one page coming to
     // disagree. The blocker is named once, by the panel that owns it.
-    renderDashboard(quietExcept({ blockers: [CRITICAL_BLOCKER] }))
+    renderDashboard(quietExcept({ blockers: [CRITICAL_BLOCKER] }), NOTHING_RAISED)
 
     expect(await screen.findByText(/is waiting on somebody/i)).toBeInTheDocument()
     expect(screen.getAllByText(CRITICAL_BLOCKER.summary)).toHaveLength(1)
@@ -431,6 +530,7 @@ describe('nothing is waiting only when nothing is', () => {
           ],
         },
       }),
+      NOTHING_RAISED,
     )
 
     await screen.findByText(/needs you/i)
@@ -459,13 +559,17 @@ describe('nothing is waiting only when nothing is', () => {
           ],
         },
       }),
+      NOTHING_RAISED,
     )
 
     expect(await screen.findByText(/nothing is waiting on you/i)).toBeInTheDocument()
   })
 
   it('does not count a blocker somebody closed', async () => {
-    renderDashboard(quietExcept({ blockers: [{ ...CRITICAL_BLOCKER, status: 'resolved' }] }))
+    renderDashboard(
+      quietExcept({ blockers: [{ ...CRITICAL_BLOCKER, status: 'resolved' }] }),
+      NOTHING_RAISED,
+    )
 
     expect(await screen.findByText(/nothing is waiting on you/i)).toBeInTheDocument()
   })

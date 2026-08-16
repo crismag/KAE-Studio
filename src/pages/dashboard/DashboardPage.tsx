@@ -55,12 +55,18 @@ import {
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
 import { SURFACES, surfacesInGroup, type SurfaceDefinition } from '@/app/registries/rooms'
-import { useProjection } from '@/hooks/useProject'
+import { useAttention, useProjection } from '@/hooks/useProject'
 import { projectCounts } from '@/lib/counts'
-import type { ProjectProjection } from '@/domain/types'
+import type { AttentionItem, ProjectProjection } from '@/domain/types'
+import type { UseQueryResult } from '@tanstack/react-query'
 
 export function Dashboard() {
   const projection = useProjection()
+  // A second read of a second layer (`D-158`). `NeedsYou`'s first row is what
+  // synthesis decided is worth a person's time, and that is not in the
+  // projection — the projection carries evidence counts, which is the thing
+  // doc 17 says must stop being presented as work.
+  const attention = useAttention()
 
   return (
     <PageLayout
@@ -88,7 +94,7 @@ export function Dashboard() {
                     somebody owns and a critical one already stops generation,
                     so it outranks a queue of things to look at (`D-29`). */}
                 <Blockers blockers={data.blockers} />
-                <NeedsYou projection={data} />
+                <NeedsYou projection={data} attention={attention} />
                 <WhereWorkHappens />
               </div>
               <div className="space-y-5">
@@ -180,13 +186,31 @@ function Journey({ projection }: { projection: ProjectProjection }) {
  * `§3`: *"Every alert or recommendation must link to the correct Room."* Each
  * row is a real count with a destination, and a row with a count of zero is not
  * rendered — a permanent list of zeroes is the *"Reviews 81"* problem inverted.
+ *
+ * The first row is the **attention queue**, and the rest are counts of evidence
+ * (`D-158`). Doc 17 rules that a raw extraction count must not be presented as
+ * human work, and *"N proposed statements awaiting your decision"* at the top of
+ * the project's home page was that sentence. It is still here, one row lower,
+ * because `/reviews` is transitional under `OD-SYN-3` and this is the
+ * Dashboard's only pointer to it.
  */
-function NeedsYou({ projection }: { projection: ProjectProjection }) {
+function NeedsYou({
+  projection,
+  attention,
+}: {
+  projection: ProjectProjection
+  attention: UseQueryResult<AttentionItem[]>
+}) {
   // From `projectCounts`, never recomputed here (`D-96`). Two pages counting
   // the same thing their own way is how "174 proposed statements" came to sit
   // beside a tab strip totalling 180.
   const counts = projectCounts(projection)
   const proposed = counts.awaitingDecision
+  // Postponed items are excluded, not counted (`D-158`). The hook asks for both
+  // compartments because the Room draws both; a Dashboard row that counted what
+  // somebody deferred would make Defer a gesture that changes nothing on the
+  // surface they look at first.
+  const matters = attention.data?.filter((item) => item.status !== 'deferred').length
   const decisions = counts.openDecisions
   const contradictions = counts.unresolvedContradictions
   const lost = projection.extractionCoverage && !projection.extractionCoverage.complete
@@ -197,6 +221,16 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
   const elsewhere = openBlockers(projection.blockers).length + counts.criticalReviewFindings
 
   const items = [
+    // First by construction, and the panel renders the first row prominently —
+    // so this position is the panel saying which of the two below it is work
+    // (`D-158`). Doc 17's replacement sentence for the row beneath it.
+    matters !== undefined &&
+      matters > 0 && {
+        text: `${matters} matter${matters === 1 ? '' : 's'} need${matters === 1 ? 's' : ''} your judgment`,
+        to: '/attention',
+        verb: 'See them',
+        tone: 'accent' as const,
+      },
     proposed > 0 && {
       text: `${proposed} proposed statement${proposed === 1 ? '' : 's'} awaiting your decision`,
       to: '/reviews',
@@ -235,14 +269,29 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
         {items.length > 0 && <Badge tone="neutral">{items.length}</Badge>}
       </PanelHeader>
       <PanelBody>
-        {items.length === 0 ? (
+        {/* Unknown is not zero (`D-158`). The panel's first row is now a second
+            query, so every sentence below that says nothing is waiting is a
+            claim about a queue this render may not have read. `D-38` is the same
+            defect one panel earlier: a hedge that blamed KAE's perception for a
+            gap KAE was displaying. */}
+        {/* Alongside the rows rather than instead of them: the rows that did
+            resolve are still true, and hiding them would remove information to
+            report the absence of other information. */}
+        {matters === undefined && (
+          <p className="mb-2.5 text-[12.5px] text-ink-muted">
+            {attention.isError
+              ? 'What needs your judgment could not be read, so this list is incomplete.'
+              : 'Still reading what needs your judgment.'}
+          </p>
+        )}
+        {matters !== undefined && items.length === 0 ? (
           // Deliberately not "all clear". Nothing is waiting *that KAE can
           // see*, which is a narrower claim and the only one that is true —
           // three of the five review groups are not computed at all.
           //
           // And not even that when something else on this page is waiting.
-          // `NeedsYou` counts proposals, decisions, contradictions and unread
-          // content; blockers and review findings arrived later and were not
+          // `NeedsYou` counts attention, proposals, decisions, contradictions
+          // and unread content; blockers and review findings arrived later and were not
           // added, so a project whose only outstanding item was a critical
           // blocker read "nothing is waiting on you" three inches beneath the
           // blocker (`D-38`). The careful hedge made it worse: it blamed KAE's
@@ -260,7 +309,7 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
               Nothing is waiting on you that KAE can currently detect.
             </p>
           )
-        ) : (
+        ) : items.length === 0 ? null : (
           /* **One of these is first** (`NAV-01` N5). Three rows of equal weight
              ask a person to rank their own work on the page that exists to
              answer *what now* — and the ordering that decides which is first is
