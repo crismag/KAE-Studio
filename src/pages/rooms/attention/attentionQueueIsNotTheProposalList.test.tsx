@@ -154,6 +154,17 @@ describe('a run says what it withheld', () => {
     expect(await screen.findByText(/weighing the areas readiness requires/)).toBeTruthy()
   })
 
+  it('says a contested area leads a quiet one, since equal weights are not left unordered', async () => {
+    // `D-154`/`D-155`. Memory breaks the tie between equally weighted blocked
+    // areas by whether their statements already contradict each other, and the
+    // `D-152` wording stops at the weighing — true, and no longer sufficient.
+    harness({ runUnknownSynthesis: () => Promise.resolve(REPORT) })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+
+    expect(await screen.findByText(/already contradict each other/)).toBeTruthy()
+  })
+
   it('says a corroboration ordering is not a blocking one, rather than saying nothing', async () => {
     harness({
       runUnknownSynthesis: () => Promise.resolve({ ...REPORT, rankedByBlocking: false }),
