@@ -820,6 +820,11 @@ export function useAvailableRepositories(query?: string) {
     queryFn: () => acquisition.availableRepositories(query),
     // The set changes when somebody creates a repository, not between renders.
     staleTime: 60_000,
+    // **Except when they just installed the App in another tab** (`D-106`).
+    // Coming back to a window that still shows no repositories reads as the
+    // install having failed. `useInstallations` already refetches on focus; the
+    // listing has to as well, or the two disagree on the same screen.
+    refetchOnWindowFocus: true,
   })
 }
 

@@ -84,8 +84,30 @@ export function Connections() {
           >
             {(rows) => {
               const accounts = accountsFrom(rows)
-              if (accounts.length === 0) {
+              // **An installation is an answer, not a detail** (`D-106`).
+              //
+              // This asked one question — *does this project hold a connection
+              // record?* — and offered "Connect GitHub" whenever it did not.
+              // Installing the App creates no such record, so a completed
+              // install could not change what the page said, and it offered the
+              // same button to somebody who had just finished pressing it.
+              //
+              // `D-90` keeps installation and connection apart for a reason: one
+              // is a fact about the deployment, the other about the project.
+              // That split stays. What changes is the question — *can this
+              // project read GitHub?* — which an installation answers alone.
+              const installed = (installs.data?.installations.length ?? 0) > 0
+              if (accounts.length === 0 && !installed) {
                 return <NoAccountYet slug={slug} tokenOnHost={tokenOnHost} />
+              }
+              if (accounts.length === 0) {
+                return (
+                  <>
+                    <Installations listing={installs.data} />
+                    <GrantedNext githubCount={githubCount} listingPending={listing.isPending} />
+                    {slug ? <ConnectGitHub compact /> : null}
+                  </>
+                )
               }
               return (
                 <>
@@ -172,10 +194,20 @@ function ConnectGitHub({ compact = false }: { compact?: boolean }) {
               : 'GitHub asks which repositories KAE may read. KAE never holds a token.'}
           </p>
         </div>
+        {/* **Its own tab** (`D-106`). GitHub's install flow replaced this one,
+            and GitHub has nowhere to send somebody back to — so finishing the
+            install meant leaving KAE and finding the way back by hand, to a page
+            that then had to be reloaded before it noticed. A tab costs nothing
+            and leaves the page that must react still on screen. */}
         <Button asChild size={compact ? 'sm' : 'md'}>
-          <a href={`https://github.com/apps/${slug}/installations/new`} rel="noreferrer">
+          <a
+            href={`https://github.com/apps/${slug}/installations/new`}
+            target="_blank"
+            rel="noreferrer"
+          >
             <Github className="size-3.5" aria-hidden="true" />
             Connect
+            <span className="sr-only"> (opens GitHub in a new tab)</span>
           </a>
         </Button>
       </div>
