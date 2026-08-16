@@ -54,7 +54,7 @@ import {
   Skeleton,
 } from '@/components/ui/primitives'
 import { QueryState } from '@/components/ui/QueryState'
-import { ROOMS, SURFACES, type SurfaceDefinition } from '@/app/registries/rooms'
+import { SURFACES, surfacesInGroup, type SurfaceDefinition } from '@/app/registries/rooms'
 import { useProjection } from '@/hooks/useProject'
 import { projectCounts } from '@/lib/counts'
 import type { ProjectProjection } from '@/domain/types'
@@ -89,7 +89,7 @@ export function Dashboard() {
                     so it outranks a queue of things to look at (`D-29`). */}
                 <Blockers blockers={data.blockers} />
                 <NeedsYou projection={data} />
-                <Rooms />
+                <WhereWorkHappens />
               </div>
               <div className="space-y-5">
                 <NextAction action={floorAction(data)} derived />
@@ -300,23 +300,49 @@ function NeedsYou({ projection }: { projection: ProjectProjection }) {
 }
 
 /**
- * Room launchers with **truthful availability** — `§13`.
+ * Launchers with **truthful availability** — `§13`.
  *
- * The readiness comes from the registry, so a Room that is waiting on a
+ * The readiness comes from the registry, so a surface that is waiting on a
  * capability says what it is waiting for *before* somebody clicks it. That is
  * the difference between a considered product and a dead end with good
  * typography.
+ *
+ * ## Why this is not `ROOMS` any more (`HOME-ROOMS`)
+ *
+ * Doc 14 invariant 3: *"The Rooms grid must not duplicate the application
+ * navigation without adding project-state value."* It listed the six surfaces
+ * whose `kind` is `room`, and `NAV-01` then grouped the sidebar by whether a
+ * surface can be **operated** — which moved Definition, Architecture and Plan
+ * into Understanding. Home went on offering all six with equal weight, so the
+ * two devices a first-time reader uses to learn how big this product is
+ * disagreed about it, and the page that exists to answer *where do I go*
+ * answered with three places where nothing can be done.
+ *
+ * `group`, not `kind`. `kind` says what a surface *is* — Architecture is a Room
+ * by intent — and `group` says whether work happens there, which is the only
+ * question a launcher grid is asking. Deliverables is `kind: 'surface'` and is
+ * one of the four places somebody acts, so the panel is no longer called Rooms:
+ * the honest name is what these have in common.
+ *
+ * Nothing is hidden. Every grouped surface is one click away in the sidebar,
+ * at the path it always had, and the Understanding section says so — `§18`'s
+ * guardrail, and the same argument `NAV-01` made against deleting them.
+ *
+ * Home is left out of its own grid. A launcher to the page you are reading is
+ * the purest form of the duplication the invariant names.
  */
-function Rooms() {
+function WhereWorkHappens() {
+  const surfaces = surfacesInGroup('primary').filter((surface) => surface.id !== 'dashboard')
+
   return (
     <Panel>
       <PanelHeader>
-        <PanelTitle>Rooms</PanelTitle>
+        <PanelTitle>Where work happens</PanelTitle>
       </PanelHeader>
       <PanelBody>
         <ul className="grid gap-2 sm:grid-cols-2">
-          {ROOMS.map((room) => (
-            <RoomCard key={room.id} room={room} />
+          {surfaces.map((surface) => (
+            <SurfaceCard key={surface.id} surface={surface} />
           ))}
         </ul>
       </PanelBody>
@@ -324,14 +350,19 @@ function Rooms() {
   )
 }
 
-function RoomCard({ room }: { room: SurfaceDefinition }) {
-  const subflows = SURFACES.filter((surface) => surface.partOf === room.id)
-  const waiting = room.readiness === 'awaiting-capability'
+/**
+ * One launcher. Exported for its own test: the *waiting* branch is a state no
+ * primary surface is in today, and a branch nothing can reach is a branch
+ * nobody checks until the day it renders.
+ */
+export function SurfaceCard({ surface }: { surface: SurfaceDefinition }) {
+  const subflows = SURFACES.filter((each) => each.partOf === surface.id)
+  const waiting = surface.readiness === 'awaiting-capability'
 
   return (
     <li>
       <Link
-        to={room.route}
+        to={surface.route}
         className="block h-full rounded-md border border-line bg-surface px-3 py-2.5 transition-colors hover:bg-surface-sunken"
       >
         <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-ink">
@@ -340,18 +371,18 @@ function RoomCard({ room }: { room: SurfaceDefinition }) {
           ) : (
             <CircleDot className="size-3.5 text-accent" aria-hidden="true" />
           )}
-          {room.title}
+          {surface.title}
           {waiting && <Badge tone="neutral">Not yet</Badge>}
         </p>
-        <p className="mt-1 text-[11.5px] leading-snug text-ink-muted">{room.purpose}</p>
-        {/* The limit, on the launcher. A person should not have to open a Room
-            to learn it cannot do anything yet. */}
-        {room.limit && (
-          <p className="mt-1 text-[11px] leading-snug text-ink-subtle">{room.limit}</p>
+        <p className="mt-1 text-[11.5px] leading-snug text-ink-muted">{surface.purpose}</p>
+        {/* The limit, on the launcher. A person should not have to open a
+            surface to learn it cannot do anything yet. */}
+        {surface.limit && (
+          <p className="mt-1 text-[11px] leading-snug text-ink-subtle">{surface.limit}</p>
         )}
         {subflows.length > 0 && (
           <p className="mt-1.5 text-[11px] text-ink-subtle">
-            {subflows.map((surface) => surface.title).join(' · ')}
+            {subflows.map((each) => each.title).join(' · ')}
           </p>
         )}
       </Link>

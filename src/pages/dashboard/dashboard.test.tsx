@@ -13,14 +13,17 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
-import { Dashboard } from './DashboardPage'
-import { SURFACES } from '@/app/registries/rooms'
+import { Dashboard, SurfaceCard } from './DashboardPage'
+import { surfacesInGroup } from '@/app/registries/rooms'
+
+/** What the grid is meant to offer: the primary surfaces, less Home itself. */
+const HOME = surfacesInGroup('primary').filter((surface) => surface.id !== 'dashboard')
 import type { ProjectProjection } from '@/domain/types'
 import type { StudioServices } from '@/services/interfaces'
 
@@ -165,47 +168,110 @@ describe('what needs you', () => {
   })
 })
 
-describe('Room launchers tell the truth before they are clicked', () => {
-  it('says what a Room is waiting for', async () => {
+describe('launchers tell the truth before they are clicked', () => {
+  it('says what a surface is waiting for', async () => {
     renderDashboard()
 
-    // `§13`: truthful availability. A person should not have to open a Room to
-    // discover it cannot do its job.
+    // `§13`: truthful availability. A person should not have to open a surface
+    // to discover it cannot do its job.
     //
-    // Read from the registry rather than quoting one Room's sentence. The
-    // first version of this asserted *"nothing derives an architecture"* and
-    // failed the day that stopped being true — which is the check working, and
-    // also a test that has to be rewritten every time the product improves.
-    // What `§13` actually requires is that **every** limit reaches the card.
-    const limited = SURFACES.filter((surface) => surface.kind === 'room' && surface.limit)
+    // Read from the registry rather than quoting one sentence. The first
+    // version of this asserted *"nothing derives an architecture"* and failed
+    // the day that stopped being true — which is the check working, and also a
+    // test that has to be rewritten every time the product improves. What `§13`
+    // actually requires is that **every** limit reaches the card it belongs to.
+    const limited = HOME.filter((surface) => surface.limit)
 
     expect(limited.length).toBeGreaterThan(0)
-    for (const room of limited) {
+    for (const surface of limited) {
       expect(
-        await screen.findByText(room.limit!),
-        `${room.title} states a limit the Dashboard does not show`,
+        await screen.findByText(surface.limit!),
+        `${surface.title} states a limit the Dashboard does not show`,
       ).toBeInTheDocument()
     }
   })
 
-  it('marks a Room that cannot do its job yet', async () => {
-    renderDashboard()
+  it('marks a surface that cannot do its job yet', async () => {
+    // Rendered directly, because no primary surface is `awaiting-capability`
+    // today (`HOME-ROOMS` — the three that were are read-only and now sit in
+    // Understanding). The branch stays checked rather than being checked by
+    // whichever surface happens to be broken this month.
+    render(
+      <MemoryRouter>
+        <ul>
+          <SurfaceCard
+            surface={{
+              id: 'not-yet',
+              group: 'primary',
+              title: 'Something later',
+              route: '/later',
+              kind: 'room',
+              purpose: 'Do a thing KAE cannot do',
+              readiness: 'awaiting-capability',
+              limit: 'Nothing derives it.',
+            }}
+          />
+        </ul>
+      </MemoryRouter>,
+    )
 
-    const waiting = SURFACES.find(
-      (surface) => surface.kind === 'room' && surface.readiness === 'awaiting-capability',
-    )!
-    // Found through its own purpose line: a Room's title can also be a journey
-    // stage, and appear twice.
-    const card = (await screen.findByText(waiting.purpose)).closest('a')!
-
-    expect(card).toHaveTextContent('Not yet')
+    expect(screen.getByRole('link')).toHaveTextContent('Not yet')
   })
 
-  it('does not mark a Room that works', async () => {
+  it('does not mark a surface that works', async () => {
     renderDashboard()
 
     const workspace = (await screen.findByText('Workspace')).closest('a')!
     expect(workspace).not.toHaveTextContent('Not yet')
+  })
+})
+
+/**
+ * `HOME-ROOMS` — doc 14 invariant 3.
+ *
+ * *"The Rooms grid must not duplicate the application navigation without adding
+ * project-state value."* The grid listed every surface whose `kind` is `room`;
+ * `NAV-01` then grouped the sidebar by whether a surface can be **operated**,
+ * and Home was not told. Six launchers of equal weight beside a sidebar
+ * offering four, so the two devices that teach a first-time reader how big this
+ * product is disagreed about it.
+ */
+describe('the launcher grid agrees with the navigation', () => {
+  it('offers the places work happens, and only those', async () => {
+    renderDashboard()
+    // The grid itself, found through a launcher only it has.
+    const grid = within((await screen.findByText('Workspace')).closest('ul')!)
+
+    for (const surface of HOME) {
+      expect(
+        grid.getByText(surface.purpose),
+        `${surface.title} is missing from the grid`,
+      ).toBeInTheDocument()
+    }
+    expect(grid.getAllByRole('link')).toHaveLength(HOME.length)
+  })
+
+  it('does not launch a page nothing can be done on', async () => {
+    renderDashboard()
+    await screen.findByText('Where work happens')
+
+    // Read-only surfaces stay one click away in the sidebar's Understanding
+    // section, at the paths they always had — grouped, never deleted (`§18`).
+    for (const surface of surfacesInGroup('understanding')) {
+      expect(
+        screen.queryByText(surface.purpose),
+        `${surface.title} is a reading surface and Home offers it as a place to work`,
+      ).not.toBeInTheDocument()
+    }
+  })
+
+  it('does not launch the page it is', async () => {
+    renderDashboard()
+    await screen.findByText('Where work happens')
+
+    // A launcher to the page you are reading is the purest form of the
+    // duplication the invariant names.
+    expect(screen.queryByRole('link', { name: /Project home/ })).not.toBeInTheDocument()
   })
 })
 

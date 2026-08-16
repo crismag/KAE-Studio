@@ -29,13 +29,19 @@ nothing in it must still be legible here.
 | Port         | For                                                                     |
 | ------------ | ----------------------------------------------------------------------- |
 | `projection` | journey, coverage, blockers, review findings, decisions, contradictions |
-| `registries` | the Room launchers and each Room's stated limit                         |
+| `registries` | the launchers for the primary surfaces, and each one's stated limit     |
 
 ## Contextual toolbelt
 
 `§9`, applied by restraint. The Dashboard's belt is **launchers**, not actions:
 every item routes to the surface that owns it. Nothing is accepted, confirmed,
 resolved or dismissed here.
+
+_Where work happens_ offers the `primary` group and not the `room` kind
+(`HOME-ROOMS`, doc 14 invariant 3). `NAV-01` grouped the sidebar by whether a
+surface can be operated; a grid built on `kind` went on offering three
+read-only pages as places to work, so Home and the navigation disagreed about
+how many places exist. Home is left out of its own grid.
 
 That is deliberate. A gesture on this page would make it a second place where a
 decision can be made, and then two surfaces would have to agree about what a
@@ -47,7 +53,7 @@ data problem; it is an interaction problem first.
 Loading · a project with nothing established, which still shows its journey and
 says nothing is waiting **only when nothing is** (`D-38`) · sections KAE-Memory
 could not read, named individually rather than blanking the page (`AUD-040`) ·
-a Room that cannot do its job yet, marked and carrying its own reason.
+a surface that cannot do its job yet, marked and carrying its own reason.
 
 ## Exit conditions
 
@@ -67,8 +73,8 @@ than a piece of this page.
 - **Ranking the next action.** `ADR-0002`: CIE reasons, Memory stores, Studio
   renders. `floorAction` is a **floor** for when nothing has been ranked, and it
   says so on screen rather than passing for a recommendation.
-- **What a Room can do.** Each launcher shows the Room's own `limit` from the
-  registry. When that sentence is wrong the Room is wrong, not this page —
+- **What a surface can do.** Each launcher shows the surface's own `limit` from
+  the registry. When that sentence is wrong the surface is wrong, not this page —
   though this page is where a person reads it, which is why `D-49` mattered.
 - **Closing anything.** Blockers are resolved where somebody takes
   responsibility for them, which is not here.
@@ -78,7 +84,7 @@ than a piece of this page.
 
 ## Transitions out
 
-Every Room launcher · `/reviews` from proposals and contradictions ·
+Every launcher · `/reviews` from proposals and contradictions ·
 `/workspace` from decisions and coverage · `/ingestion` from unread content.
 
 ## Tests
