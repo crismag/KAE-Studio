@@ -50,14 +50,53 @@ describe('starting work on an area', () => {
     expect(onDiscuss).toHaveBeenCalledExactlyOnceWith('Scope and boundaries')
   })
 
-  it('offers nothing on an area that is already strong', () => {
-    // Nothing to continue. An action that reads "discuss this" against settled
-    // work invites the probing that costs trust.
-    const strong = projection()
-    strong.health.coverage[0].state = 'strong'
-    render(<CoverageSection projection={strong} onDiscuss={() => {}} />)
+  it('offers nothing on an area that does not apply', () => {
+    // The one exclusion with an argument of its own: there is nothing to
+    // discuss about an area KAE has been told is out of play, and offering it
+    // invites somebody to fill a gap KAE does not think exists.
+    const na = projection()
+    na.health.coverage[0].state = 'notApplicable'
+    render(<CoverageSection projection={na} onDiscuss={() => {}} />)
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * `WS-REVISIT` — a finished area keeps its route back.
+ *
+ * Doc 15 invariant 1: *"Every project/discovery area remains revisit-able
+ * regardless of status"*, and invariant 2 names the mechanism: *"`Discuss this`
+ * must not disappear as the only route back to a completed topic."* It was the
+ * only route, and it disappeared — `strong` sat on the same line as
+ * `notApplicable`, sharing an exclusion whose reason does not reach it.
+ *
+ * Both halves are asserted, because the fix is not "show the button again". A
+ * finished area offers a different act, and saying "discuss this" about settled
+ * work is the probing that costs trust.
+ */
+describe('an area that is already strong', () => {
+  function strong(): ProjectProjection {
+    const p = projection()
+    p.health.coverage[0].state = 'strong'
+    return p
+  }
+
+  it('still leads back into the conversation', async () => {
+    const user = userEvent.setup()
+    const onDiscuss = vi.fn()
+    render(<CoverageSection projection={strong()} onDiscuss={onDiscuss} />)
+
+    await user.click(screen.getByRole('button', { name: /revisit/i }))
+
+    expect(onDiscuss).toHaveBeenCalledExactlyOnceWith('Scope and boundaries')
+  })
+
+  it('calls it revisiting rather than discussing', () => {
+    render(<CoverageSection projection={strong()} onDiscuss={() => {}} />)
 
     expect(screen.queryByRole('button', { name: /discuss this/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Revisit' })).toBeInTheDocument()
   })
 })
 

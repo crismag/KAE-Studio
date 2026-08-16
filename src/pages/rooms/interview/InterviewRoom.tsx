@@ -450,14 +450,27 @@ export function CoverageSection({
                 than a second editing surface beside the one that works. */}
             {/* Nothing to discuss about an area that does not apply, and
                 offering it would invite somebody to fill a gap KAE does not
-                think exists. */}
-            {onDiscuss && topic.state !== 'strong' && topic.state !== 'notApplicable' && (
+                think exists.
+
+                `strong` was excluded here on the same line and never on the
+                same argument — *does not apply* says nothing about an area
+                that applies and is finished. Doc 15 invariant 1: *"Every
+                project/discovery area remains revisit-able regardless of
+                status"*, and invariant 10: completion never means a topic is
+                closed to revision. This panel is the only route into an area,
+                so reaching `strong` removed the last one (`WS-REVISIT`).
+
+                The word changes with the state, because the act does. "Discuss
+                this" against settled work invites the probing that costs
+                trust; the work there is done and coming back to it is a
+                revision, not a continuation. */}
+            {onDiscuss && topic.state !== 'notApplicable' && (
               <button
                 type="button"
                 onClick={() => onDiscuss(topic.name)}
                 className="mt-0.5 text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
               >
-                Discuss this
+                {topic.state === 'strong' ? 'Revisit' : 'Discuss this'}
               </button>
             )}
           </div>
