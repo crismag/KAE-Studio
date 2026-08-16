@@ -28,6 +28,7 @@ import { AttentionRoom } from '@/pages/rooms/attention/AttentionRoom'
 import { Dashboard } from '@/pages/dashboard/DashboardPage'
 import { Deliverables } from '@/pages/rooms/planning/DeliverablesSubflow'
 import { Dependencies } from '@/pages/rooms/architecture/DependenciesSubflow'
+import { Diagnostics } from '@/pages/diagnostics/DiagnosticsPage'
 import { Memory } from '@/pages/memory/MemoryPage'
 import { Modules } from '@/pages/rooms/architecture/ModulesSubflow'
 import { Plan } from '@/pages/rooms/planning/PlanningRoom'
@@ -57,6 +58,7 @@ const PAGES: Record<string, () => ReactElement> = {
   review: () => <Reviews />,
   'project-settings': () => <ProjectSettings />,
   memory: () => <Memory />,
+  diagnostics: () => <Diagnostics />,
 }
 
 export interface RouteDefinition {

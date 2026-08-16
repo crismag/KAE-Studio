@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
+  Activity,
   LayoutDashboard,
   Settings2,
   FileInput,
@@ -60,6 +61,7 @@ const ICONS: Record<string, NavItem['icon']> = {
   review: ScanSearch,
   'project-settings': Settings2,
   memory: Database,
+  diagnostics: Activity,
 }
 
 const NAV: NavItem[] = SURFACES.map((surface) => ({

@@ -276,6 +276,22 @@ export const SURFACES: SurfaceDefinition[] = [
     readiness: 'live',
   },
   {
+    id: 'diagnostics',
+    group: 'settings',
+    title: 'Knowledge health',
+    route: '/diagnostics',
+    kind: 'surface',
+    purpose: 'Read the pipeline’s raw counts as an operator, where they are not a person’s work',
+    // Not `live`: the registry's own rule is that a surface carrying a limit is
+    // not finished, and this one is half of `EPI-7` by design.
+    readiness: 'partial',
+    // `EPI-7`/`D-156`. The destination, built before anything moves to it. The
+    // counts it shows are still on the primary surfaces as well, which is the
+    // second half of the row and deliberately not this one.
+    limit:
+      'The same counts still appear on Reviews, Requirements and the Dashboard; nothing has moved here yet.',
+  },
+  {
     id: 'memory',
     group: 'understanding',
     title: 'Memory',
