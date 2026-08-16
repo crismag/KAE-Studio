@@ -1,6 +1,9 @@
 # KAE-Studio to KAE-Memory API Contract
 
-Status: **candidate consumer contract**. Verify every operation against current KAE-Memory HTTP routes, schemas, migrations, and tests before implementation. The Studio port disposition in `../planning/STUDIO_PORT_DISPOSITION.md` is the current method-level companion to this contract.
+Status: **historical candidate plus target contract**. Several minimum operations now
+exist behind Studio's live backend; exact route status must be verified in code. New
+consumer work is governed by `EPISTEMIC_PRESENTATION_MODEL.md`, and must not extend the
+legacy row-oriented projection as if it were the project-state manifest.
 
 This document has two parts. **Minimum first-slice operations** are the evidence/knowledge/readiness basics that should be frozen first. **Project-model operations** are required by ADR-0002 and are substantially more demanding — treat them as proposed until the capability matrix proves what KAE-Memory already provides.
 
@@ -97,6 +100,30 @@ Request a bounded context for an initial project definition. The response must i
 
 Required by ADR-0002. The project model — typed nodes, typed relationships, module readiness — is Memory-owned knowledge, so these are Memory contracts, not Studio-side inference.
 
+Before adding the graph operations below, freeze one higher-level read contract:
+
+```http
+GET /v1/projects/{memory_project_id}/project-state?purpose=studio
+```
+
+It returns a versioned project-state manifest: included synthesized-object revisions,
+evidence/source frontier, scoped authority and currency, material conflicts and
+assumptions, processing versions, and completeness/degradation. Studio uses its identity
+to pin views, readiness, change summaries, and artifact inputs. It is a logical Memory
+projection, not a second mutable project-model copy.
+
+Attention remains separate:
+
+```http
+GET /v1/projects/{memory_project_id}/attention
+POST /v1/projects/{memory_project_id}/attention/{attention_id}/actions
+```
+
+The action command carries the item/version read, the Memory-declared semantic action,
+an authenticated actor, rationale/input where needed, and an idempotency key. The result
+identifies affected model revisions and invalidated readiness/artifacts. A raw knowledge
+row's unconfirmed lifecycle is not sufficient to create an Attention item.
+
 **Status of this section: proposed contract, unverified.** KAE-Memory today is known to cover evidence, extraction, knowledge, areas, readiness, review/findings, retrieval, and runs (through M10). Whether it supports typed model nodes, typed edges, graph traversal, and per-module readiness is **unknown and must be established by the capability matrix before any of this is implemented**. Where Memory already expresses these concepts under different names, adopt Memory's naming rather than inventing a parallel vocabulary.
 
 ### Read model nodes
@@ -183,4 +210,3 @@ Studio should not expose raw internal exceptions to the browser.
 The first Studio client can live in a package/module named `kae_memory_client`. It owns HTTP serialization, authentication, retries, timeouts, correlation IDs, idempotency identifiers, pagination handling, safe error mapping, API-version compatibility, and response validation. Application code calls this client interface rather than raw endpoints.
 
 Freeze only the operations identified in `../planning/STUDIO_PORT_DISPOSITION.md` for the first integration slice. Keep module curation, module-bounded packages, durable deliverables, and publication disabled or mocked with explicit labels until their Memory and Studio-side execution contracts exist.
-

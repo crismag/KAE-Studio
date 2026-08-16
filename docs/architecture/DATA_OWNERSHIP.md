@@ -43,13 +43,15 @@ Only if the question above resolves in favour of a database. Implement nothing h
 
 What remains is transient and need not be durable: unsent composer drafts and a pending-send buffer for when Memory is unreachable. If that buffer is persisted at all, it is cleared on acknowledgement and never read as project history.
 
-### `projection`
+### `projection` (only if a cache proves necessary)
 
 - `projection.model_snapshots` (cached project-model projection, with the Memory revision it reflects)
 - `projection.module_views`
 - `projection.cache_invalidations`
 
-Everything here is a cache. It must be rebuildable from Memory and must never be treated as authoritative.
+Everything here is a cache. It must be rebuildable from Memory and must never be treated
+as authoritative. In particular, Doc 17's project-state manifest is Memory-owned and is
+not a Studio `projection.model_snapshots` row with a stronger name.
 
 ### `delivery`
 
@@ -95,7 +97,8 @@ Studio may cache projections for display and generation. A cache must be rebuild
 | Relationships between model nodes | Memory | Typed edges are knowledge, not Studio-side inference |
 | Interface and data-entity ownership | Memory | Including the single-owner invariants |
 | Readiness per module/dimension | Memory | Studio presents it; Studio must not recompute the rules |
-| Findings, conflicts, gaps | Memory | Studio renders them in the Reviews view |
+| Attention, findings, conflicts, gaps | Memory | Studio renders material human work in Attention; pipeline health in diagnostics |
+| Project-state manifest | Memory | Logical, versioned projection; Studio may cache it with its revision and completeness state |
 | Requirements/Modules/Interfaces pages | Studio projection | Derived from a Memory revision; cacheable and rebuildable |
 | Interview question state | Memory | Asked, answered, deferred, superseded — durable, and shared with MCP clients |
 | Active interview type, phrasing, presentation | Studio | Interaction concern |
@@ -155,4 +158,3 @@ Possible records:
 - Object-storage access should use short-lived or server-mediated access rather than permanent public links.
 - Publishing credentials (GitHub tokens, AWS credentials) live in the server or installed-agent environment, never in the frontend and never in project rows.
 - Local filesystem paths are never stored server-side as reachable targets; a `workspaceId` is resolved to a path by the local agent, which enforces its own approved-root restriction.
-
