@@ -88,7 +88,8 @@ function show({
       ...Object.fromEntries(
         Object.keys(port).map((key) => [
           key,
-          (...args: unknown[]) => (port as never as Record<string, Function>)[key](...args),
+          (...args: unknown[]) =>
+            (port as never as Record<string, (...args: unknown[]) => unknown>)[key](...args),
         ]),
       ),
       installations: async () => installations,
