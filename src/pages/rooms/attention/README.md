@@ -7,11 +7,14 @@ Route: `/attention`
 Put the few things synthesis decided are worth a person's time in front of that
 person, and the model those things were drawn from beside them.
 
-`ADR-0007` separates three layers: extracted evidence, the synthesized project
-model, and human attention. `/reviews` is the first — every sentence KAE read,
+`ADR-0007` separates three layers: extracted observations, the synthesized project
+model, and human attention. `/reviews` exposes the first as legacy curation — every sentence KAE read,
 awaiting a decision, which on the owner's own project is 803 rows. This Room is
 the other two. The whole package exists because a consumed repository became a
 backlog, and a queue nobody can finish is the shape of that failure.
+
+The governing cross-Room migration is
+[`docs/architecture/EPISTEMIC_PRESENTATION_MODEL.md`](../../../../docs/architecture/EPISTEMIC_PRESENTATION_MODEL.md).
 
 ## Entry conditions
 
@@ -54,7 +57,7 @@ item itself, so a Confirm and a Reject invented here would be buttons whose
 meaning the backend refuses. Turning `actions` into controls is `SYN-4`, and it
 needs the card anatomy that row specifies.
 
-**The proposal queue.** `/reviews` keeps every proposed row and its Confirm and
+**The legacy proposal queue.** `/reviews` keeps every proposed row and its Confirm and
 Reject gestures, unchanged. `ADR-0007` marks that queue transitional and
 `OD-SYN-3` keeps it until equivalence is shown on live data plus one working
 session — restyling it into this is precisely the failure the synthesis package
@@ -74,6 +77,9 @@ ranking proper).
 - `SynthesisPort.listAttention` — the queue.
 - `SynthesizedObject` list via `SynthesisPort.listSynthesizedModel`.
 - `SynthesisPort.runUnknownSynthesis` — the only route that produces the queue.
+
+That last statement describes the current Studio port, not the complete Memory domain
+synthesis capability.
 
 ## States
 

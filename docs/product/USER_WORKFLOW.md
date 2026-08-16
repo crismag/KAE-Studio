@@ -5,7 +5,7 @@ Status: approved direction. Rewritten under ADR-0002 and ADR-0003.
 ## The sequence
 
 ```text
-Understand -> Define -> Decompose -> Connect -> Review -> Approve -> Package -> Develop -> Retain changes
+Understand -> Define -> Decompose -> Connect -> Attend -> Approve -> Package -> Develop -> Retain changes
 ```
 
 ## Primary journey
@@ -14,7 +14,11 @@ Understand -> Define -> Decompose -> Connect -> Review -> Approve -> Package -> 
 
 The user begins with whatever already exists: a rough idea, a customer request, a project proposal, a meeting transcript, an existing application, a repository, a specification, an architecture diagram, an integration document, or a collection of notes.
 
-Studio analyzes the available material and establishes an initial project understanding. Everything ingested becomes evidence; everything derived from it is `proposed` until confirmed.
+Studio analyzes the available material and establishes an initial project understanding.
+Everything ingested becomes evidence. Derived knowledge remains labeled as derived; it
+does not universally become a proposal waiting for confirmation. Only consequential
+changes or choices that lack sufficient source policy or human authority become proposed
+work. See `../architecture/EPISTEMIC_PRESENTATION_MODEL.md`.
 
 The user also sets, or defers, the project output destination (GitHub, local workspace, or managed download).
 
@@ -32,11 +36,18 @@ The structured project model fills in as discovery progresses: objectives, stake
 
 Studio proposes a module decomposition with rationale. The user accepts, renames, splits, merges, rejects, or adds modules. Each module then acquires its own specification through targeted discovery, and its own per-dimension readiness. See `../architecture/MODULE_SPECIFICATION.md`.
 
-### 5. Connect and review
+### 5. Connect and attend
 
 Studio maintains relationships — which requirement satisfies which customer need, which module implements it, what it depends on, which tests verify it, which decision constrains it — and surfaces what is wrong: gaps, contradictions, dependency cycles, unowned data, requirements with no tests, screens with no backing interface.
 
-The Reviews view is where the user resolves these and confirms `proposed` knowledge.
+The Attention view is where the user resolves the small subset that genuinely requires
+judgment. It presents why the matter is material, affected model objects and evidence, a
+recommendation, and the semantic actions Memory permits. Raw extracted rows and pipeline
+health remain available as evidence/diagnostics, not as the primary workload.
+
+The existing Reviews route is transitional while live equivalence, evidence drill-down,
+and Attention actions are completed. Its proposed-row queue must not define product
+readiness or the primary navigation count.
 
 ### 6. Approve and package
 
@@ -67,8 +78,9 @@ On return, Studio retrieves a compact project briefing and continues from unreso
 | Dependencies | "What depends on what, and in what order can this be built?" |
 | Plan | "What are the phases, work packages, milestones, and action items?" |
 | Deliverables | "What can I generate, what is published, and what is now outdated?" |
-| Reviews | "What is missing, conflicting, unresolved, or awaiting my approval?" |
-| Memory | "Why does the system believe this, and what changed?" |
+| What needs you | "Which few material issues require my judgment, and why?" |
+| Reviews (transitional) | "Which legacy evidence rows and model-quality findings are still exposed for migration?" |
+| Memory / knowledge health | "Why does the system believe this, what changed, and is processing healthy?" |
 
 Workspace remains the default screen and the place conversation happens. Value accumulates in the structured views.
 

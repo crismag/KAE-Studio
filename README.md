@@ -16,7 +16,7 @@ Durable knowledge, provenance, revision, and readiness come from KAE-Memory behi
 
 **The application runs in two modes, and which one you get is decided at build time.**
 
-- [docs/](docs/) — the governing product and architecture definition. See [docs/README.md](docs/README.md) and [CLAUDE.md](CLAUDE.md).
+- [docs/](docs/) — the governing product and architecture definition. See [docs/README.md](docs/README.md), the [epistemic presentation model](docs/architecture/EPISTEMIC_PRESENTATION_MODEL.md), and [CLAUDE.md](CLAUDE.md).
 - `src/services/mock/` — deterministic mock adapters. Contacts nothing. This is what a build with no `VITE_STUDIO_API` produces, and what [PROTOTYPE_NOTES.md](PROTOTYPE_NOTES.md) describes.
 - `src/services/live/` — the live adapters, talking to a **trusted Studio backend** (`backend/`) that holds the KAE-Memory credential. The browser never holds one.
 

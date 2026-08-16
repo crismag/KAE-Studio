@@ -2,12 +2,18 @@
 
 **Route:** `/reviews` · **Registry id:** `review`
 
-`§8`'s Room: _"decide what KAE has proposed."_ The route keeps its path — a
+`§8`'s transitional Room: _"decide what KAE has proposed."_ The route keeps its path — a
 rename is a behaviour change, and `D-50` forbids combining one with a move.
+
+This is the legacy evidence-row curation surface. It remains for migration equivalence;
+it is not the target human-work model. The governing replacement contract is
+[`docs/architecture/EPISTEMIC_PRESENTATION_MODEL.md`](../../../../docs/architecture/EPISTEMIC_PRESENTATION_MODEL.md).
 
 ## Purpose
 
-The screen that decides whether a module is safe to hand to implementation. Two
+The screen that exposes the legacy proposal decisions and Memory's current quality
+diagnostics. It does not decide whether a module is safe to hand to implementation;
+task-specific readiness owns that conclusion. Two
 different things live here and are deliberately not merged: **what KAE proposes
 and a person rules on**, and **what a review of the project found**.
 
@@ -55,6 +61,10 @@ unrun check must never read as an all-clear.
 
 None — the queue empties and refills as extraction runs. Confirming here moves a
 statement's lifecycle in Memory; it does not finish anything.
+
+The Room may be retired only after Attention covers required material issues and actions,
+evidence drill-down works, live equivalence is demonstrated, and row-level gesture usage
+has ceased.
 
 ## Owns
 

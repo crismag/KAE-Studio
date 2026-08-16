@@ -10,7 +10,7 @@ flowchart TD
     S --> A["KAE-Studio API"]
     A --> P["AI provider"]
     A --> M["KAE-Memory API"]
-    A --> D["Studio database"]
+    A -.->|optional; no durable project truth| D["Studio store/cache"]
     M --> K["Memory database"]
     A -.->|not yet wired| R["KAE-Artifacts API"]
     R --> O["GitHub · S3"]
@@ -38,6 +38,9 @@ flowchart TD
 - Human or authorized confirmation semantics.
 - Knowledge-area assignments and readiness calculation.
 - Review findings and contradiction/gap detection.
+- Synthesized-object revisions, evidence bindings, reconciliation events, and Attention.
+- The versioned project-state manifest: a logical projection over model objects,
+  evidence, authority, currency, conflict, and completeness.
 - Semantic retrieval and context assembly.
 - Durable memory-agent runs and their state.
 
@@ -57,6 +60,10 @@ It imports no KAE-Memory type. Its input is a provider-neutral structure, and it
 ## Integration rule
 
 Studio communicates with Memory only through a versioned client/API. The client belongs in Studio, but Memory remains authoritative for memory semantics.
+
+The existing Studio `/projection` endpoint is a legacy workspace aggregation and must not
+be confused with the Memory-owned project-state manifest. See
+`EPISTEMIC_PRESENTATION_MODEL.md`.
 
 The same applies to KAE-Artifacts: a versioned client in Studio, and Artifacts authoritative for generation and publication semantics. In particular, Studio must not reimplement the approval check — an approval is evidence held by KAE-Artifacts, and a Studio-side "the user clicked approve" boolean would be exactly the thing that model was built to replace.
 
@@ -96,4 +103,3 @@ They should stay with KAE-Memory until a deliberate migration decision exists. S
 ## Deployment
 
 For local development, both services may run on the same machine. For the hackathon deployment, both may use the same CockroachDB cluster and shared infrastructure account. These conveniences do not remove the API or ownership boundary.
-

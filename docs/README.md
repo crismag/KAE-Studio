@@ -1,6 +1,7 @@
 # KAE-Studio Documentation Set
 
-Status: approved direction for planning; implementation status must be tracked separately.
+Status: active product and architecture documentation. Implementation claims are verified
+in the owning document or explicitly marked as targets.
 
 This set defines KAE-Studio as an AI-assisted software definition and context-engineering platform, built above KAE-Memory as a separate product-facing repository. It corrects two things: the original product inversion in which internal memory concepts became the main user interface, and the narrower "guided requirements chat" framing that preceded ADR-0002.
 
@@ -21,6 +22,7 @@ This set defines KAE-Studio as an AI-assisted software definition and context-en
 | `architecture/SYSTEM_BOUNDARY.md` | Ownership split and runtime relationship |
 | `architecture/DATA_OWNERSHIP.md` | Database, table, storage, and lifecycle ownership |
 | `architecture/API_CONTRACT.md` | Studio-to-Memory service contract, including model operations |
+| `architecture/EPISTEMIC_PRESENTATION_MODEL.md` | Current Studio assessment and migration from evidence-row review to model + Attention |
 | `delivery/CONTEXT_PACKAGE.md` | The generated package structure and honesty requirements |
 | `delivery/ARTIFACT_PUBLISHING.md` | Publisher abstraction and the three artifact targets — **the subsystem now lives in KAE-Artifacts** |
 | `decisions/ADR-0001-studio-memory-separation.md` | Repository/service separation |
@@ -51,15 +53,24 @@ Note the distinction between the two UI documents: `product/UI_DEFINITION.md` co
 - **Implemented**: code exists and has relevant automated verification.
 - **Demonstrated**: the capability was exercised end to end in the target environment.
 
-Implementation status must be verified independently. The repository now includes a frontend experience prototype backed by deterministic mock adapters; it is not a demonstrated KAE-Memory integration.
+Implementation status must be verified independently. Studio now has both deterministic
+mock adapters and live adapters through a trusted FastAPI backend. Live project,
+conversation, evidence, acquisition, readiness, review, Attention, synthesized-model,
+security, and provider paths exist; this does not mean every planned project-model or
+publication capability is complete. The epistemic consumer status is maintained in
+`architecture/EPISTEMIC_PRESENTATION_MODEL.md`.
 
 ## Open items
 
 - Whether KAE-Studio needs its own database. ADR-0006 removed durable conversation from it; decide after Studio's real persistence requirements are known.
 - Demo date, which would let the first Studio slice be sized against a deadline rather than a capability boundary.
 - `planning/CAPABILITY_MATRIX.md` is a 2026-08-01 snapshot and predates major KAE-Memory MCP work. Regenerate it from current Memory code and interfaces using `planning/PRODUCT_CONTRACT_ALIGNMENT.md`.
-- The frontend prototype uses React, TypeScript, and Vite; the trusted backend/runtime architecture for provider orchestration and publication remains undecided.
-- Authentication and tenancy are now urgent, not deferrable: ADR-0004 lets external agents connect directly to the platform.
+- The frontend uses React, TypeScript, and Vite with a trusted FastAPI backend. Artifact
+  publication remains incomplete even though the service boundary is no longer undecided.
+- Current Studio authentication is an operator boundary, not a completed multi-tenant
+  authorization and attested-authority model.
 - Which repository hosts `kae-mcp` is an open follow-up (ADR-0004).
-- MCP-M1 and the Studio experience prototype now exist. The next boundary is real HTTP contract alignment; Studio must not consume MCP as its browser transport.
+- Studio consumes real Memory HTTP contracts through its backend and must continue to keep
+  MCP out of the browser transport. The next boundary is migration from the legacy
+  row-oriented workspace projection to a versioned project-state manifest.
 - ADR-0005 (knowledge scopes) is the largest structural change identified so far and is explicitly sequenced after project-scoped capability and tenancy.
