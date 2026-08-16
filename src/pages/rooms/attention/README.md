@@ -35,11 +35,21 @@ disclosure — the themes it deliberately **withheld**. Memory reports those for
 reason, and dropping them here would leave the first question anybody asks of a
 short queue unanswerable from the interface.
 
+**Postpone** / **Bring back** — the one attention state a person can change from
+here (`SYN-4`, `D-142`). Deferring means *stop recommending this*, not *this is
+dealt with*: the item leaves the recommended list, keeps its own heading below
+it, and can be returned. Both directions ship together, because a queue that
+only shrinks by hiding is the queue this Room replaced.
+
+The Room reads both compartments in one request (`include_deferred=true`). A read
+that omitted postponed items would make "you can bring it back" a sentence the
+interface could not act on.
+
 ## Exit conditions
 
-The person has read what needs them. Acting on an item happens where the subject
-lives — a material unknown is answered by discussing it in the Workspace, not by
-a control here.
+The person has read what needs them, and postponed anything they are not doing
+now. Answering an item happens where the subject lives — a material unknown is
+answered by discussing it in the Workspace, not by a control here.
 
 ## Owns
 
@@ -52,10 +62,16 @@ Nothing outside this folder imports either.
 ## Does **not** own
 
 **Resolving an attention item.** Memory has `POST /attention/{id}/resolve` and
-this Room does not call it. Which gestures an item accepts is carried on the
-item itself, so a Confirm and a Reject invented here would be buttons whose
-meaning the backend refuses. Turning `actions` into controls is `SYN-4`, and it
-needs the card anatomy that row specifies.
+this Room does not call it. `resolve` closes the item and leaves the question
+open, which is doc 01's opening complaint rather than its remedy — and no item
+names it as a gesture.
+
+**Answering or discussing an item.** Both are gestures items do name, and both
+are still rendered as words. Nothing carries a question across a route boundary
+into the Workspace conversation, and no route answers one. Drawing a button for
+either would be a control whose meaning the backend refuses, which is the rule
+`SYN-4` exists to hold: Studio draws only the gestures the item names *and* the
+estate can perform.
 
 **The legacy proposal queue.** `/reviews` keeps every proposed row and its Confirm and
 Reject gestures, unchanged. `ADR-0007` marks that queue transitional and
@@ -74,9 +90,11 @@ ranking proper).
 
 ## Services
 
-- `SynthesisPort.listAttention` — the queue.
+- `SynthesisPort.listAttention` — the queue, read with `includeDeferred`.
 - `SynthesizedObject` list via `SynthesisPort.listSynthesizedModel`.
 - `SynthesisPort.runUnknownSynthesis` — the only route that produces the queue.
+- `SynthesisPort.deferAttention` / `reopenAttention` — the two directions of the
+  one state a person can change here.
 
 That last statement describes the current Studio port, not the complete Memory domain
 synthesis capability.

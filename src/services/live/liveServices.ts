@@ -2001,10 +2001,25 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
   }
 
   const synthesis: SynthesisPort = {
-    listAttention: async (id) => {
-      const raw = await call<WireAttentionItem[]>(`/api/projects/${resolve(id)}/attention`)
+    listAttention: async (id, options) => {
+      const query = options?.includeDeferred ? '?include_deferred=true' : ''
+      const raw = await call<WireAttentionItem[]>(`/api/projects/${resolve(id)}/attention${query}`)
       return raw.map(attentionItem)
     },
+
+    deferAttention: async (id, itemId) =>
+      attentionItem(
+        await call<WireAttentionItem>(`/api/projects/${resolve(id)}/attention/${itemId}/defer`, {
+          method: 'POST',
+        }),
+      ),
+
+    reopenAttention: async (id, itemId) =>
+      attentionItem(
+        await call<WireAttentionItem>(`/api/projects/${resolve(id)}/attention/${itemId}/reopen`, {
+          method: 'POST',
+        }),
+      ),
 
     listSynthesizedModel: async (id) => {
       const raw = await call<WireSynthesizedObject[]>(

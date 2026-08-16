@@ -52,10 +52,16 @@ class RecordingMemory:
     def __init__(self, revision: int | None = 7) -> None:
         self.calls: list[str] = []
         self.keys: list[str] = []
+        self.deferred: list[tuple[str, str]] = []
+        self.reopened: list[tuple[str, str]] = []
+        self.asked_for_deferred: list[bool] = []
         self._revision = revision
 
-    async def attention(self, project_id: str, open_only: bool = True) -> Any:
+    async def attention(
+        self, project_id: str, open_only: bool = True, include_deferred: bool = False
+    ) -> Any:
         self.calls.append("attention")
+        self.asked_for_deferred.append(include_deferred)
         return [
             {
                 "id": "attn-1",
@@ -73,6 +79,16 @@ class RecordingMemory:
                 "updated_at": None,
             }
         ]
+
+    async def defer_attention(self, project_id: str, item_id: str) -> Any:
+        self.calls.append("defer_attention")
+        self.deferred.append((project_id, item_id))
+        return {"id": item_id, "status": "deferred"}
+
+    async def reopen_attention(self, project_id: str, item_id: str) -> Any:
+        self.calls.append("reopen_attention")
+        self.reopened.append((project_id, item_id))
+        return {"id": item_id, "status": "open"}
 
     async def synthesized_model(self, project_id: str, domain: str | None = None) -> Any:
         self.calls.append("synthesized_model")
@@ -171,6 +187,42 @@ def test_a_memory_that_reports_no_revision_still_keys_per_project() -> None:
         browser.post("/api/projects/p2/attention/runs")
 
     assert memory.keys == ["studio-unknowns-p2-unknown"]
+
+
+def test_postponing_and_bringing_back_reach_memory_and_never_resolve() -> None:
+    """Both directions exist, and neither is `resolve` (`SYN-4`, `D-142`).
+
+    A queue that can only be postponed shrinks by hiding, and one wired to
+    `resolve` would close the item while leaving the question open — which is
+    doc 01's opening complaint rather than its remedy.
+    """
+
+    memory = RecordingMemory()
+    with studio(memory) as browser:
+        deferred = browser.post("/api/projects/p1/attention/attn-1/defer")
+        reopened = browser.post("/api/projects/p1/attention/attn-1/reopen")
+
+    assert deferred.status_code == 200
+    assert reopened.status_code == 200
+    assert memory.deferred == [("p1", "attn-1")]
+    assert memory.reopened == [("p1", "attn-1")]
+    assert memory.calls == ["defer_attention", "reopen_attention"]
+
+
+def test_the_caller_decides_whether_postponed_items_come_back_with_the_queue() -> None:
+    """The flag has to survive the hop, or a postponed item is unreachable.
+
+    Studio's Room reads both compartments in one request. If the proxy dropped
+    `include_deferred`, "you can bring it back" would be a sentence the
+    interface could not act on.
+    """
+
+    memory = RecordingMemory()
+    with studio(memory) as browser:
+        browser.get("/api/projects/p1/attention")
+        browser.get("/api/projects/p1/attention?include_deferred=true")
+
+    assert memory.asked_for_deferred == [False, True]
 
 
 def test_the_model_route_reads_the_model_and_not_the_evidence_behind_it() -> None:

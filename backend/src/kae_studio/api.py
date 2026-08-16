@@ -681,16 +681,48 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.get("/api/projects/{project_id}/attention")
     async def attention(
-        project_id: str, request: Request, _: Operator = Depends(require_operator)
+        project_id: str,
+        request: Request,
+        include_deferred: bool = False,
+        _: Operator = Depends(require_operator),
     ) -> Any:
         """The few things synthesis says are worth a person's time (`ADR-0007`).
 
         Deliberately not `/knowledge`. Extracted rows are evidence and this is
         the attention layer; a surface that read one as the other is the 174-row
         queue the synthesis package exists to remove.
+
+        A postponed item is owed and not recommended, so it is out of the default
+        answer and `include_deferred` asks for it — the Room shows the two as
+        separate compartments and needs both in one read.
         """
 
-        return await memory(request).attention(project_id)
+        return await memory(request).attention(project_id, include_deferred=include_deferred)
+
+    @app.post("/api/projects/{project_id}/attention/{item_id}/defer")
+    async def defer_attention(
+        project_id: str, item_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Postpone an item: still owed, no longer recommended.
+
+        One of the gestures the item itself names. `resolve` is deliberately not
+        proxied — closing an unknown without answering it is the inversion doc 01
+        opens by complaining about, and no item names that gesture.
+        """
+
+        return await memory(request).defer_attention(project_id, item_id)
+
+    @app.post("/api/projects/{project_id}/attention/{item_id}/reopen")
+    async def reopen_attention(
+        project_id: str, item_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """Return a postponed item to the live queue.
+
+        Ships with defer rather than after it: postponing with no way back turns
+        the queue into something that can only shrink by hiding.
+        """
+
+        return await memory(request).reopen_attention(project_id, item_id)
 
     @app.get("/api/projects/{project_id}/synthesized-model")
     async def synthesized_model(

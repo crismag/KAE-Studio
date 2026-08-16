@@ -14,18 +14,23 @@
  * person asks. A field computed carefully, transmitted faithfully and read by
  * nothing is the largest recurring defect in this estate, and it is invisible:
  * the page looks finished without it.
+ *
+ * **Postponing could quietly become hiding** (`SYN-4`, `D-142`). Deferring means
+ * *stop recommending this*, not *this is dealt with*. That distinction only
+ * survives if the page keeps asking for deferred items and keeps showing them,
+ * so the guards below pin the read as well as the write.
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { AttentionRoom } from './AttentionRoom'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
 import type { StudioServices } from '@/services/interfaces'
-import type { UnknownSynthesisReport } from '@/domain/types'
+import type { AttentionItem, UnknownSynthesisReport } from '@/domain/types'
 
 const REPORT: UnknownSynthesisReport = {
   considered: 41,
@@ -42,9 +47,11 @@ function harness(overrides: Partial<StudioServices['synthesis']> = {}) {
   // Delegating rather than spreading: the mock is a class, so its methods are on
   // the prototype and `{...mock}` would produce an object with none of them.
   const synthesis: StudioServices['synthesis'] = {
-    listAttention: (id) => services.synthesis.listAttention(id),
+    listAttention: (id, options) => services.synthesis.listAttention(id, options),
     listSynthesizedModel: (id) => services.synthesis.listSynthesizedModel(id),
     runUnknownSynthesis: (id) => services.synthesis.runUnknownSynthesis(id),
+    deferAttention: (id, itemId) => services.synthesis.deferAttention(id, itemId),
+    reopenAttention: (id, itemId) => services.synthesis.reopenAttention(id, itemId),
     ...overrides,
   }
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -125,5 +132,80 @@ describe('a run says what it withheld', () => {
     await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
 
     expect(await screen.findByText(/every unknown stood alone/)).toBeTruthy()
+  })
+})
+
+/** An item that names no gesture Studio can perform, for the negative cases. */
+const WORDS_ONLY: AttentionItem = {
+  id: 'attn-words',
+  kind: 'material_unknown',
+  title: 'Whether a directorate may publish early',
+  explanation: 'Nothing in the record says.',
+  recommendation: 'Say who may.',
+  status: 'open',
+  synthesizedObjectId: 'syn-theme-009',
+  priority: 1,
+  actions: ['discuss'],
+  updatedAt: '2026-07-28T09:41:00Z',
+}
+
+describe('postponing is not the same as hiding', () => {
+  it('moves the item out of what needs you and into what was postponed', async () => {
+    harness()
+
+    const postpone = await screen.findAllByRole('button', { name: /postpone/i })
+    expect(postpone).toHaveLength(2)
+    await userEvent.click(postpone[0])
+
+    // Still on the page, under its own heading, still counted.
+    expect(await screen.findByText(/1 item you postponed/)).toBeTruthy()
+    await waitFor(async () =>
+      expect(await screen.findAllByRole('button', { name: /postpone/i })).toHaveLength(1),
+    )
+  })
+
+  it('brings a postponed item back to what needs you', async () => {
+    harness()
+
+    await userEvent.click((await screen.findAllByRole('button', { name: /postpone/i }))[0])
+    await userEvent.click(await screen.findByRole('button', { name: /bring back/i }))
+
+    await waitFor(async () =>
+      expect(await screen.findAllByRole('button', { name: /postpone/i })).toHaveLength(2),
+    )
+  })
+
+  it('asks the port for deferred items, or postponing is indistinguishable from deleting', async () => {
+    const services = createMockServices()
+    const asked = vi.spyOn(services.synthesis, 'listAttention')
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <ServiceProvider services={services}>
+          <AttentionRoom />
+        </ServiceProvider>
+      </QueryClientProvider>,
+    )
+    await screen.findAllByRole('button', { name: /postpone/i })
+    expect(asked).toHaveBeenCalledWith(expect.anything(), { includeDeferred: true })
+  })
+
+  it('offers no control for a gesture the item does not name', async () => {
+    harness({ listAttention: () => Promise.resolve([WORDS_ONLY]) })
+
+    await screen.findByText(WORDS_ONLY.title)
+    expect(screen.queryByRole('button', { name: /postpone/i })).toBeNull()
+  })
+
+  it('says a gesture once — as a control, or as a word, never both', async () => {
+    harness({
+      listAttention: () => Promise.resolve([{ ...WORDS_ONLY, actions: ['discuss', 'defer'] }]),
+    })
+
+    await screen.findByRole('button', { name: /postpone/i })
+
+    // `defer` has a button, so it must not also appear in the list of things
+    // that can be done but not here.
+    expect(await screen.findByText(/What can be done with this: discuss$/)).toBeTruthy()
   })
 })

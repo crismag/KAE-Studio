@@ -20,12 +20,21 @@
  * 28 were. Rendering only the 8 would make that unanswerable from the interface,
  * which is the conservation defect this estate has closed twice already.
  *
+ * ## Which gestures are controls, and which are still words (`SYN-4`, `D-142`)
+ *
+ * The item names its own gestures and Studio may draw only the ones the backend
+ * can perform. **Defer** can be performed, so it is a button, and **Reopen** is
+ * beside it because a queue that shrinks only by hiding is the queue this page
+ * replaced. **Discuss** stays a word: it means putting the question into the
+ * Workspace conversation, and nothing carries a question across a route boundary
+ * into that conversation yet. **Answer** stays a word because no route answers —
+ * `resolve` closes the item and leaves the question open, which is doc 01's
+ * opening complaint rather than its remedy.
+ *
  * ## What this page does not do
  *
- * Close an item. Memory has `POST /attention/{id}/resolve`, and which gestures
- * an item accepts is carried on the item itself — so the actions are shown as
- * the words the item names, not as buttons Studio chose. Turning them into
- * controls is `SYN-4`.
+ * Close an item. `POST /attention/{id}/resolve` exists in Memory and no item
+ * names that gesture, so nothing here calls it.
  */
 
 import { PageLayout } from '@/components/project/PageLayout'
@@ -39,7 +48,12 @@ import {
   PanelHeader,
   PanelTitle,
 } from '@/components/ui/primitives'
-import { useAttention, useRunUnknownSynthesis, useSynthesizedModel } from '@/hooks/useProject'
+import {
+  useAttention,
+  useAttentionDeferral,
+  useRunUnknownSynthesis,
+  useSynthesizedModel,
+} from '@/hooks/useProject'
 import { plural } from '@/lib/plural'
 import type { AttentionItem, SynthesizedObject, UnknownSynthesisReport } from '@/domain/types'
 
@@ -52,6 +66,7 @@ export function AttentionRoom() {
   const attention = useAttention()
   const model = useSynthesizedModel()
   const run = useRunUnknownSynthesis()
+  const { defer, reopen } = useAttentionDeferral()
 
   return (
     <PageLayout
@@ -95,15 +110,53 @@ export function AttentionRoom() {
                 </EmptyState>
               }
             >
-              {(items) =>
-                items.length === 0 ? null : (
-                  <ul className="space-y-2.5">
-                    {items.map((item) => (
-                      <Item key={item.id} item={item} />
-                    ))}
-                  </ul>
+              {(items) => {
+                const waiting = items.filter((item) => item.status !== 'deferred')
+                const postponed = items.filter((item) => item.status === 'deferred')
+                return (
+                  <>
+                    {waiting.length > 0 && (
+                      <ul className="space-y-2.5">
+                        {waiting.map((item) => (
+                          <Item
+                            key={item.id}
+                            item={item}
+                            onDefer={() => defer.mutate(item.id)}
+                            deferring={defer.isPending}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                    {/* Nothing waiting is only good news if nothing was
+                        postponed either — otherwise the queue was emptied by
+                        hiding and this panel would be saying so falsely. */}
+                    {waiting.length === 0 && postponed.length > 0 && (
+                      <p className="text-[12.5px] leading-relaxed text-ink-muted">
+                        Nothing is waiting on you. {plural(postponed.length, 'item')} below{' '}
+                        {postponed.length === 1 ? 'is' : 'are'} postponed and still owed.
+                      </p>
+                    )}
+                    {postponed.length > 0 && (
+                      <details className="mt-2.5 rounded-md border border-line bg-surface-sunken px-3 py-2.5">
+                        <summary className="cursor-pointer list-none text-[12.5px] text-ink">
+                          {plural(postponed.length, 'item')} you postponed — still owed, no longer
+                          suggested
+                        </summary>
+                        <ul className="mt-2 space-y-2.5">
+                          {postponed.map((item) => (
+                            <Item
+                              key={item.id}
+                              item={item}
+                              onReopen={() => reopen.mutate(item.id)}
+                              reopening={reopen.isPending}
+                            />
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </>
                 )
-              }
+              }}
             </QueryState>
           </PanelBody>
         </Panel>
@@ -189,7 +242,25 @@ function RunReport({ report }: { report: UnknownSynthesisReport }) {
   )
 }
 
-function Item({ item }: { item: AttentionItem }) {
+/** The gestures the item names that Studio can actually perform (`D-142`). */
+const PERFORMABLE = ['defer']
+
+function Item({
+  item,
+  onDefer,
+  onReopen,
+  deferring,
+  reopening,
+}: {
+  item: AttentionItem
+  onDefer?: () => void
+  onReopen?: () => void
+  deferring?: boolean
+  reopening?: boolean
+}) {
+  // Named as words only where no control exists for them. Listing a gesture
+  // under "what can be done" *and* offering it as a button says it twice.
+  const stillWords = item.actions.filter((action) => !PERFORMABLE.includes(action))
   return (
     <li className="rounded-md border border-line bg-surface-sunken px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -202,13 +273,30 @@ function Item({ item }: { item: AttentionItem }) {
       {item.recommendation && (
         <p className="mt-1 text-[12.5px] leading-relaxed text-ink">{item.recommendation}</p>
       )}
-      {/* The gestures the **item** names, as words rather than buttons. A
-          control Studio invented here would be one the backend refuses
-          (`SYN-4` owns turning these into controls). */}
-      {item.actions.length > 0 && (
+      {stillWords.length > 0 && (
         <p className="mt-1.5 text-[11.5px] text-ink-subtle">
-          What can be done with this: {item.actions.map(readable).join(', ')}
+          What can be done with this: {stillWords.map(readable).join(', ')}
         </p>
+      )}
+      {/* Doc 01's sixth question — what happens if you choose this — beside the
+          control rather than in a tooltip nobody opens. */}
+      {onDefer && item.actions.includes('defer') && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={onDefer} disabled={deferring}>
+            Postpone
+          </Button>
+          <span className="text-[11.5px] text-ink-subtle">
+            Stops KAE suggesting this. It stays owed, and you can bring it back.
+          </span>
+        </div>
+      )}
+      {onReopen && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={onReopen} disabled={reopening}>
+            Bring back
+          </Button>
+          <span className="text-[11.5px] text-ink-subtle">Returns this to what needs you.</span>
+        </div>
       )}
     </li>
   )

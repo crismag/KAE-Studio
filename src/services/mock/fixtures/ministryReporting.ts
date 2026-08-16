@@ -1808,7 +1808,8 @@ export const attentionItems: AttentionItem[] = [
     status: 'open',
     synthesizedObjectId: 'syn-theme-001',
     priority: 1,
-    actions: ['discuss', 'answer'],
+    // Memory's `UNKNOWN_ACTIONS` gives all three to every unknown-derived item.
+    actions: ['answer', 'discuss', 'defer'],
     updatedAt: '2026-07-28T09:41:00Z',
   },
   {
@@ -1822,7 +1823,7 @@ export const attentionItems: AttentionItem[] = [
     status: 'open',
     synthesizedObjectId: 'syn-goal-002',
     priority: 2,
-    actions: ['discuss'],
+    actions: ['answer', 'discuss', 'defer'],
     updatedAt: '2026-07-28T09:41:00Z',
   },
 ]

@@ -520,16 +520,28 @@ export interface PublishInput {
  * reads and writes extracted evidence, and a queue read through the same
  * interface is how "unconfirmed row" and "needs a person" become one idea again.
  *
- * Reads and produces; it does not resolve. `POST /attention/{id}/resolve` exists
- * in Memory, but which gestures an item accepts is carried on the item, and
- * offering one it does not name is a button whose meaning the backend refuses
- * (`SYN-4`).
+ * Reads, produces and postpones; it does not resolve. `POST /attention/{id}/resolve`
+ * exists in Memory and no item names that gesture — closing an unknown without
+ * answering it is the inversion doc 01 opens by complaining about. Which gestures
+ * an item accepts is carried on the item, and offering one it does not name is a
+ * button whose meaning the backend refuses (`SYN-4`).
  */
 export interface SynthesisPort {
-  listAttention(projectId: string): Promise<AttentionItem[]>
+  /**
+   * The queue. Postponed items are out of it unless asked for, because
+   * deferring means *stop recommending this* and a mixture would undo that.
+   */
+  listAttention(
+    projectId: string,
+    options?: { includeDeferred?: boolean },
+  ): Promise<AttentionItem[]>
   listSynthesizedModel(projectId: string): Promise<SynthesizedObject[]>
   /** Produce the queue. `listAttention` only reads what this wrote. */
   runUnknownSynthesis(projectId: string): Promise<UnknownSynthesisReport>
+  /** Postpone an item. It stays owed and stops being recommended. */
+  deferAttention(projectId: string, itemId: string): Promise<AttentionItem>
+  /** Undo a deferral, so postponing is not a one-way door out of the queue. */
+  reopenAttention(projectId: string, itemId: string): Promise<AttentionItem>
 }
 
 export interface StudioServices {

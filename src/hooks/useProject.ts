@@ -839,8 +839,34 @@ export function useAttention() {
   const { synthesis, projectId } = useServices()
   return useQuery({
     queryKey: ['attention', projectId],
-    queryFn: () => synthesis.listAttention(projectId),
+    // Both compartments in one read. The Room draws what needs a person and
+    // what they postponed separately, and a postponed item nothing could show
+    // would make Reopen unreachable from the interface.
+    queryFn: () => synthesis.listAttention(projectId, { includeDeferred: true }),
   })
+}
+
+/**
+ * Postpone an item, or take the postponement back.
+ *
+ * One hook for both because they are one gesture and its undo, and a surface
+ * that could defer without reopening would be a queue that shrinks by hiding.
+ */
+export function useAttentionDeferral() {
+  const { synthesis, projectId } = useServices()
+  const queryClient = useQueryClient()
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['attention', projectId] })
+  }
+  const defer = useMutation({
+    mutationFn: (itemId: string) => synthesis.deferAttention(projectId, itemId),
+    onSuccess: invalidate,
+  })
+  const reopen = useMutation({
+    mutationFn: (itemId: string) => synthesis.reopenAttention(projectId, itemId),
+    onSuccess: invalidate,
+  })
+  return { defer, reopen }
 }
 
 export function useSynthesizedModel() {

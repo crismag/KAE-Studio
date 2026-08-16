@@ -1417,9 +1417,41 @@ const ANALYSIS_GAP: CapabilityGap = {
 
 /* ------------------------------------------------------- synthesis mock */
 
+/* Module scope on purpose: `portParity` reads the prototype, so a private
+   helper on the class would read as a port method the live adapter lacks. */
+function attentionItemAs(itemId: string, status: string): AttentionItem {
+  const found = fixture.attentionItems.find((item) => item.id === itemId)
+  if (!found) throw new Error(`no attention item ${itemId}`)
+  return { ...found, actions: [...found.actions], status }
+}
+
 class MockSynthesis implements SynthesisPort {
-  listAttention(_projectId: string): Promise<AttentionItem[]> {
-    return delay(fixture.attentionItems.map((item) => ({ ...item, actions: [...item.actions] })))
+  /** Deferral is the one attention state a person can change, so the mock holds it. */
+  private readonly deferred = new Set<string>()
+
+  listAttention(
+    _projectId: string,
+    options?: { includeDeferred?: boolean },
+  ): Promise<AttentionItem[]> {
+    return delay(
+      fixture.attentionItems
+        .map((item) => ({
+          ...item,
+          actions: [...item.actions],
+          status: this.deferred.has(item.id) ? 'deferred' : item.status,
+        }))
+        .filter((item) => options?.includeDeferred || item.status !== 'deferred'),
+    )
+  }
+
+  deferAttention(_projectId: string, itemId: string): Promise<AttentionItem> {
+    this.deferred.add(itemId)
+    return delay(attentionItemAs(itemId, 'deferred'))
+  }
+
+  reopenAttention(_projectId: string, itemId: string): Promise<AttentionItem> {
+    this.deferred.delete(itemId)
+    return delay(attentionItemAs(itemId, 'open'))
   }
 
   listSynthesizedModel(_projectId: string): Promise<SynthesizedObject[]> {

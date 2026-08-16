@@ -266,19 +266,39 @@ class MemoryClient:
             json={"idempotency_key": idempotency_key},
         )
 
-    async def attention(self, project_id: str, open_only: bool = True) -> Any:
+    async def attention(
+        self, project_id: str, open_only: bool = True, include_deferred: bool = False
+    ) -> Any:
         """The human-attention queue — the third layer of `ADR-0007`.
 
         Not the proposed-knowledge list. That list is extracted evidence and is
         read from `/knowledge`; this one holds the few things synthesis decided
         are worth a person's time, and on the owner's own project the two differ
         by two orders of magnitude — 803 proposed rows against 8 items.
+
+        `include_deferred` defaults to Memory's own default. A postponed item is
+        still owed and is deliberately no longer recommended, so a caller that
+        wants both compartments has to say so.
         """
 
         return await self._request(
             "GET",
             f"/v1/projects/{project_id}/attention",
-            params={"open_only": open_only},
+            params={"open_only": open_only, "include_deferred": include_deferred},
+        )
+
+    async def defer_attention(self, project_id: str, item_id: str) -> Any:
+        """Postpone an item. It stays owed; it stops being recommended."""
+
+        return await self._request(
+            "POST", f"/v1/projects/{project_id}/attention/{item_id}/defer"
+        )
+
+    async def reopen_attention(self, project_id: str, item_id: str) -> Any:
+        """Return a postponed item to the live queue."""
+
+        return await self._request(
+            "POST", f"/v1/projects/{project_id}/attention/{item_id}/reopen"
         )
 
     async def synthesized_model(self, project_id: str, domain: str | None = None) -> Any:
