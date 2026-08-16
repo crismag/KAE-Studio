@@ -107,6 +107,45 @@ function show({
   )
 }
 
+const TOKEN_GRANT = [
+  {
+    connectionId: 'c-1',
+    provider: 'github',
+    state: 'granted',
+    credentialReference: 'env:KAE_GITHUB_TOKEN',
+    authorizedBy: 'cris',
+    lastVerifiedAt: '2026-08-13T09:13:42Z',
+    detail: '',
+  },
+]
+
+describe('a credential the deployment stopped using', () => {
+  it('says the App is what connects, and puts the token grant in the past', async () => {
+    /**
+     * Both rows described one account and read identically: a token grant from
+     * 13 August, and the App installation actually authenticating. The record
+     * stays — that a token was once authorised is a fact somebody may need —
+     * and it stops being described as live.
+     */
+    show({ installations: INSTALLED, connections: TOKEN_GRANT })
+
+    expect(await screen.findByText(/connected through the kae github app/i)).toBeInTheDocument()
+    expect(screen.getByText(/no longer in use/i)).toBeInTheDocument()
+    // `D-79`'s line stays. Who granted a credential and when is provenance,
+    // and superseding it does not unmake it.
+    expect(screen.getByText(/connected by cris/i)).toBeInTheDocument()
+  })
+
+  it('leaves a token grant alone when no App is installed', async () => {
+    // Then the token *is* what connects, and describing it in the past tense
+    // would be the same defect pointing the other way.
+    show({ installations: NONE, connections: TOKEN_GRANT })
+
+    expect(await screen.findByText(/connected by cris/i)).toBeInTheDocument()
+    expect(screen.queryByText(/no longer in use/i)).not.toBeInTheDocument()
+  })
+})
+
 describe('what the page does with a completed install', () => {
   it('stops asking somebody to connect once the App is installed', async () => {
     /**

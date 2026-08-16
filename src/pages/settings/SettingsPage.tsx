@@ -342,6 +342,12 @@ function AccountRow({
 }) {
   const authorize = useAuthorizeMemoryConnection()
   const pending = account.granted ? undefined : ungranted(account)
+  // A recorded **token** grant, on a deployment that now authenticates as the
+  // App. `env:` is what makes it a token reference: an App installation is a
+  // deployment fact and never appears in this table (`D-90`).
+  const superseded =
+    (installations?.installations.length ?? 0) > 0 &&
+    Boolean(account.credentialReference?.startsWith('env:'))
   const error = authorize.error instanceof Error ? authorize.error.message : null
 
   return (
@@ -355,10 +361,25 @@ function AccountRow({
               {account.granted ? 'Connected' : 'Not connected'}
             </Badge>
           </p>
+          {/* `D-79`: who and when, in one sentence. Kept exactly as it was —
+              an earlier version of `D-129` replaced this line and broke three
+              guards that exist because a *who* with no *when* was a real
+              defect once. */}
           <p className="mt-1 text-[11.5px] text-ink-subtle">
             {account.authorizedBy && `connected by ${account.authorizedBy}`}
             {account.grantedAt && ` on ${formatDate(account.grantedAt)}`}
           </p>
+          {/* **Which credential is actually authenticating** (`D-129`).
+              A token grant recorded before the App existed read identically to
+              the App installation doing the work — two lines about one account,
+              one of them history, both in the present tense. The record stays,
+              because that a token was once authorised is a fact somebody may
+              need; it is the tense that changes. */}
+          {superseded && (
+            <p className="mt-1 text-[11.5px] text-ink-muted">
+              Connected through the KAE GitHub App. That token grant is no longer in use.
+            </p>
+          )}
         </div>
         {pending && (
           <Button
