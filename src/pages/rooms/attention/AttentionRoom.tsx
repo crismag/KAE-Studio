@@ -31,11 +31,22 @@
  * `resolve` closes the item and leaves the question open, which is doc 01's
  * opening complaint rather than its remedy.
  *
+ * ## What supports an item, and what it affects (`D-145`)
+ *
+ * Each card can answer **what evidence supports this** with the observations the
+ * theme was drawn from, fetched when the disclosure is opened rather than with
+ * the queue. **What it affects** is not answered and is not guessed: nothing in
+ * Memory relates an attention item to what it blocks — every run says so as
+ * `ranked_by_blocking: false` — and rendering the evidence's areas as
+ * consequences would be invention. That relation is `SYN-11`.
+ *
  * ## What this page does not do
  *
  * Close an item. `POST /attention/{id}/resolve` exists in Memory and no item
  * names that gesture, so nothing here calls it.
  */
+
+import { useState } from 'react'
 
 import { PageLayout } from '@/components/project/PageLayout'
 import { QueryState } from '@/components/ui/QueryState'
@@ -47,12 +58,14 @@ import {
   PanelBody,
   PanelHeader,
   PanelTitle,
+  Skeleton,
 } from '@/components/ui/primitives'
 import {
   useAttention,
   useAttentionDeferral,
   useRunUnknownSynthesis,
   useSynthesizedModel,
+  useSynthesizedObject,
 } from '@/hooks/useProject'
 import { plural } from '@/lib/plural'
 import type { AttentionItem, SynthesizedObject, UnknownSynthesisReport } from '@/domain/types'
@@ -278,6 +291,7 @@ function Item({
           What can be done with this: {stillWords.map(readable).join(', ')}
         </p>
       )}
+      {item.synthesizedObjectId && <Evidence objectId={item.synthesizedObjectId} />}
       {/* Doc 01's sixth question — what happens if you choose this — beside the
           control rather than in a tooltip nobody opens. */}
       {onDefer && item.actions.includes('defer') && (
@@ -299,6 +313,65 @@ function Item({
         </div>
       )}
     </li>
+  )
+}
+
+/**
+ * What supports this item — the observations the theme was drawn from (`D-145`).
+ *
+ * Read when opened, not with the queue: eight items would be eight requests for
+ * a page whose point is brevity, and the answer is only wanted for the item
+ * somebody stopped at.
+ *
+ * *What does it affect* is **not** here and is not guessed at. The theme's
+ * members are observations, not the things a decision would change; nothing in
+ * Memory relates an item to what it blocks, which is why every run reports
+ * `ranked_by_blocking: false`. That relation is `SYN-11`.
+ */
+function Evidence({ objectId }: { objectId: string }) {
+  const [asked, setAsked] = useState(false)
+  const object = useSynthesizedObject(objectId, asked)
+  return (
+    <details className="mt-2" onToggle={(event) => setAsked(event.currentTarget.open)}>
+      <summary className="cursor-pointer list-none text-[11.5px] text-ink-subtle">
+        What this rests on
+      </summary>
+      {/* No `empty` prop: it fires on empty *arrays*, and this query answers
+          with an object. The nothing-bound case is decided below, where the
+          list it is about is in hand. */}
+      <QueryState
+        query={object}
+        of="the evidence behind this item"
+        skeleton={<Skeleton className="mt-1.5 h-12" />}
+      >
+        {(detail) =>
+          detail.evidence.length === 0 ? (
+            <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
+              Nothing is recorded as supporting this. The item was raised without evidence bound to
+              it.
+            </p>
+          ) : (
+            <>
+              {/* Counted from the list below rather than carried separately, so
+                  the sentence cannot claim more than it shows. */}
+              <p className="mt-1.5 text-[11.5px] text-ink-subtle">
+                {plural(detail.evidence.length, 'observation')} KAE read
+              </p>
+              <ul className="mt-1 space-y-1">
+                {detail.evidence.map((row) => (
+                  <li key={row.id} className="text-[12px] leading-relaxed text-ink-muted">
+                    {row.statement}{' '}
+                    <span className="text-ink-subtle">
+                      · {readable(row.knowledgeKind)} · {readable(row.lifecycle)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
+        }
+      </QueryState>
+    </details>
   )
 }
 

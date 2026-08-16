@@ -38,6 +38,7 @@ import type {
   SetupState,
   SourceListing,
   SynthesizedObject,
+  SynthesizedObjectDetail,
   UnknownSynthesisReport,
   ValidationResult,
 } from '@/domain/types'
@@ -1456,6 +1457,15 @@ class MockSynthesis implements SynthesisPort {
 
   listSynthesizedModel(_projectId: string): Promise<SynthesizedObject[]> {
     return delay(fixture.synthesizedModel.map((obj) => ({ ...obj })))
+  }
+
+  getSynthesizedObject(_projectId: string, objectId: string): Promise<SynthesizedObjectDetail> {
+    const found = fixture.synthesizedModel.find((obj) => obj.id === objectId)
+    if (!found) throw new Error(`no synthesized object ${objectId}`)
+    return delay({
+      ...found,
+      evidence: (fixture.synthesizedEvidence[objectId] ?? []).map((row) => ({ ...row })),
+    })
   }
 
   runUnknownSynthesis(_projectId: string): Promise<UnknownSynthesisReport> {

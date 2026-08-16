@@ -13,6 +13,7 @@ import type {
   AcceptanceTest,
   ArchitectureGraph,
   AttentionItem,
+  BoundEvidence,
   ConversationMessage,
   Deliverable,
   InterviewSession,
@@ -1775,6 +1776,70 @@ export const synthesizedModel: SynthesizedObject[] = [
     revision: 2,
   },
 ]
+
+/**
+ * The observations each model object was drawn from (`SYN-4`, `D-145`).
+ *
+ * Every object carries some, because an object with none would render as
+ * *nothing supports this* — a demo disagreeing with the product, which is the
+ * fixture defect `D-142` found one increment ago in the item's own actions.
+ */
+export const synthesizedEvidence: Record<string, BoundEvidence[]> = {
+  'syn-goal-001': [
+    {
+      id: 'bind-001',
+      knowledgeItemId: 'FR-RPT-002',
+      kind: 'supports',
+      statement: 'Each directorate submits its figures to the reporting team once a month.',
+      knowledgeKind: 'requirement',
+      lifecycle: 'validated',
+    },
+    {
+      id: 'bind-002',
+      knowledgeItemId: 'FR-RPT-009',
+      kind: 'supports',
+      statement: 'The monthly return is assembled from what directorates have submitted.',
+      knowledgeKind: 'requirement',
+      lifecycle: 'proposed',
+    },
+  ],
+  'syn-goal-002': [
+    {
+      id: 'bind-003',
+      knowledgeItemId: 'FR-PUB-004',
+      kind: 'supports',
+      statement: 'A published figure is sometimes wrong and has to be corrected afterwards.',
+      knowledgeKind: 'goal',
+      lifecycle: 'proposed',
+    },
+  ],
+  'syn-theme-001': [
+    {
+      id: 'bind-004',
+      knowledgeItemId: 'UNK-APR-001',
+      kind: 'supports',
+      statement: 'Who signs off a return before it is published?',
+      knowledgeKind: 'unknown',
+      lifecycle: 'proposed',
+    },
+    {
+      id: 'bind-005',
+      knowledgeItemId: 'UNK-APR-002',
+      kind: 'supports',
+      statement: 'Does approval differ by directorate, or is it one regional officer?',
+      knowledgeKind: 'unknown',
+      lifecycle: 'proposed',
+    },
+    {
+      id: 'bind-006',
+      knowledgeItemId: 'UNK-APR-003',
+      kind: 'supports',
+      statement: 'Can a return be published while approval is still outstanding?',
+      knowledgeKind: 'unknown',
+      lifecycle: 'proposed',
+    },
+  ],
+}
 
 /**
  * Themes that were real and deliberately not raised.

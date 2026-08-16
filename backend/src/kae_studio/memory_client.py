@@ -307,6 +307,16 @@ class MemoryClient:
         params = {"domain": domain} if domain else None
         return await self._request("GET", f"/v1/projects/{project_id}/model", params=params)
 
+    async def synthesized_object(self, project_id: str, object_id: str) -> Any:
+        """One model object and the evidence it rests on, as sentences.
+
+        The listing above carries no evidence at all. This is the read that
+        answers *what supports this* about a single object, and it is separate
+        because a queue of eight would otherwise cost eight reads to draw.
+        """
+
+        return await self._request("GET", f"/v1/projects/{project_id}/model/{object_id}")
+
     async def run_unknown_synthesis(self, project_id: str, idempotency_key: str) -> Any:
         """Turn current unknowns into themes, and the material few into attention.
 

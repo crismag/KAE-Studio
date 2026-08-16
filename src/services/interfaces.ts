@@ -43,6 +43,7 @@ import type {
   SetupState,
   SourceListing,
   SynthesizedObject,
+  SynthesizedObjectDetail,
   UnknownSynthesisReport,
   ValidationResult,
 } from '@/domain/types'
@@ -536,6 +537,14 @@ export interface SynthesisPort {
     options?: { includeDeferred?: boolean },
   ): Promise<AttentionItem[]>
   listSynthesizedModel(projectId: string): Promise<SynthesizedObject[]>
+  /**
+   * One object and the observations behind it (`D-145`).
+   *
+   * Separate from the listing because it is asked per object: a queue of eight
+   * drawn with its evidence is eight reads for a page whose point is brevity,
+   * so a card fetches this when somebody asks *what supports this*.
+   */
+  getSynthesizedObject(projectId: string, objectId: string): Promise<SynthesizedObjectDetail>
   /** Produce the queue. `listAttention` only reads what this wrote. */
   runUnknownSynthesis(projectId: string): Promise<UnknownSynthesisReport>
   /** Postpone an item. It stays owed and stops being recommended. */

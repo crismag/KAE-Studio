@@ -55,6 +55,7 @@ class RecordingMemory:
         self.deferred: list[tuple[str, str]] = []
         self.reopened: list[tuple[str, str]] = []
         self.asked_for_deferred: list[bool] = []
+        self.objects: list[tuple[str, str]] = []
         self._revision = revision
 
     async def attention(
@@ -93,6 +94,24 @@ class RecordingMemory:
     async def synthesized_model(self, project_id: str, domain: str | None = None) -> Any:
         self.calls.append("synthesized_model")
         return []
+
+    async def synthesized_object(self, project_id: str, object_id: str) -> Any:
+        self.calls.append("synthesized_object")
+        self.objects.append((project_id, object_id))
+        return {
+            "id": object_id,
+            "evidence": [
+                {
+                    "id": "bind-1",
+                    "knowledge_item_id": "UNK-1",
+                    "kind": "supports",
+                    "statement": "Who signs off a return?",
+                    "knowledge_kind": "unknown",
+                    "lifecycle": "proposed",
+                    "created_at": None,
+                }
+            ],
+        }
 
     async def knowledge(self, project_id: str, lifecycle: str | None = None) -> Any:
         self.calls.append("knowledge")
@@ -232,3 +251,19 @@ def test_the_model_route_reads_the_model_and_not_the_evidence_behind_it() -> Non
 
     assert response.status_code == 200
     assert memory.calls == ["synthesized_model"]
+
+
+def test_one_object_carries_the_sentences_behind_it_through_the_proxy() -> None:
+    """`SYN-4`, `D-145`. The statements have to survive the hop, or the card
+    can only show identifiers — the same under-reporting one layer up."""
+
+    memory = RecordingMemory()
+    with studio(memory) as browser:
+        response = browser.get("/api/projects/p1/synthesized-model/obj-1")
+
+    assert response.status_code == 200
+    assert memory.calls == ["synthesized_object"]
+    assert memory.objects == [("p1", "obj-1")]
+    assert [row["statement"] for row in response.json()["evidence"]] == [
+        "Who signs off a return?"
+    ]

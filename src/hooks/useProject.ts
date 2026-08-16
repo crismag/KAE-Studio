@@ -869,6 +869,23 @@ export function useAttentionDeferral() {
   return { defer, reopen }
 }
 
+/**
+ * The observations one model object rests on (`SYN-4`, `D-145`).
+ *
+ * Runs only once somebody asks. The queue is eight items and each names an
+ * object, so reading evidence alongside the queue would be eight requests for a
+ * page whose whole claim is that it is short — a reader pays for the answer
+ * they opened, and the key is per object so opening two keeps both.
+ */
+export function useSynthesizedObject(objectId: string | null, enabled: boolean) {
+  const { synthesis, projectId } = useServices()
+  return useQuery({
+    queryKey: ['synthesized-object', projectId, objectId],
+    queryFn: () => synthesis.getSynthesizedObject(projectId, String(objectId)),
+    enabled: enabled && objectId !== null,
+  })
+}
+
 export function useSynthesizedModel() {
   const { synthesis, projectId } = useServices()
   return useQuery({

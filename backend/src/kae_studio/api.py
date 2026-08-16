@@ -736,6 +736,22 @@ def create_app(settings: Settings) -> FastAPI:
 
         return await memory(request).synthesized_model(project_id)
 
+    @app.get("/api/projects/{project_id}/synthesized-model/{object_id}")
+    async def synthesized_object(
+        project_id: str,
+        object_id: str,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """One object and the observations behind it (`SYN-4`, `D-144`).
+
+        The queue names a synthesized object per item; this is how a card answers
+        *what evidence supports this* without reading every extracted row in the
+        project and joining by hand.
+        """
+
+        return await memory(request).synthesized_object(project_id, object_id)
+
     @app.post("/api/projects/{project_id}/attention/runs")
     async def run_attention_synthesis(
         project_id: str, request: Request, _: Operator = Depends(require_operator)

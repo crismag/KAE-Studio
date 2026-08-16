@@ -49,6 +49,7 @@ function harness(overrides: Partial<StudioServices['synthesis']> = {}) {
   const synthesis: StudioServices['synthesis'] = {
     listAttention: (id, options) => services.synthesis.listAttention(id, options),
     listSynthesizedModel: (id) => services.synthesis.listSynthesizedModel(id),
+    getSynthesizedObject: (id, objectId) => services.synthesis.getSynthesizedObject(id, objectId),
     runUnknownSynthesis: (id) => services.synthesis.runUnknownSynthesis(id),
     deferAttention: (id, itemId) => services.synthesis.deferAttention(id, itemId),
     reopenAttention: (id, itemId) => services.synthesis.reopenAttention(id, itemId),
@@ -148,6 +149,54 @@ const WORDS_ONLY: AttentionItem = {
   actions: ['discuss'],
   updatedAt: '2026-07-28T09:41:00Z',
 }
+
+describe('an item can say what it rests on', () => {
+  it('answers with the sentences KAE read, not with the identifiers of rows', async () => {
+    harness()
+
+    await userEvent.click((await screen.findAllByText(/What this rests on/))[0])
+
+    // `attn-001` stands on `syn-theme-001`, whose three members are questions.
+    // Identifiers would be a link to a page nobody has; the sentence is the
+    // answer to *what supports this*.
+    expect(await screen.findByText(/Who signs off a return before it is published\?/)).toBeTruthy()
+    expect(screen.queryByText(/UNK-APR-001/)).toBeNull()
+  })
+
+  it('counts what it shows, so the count cannot claim more than the list', async () => {
+    harness()
+
+    await userEvent.click((await screen.findAllByText(/What this rests on/))[0])
+
+    const counted = await screen.findByText(/observations? KAE read/)
+    const list = counted.parentElement!.querySelector('ul')!
+
+    // A count carried separately from the list is how a card says *three* over
+    // two sentences. Read the number the page printed and hold it to the rows.
+    expect(Number(counted.textContent!.match(/^\d+/)![0])).toBe(list.children.length)
+    expect(list.children.length).toBe(3)
+  })
+
+  it('does not read the evidence until somebody asks for it', async () => {
+    const services = createMockServices()
+    const asked = vi.spyOn(services.synthesis, 'getSynthesizedObject')
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <ServiceProvider services={services}>
+          <AttentionRoom />
+        </ServiceProvider>
+      </QueryClientProvider>,
+    )
+    await screen.findAllByRole('button', { name: /postpone/i })
+
+    // Eight items would be eight requests for a page whose point is brevity.
+    expect(asked).not.toHaveBeenCalled()
+
+    await userEvent.click((await screen.findAllByText(/What this rests on/))[0])
+    await waitFor(() => expect(asked).toHaveBeenCalledWith(expect.anything(), 'syn-theme-001'))
+  })
+})
 
 describe('postponing is not the same as hiding', () => {
   it('moves the item out of what needs you and into what was postponed', async () => {

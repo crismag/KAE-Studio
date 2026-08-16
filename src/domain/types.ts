@@ -1216,6 +1216,27 @@ export interface SynthesizedObject {
 }
 
 /**
+ * One extracted observation a model object rests on (`SYN-4`, `D-144`).
+ *
+ * The statement, not the row's identifier: a card asking *what evidence
+ * supports this* cannot be answered with a list of UUIDs.
+ */
+export interface BoundEvidence {
+  id: string
+  knowledgeItemId: string
+  /** How it stands to the object — Memory's binding kind, not the row's kind. */
+  kind: string
+  statement: string
+  knowledgeKind: string
+  lifecycle: string
+}
+
+/** A model object with the evidence behind it. The listing carries none. */
+export interface SynthesizedObjectDetail extends SynthesizedObject {
+  evidence: BoundEvidence[]
+}
+
+/**
  * What one unknown-synthesis run concluded, **including what it withheld**.
  *
  * `withheld` is carried rather than dropped for the reason Memory reports it: a

@@ -14,6 +14,7 @@
 
 import type {
   AttentionItem,
+  BoundEvidence,
   BusinessWorkflow,
   ConversationMessage,
   DefinitionStatement,
@@ -383,6 +384,19 @@ interface WireSynthesizedObject {
   revision: number
 }
 
+interface WireBoundEvidence {
+  id: string
+  knowledge_item_id: string
+  kind: string
+  statement: string
+  knowledge_kind: string
+  lifecycle: string
+}
+
+interface WireSynthesizedObjectDetail extends WireSynthesizedObject {
+  evidence: WireBoundEvidence[]
+}
+
 interface WireUnknownSynthesisReport {
   considered: number
   resolved: number
@@ -405,6 +419,17 @@ function attentionItem(wire: WireAttentionItem): AttentionItem {
     priority: wire.priority,
     actions: wire.actions,
     updatedAt: wire.updated_at,
+  }
+}
+
+function boundEvidence(wire: WireBoundEvidence): BoundEvidence {
+  return {
+    id: wire.id,
+    knowledgeItemId: wire.knowledge_item_id,
+    kind: wire.kind,
+    statement: wire.statement,
+    knowledgeKind: wire.knowledge_kind,
+    lifecycle: wire.lifecycle,
   }
 }
 
@@ -2026,6 +2051,16 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         `/api/projects/${resolve(id)}/synthesized-model`,
       )
       return raw.map(synthesizedObject)
+    },
+
+    getSynthesizedObject: async (id, objectId) => {
+      const raw = await call<WireSynthesizedObjectDetail>(
+        `/api/projects/${resolve(id)}/synthesized-model/${objectId}`,
+      )
+      return {
+        ...synthesizedObject(raw),
+        evidence: raw.evidence.map(boundEvidence),
+      }
     },
 
     runUnknownSynthesis: async (id) => {
