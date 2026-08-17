@@ -289,6 +289,108 @@ describe('watching what KAE did', () => {
     expect(screen.getByText(/no plain-words reading for that yet/i)).toBeInTheDocument()
   })
 
+  it('dates each run and says how long a finished one took', async () => {
+    renderIngestion((services) =>
+      withIngestion(services, {
+        runs: async () => [
+          {
+            id: 'r1',
+            role: 'discovery',
+            status: 'succeeded',
+            attemptNumber: 1,
+            errorCode: null,
+            errorMessage: null,
+            startedAt: '2026-03-04T09:15:00Z',
+            completedAt: '2026-03-04T09:15:42Z',
+            outputSummary: {},
+          },
+        ],
+      }),
+    )
+
+    // *Newest first* over undated rows makes a run from five minutes ago and
+    // one from three weeks ago the same row.
+    expect(await screen.findByText(/4 Mar, 09:15/)).toBeInTheDocument()
+    expect(screen.getByText(/took 42s/)).toBeInTheDocument()
+  })
+
+  it('says nothing about how long a run still going has taken', async () => {
+    renderIngestion((services) =>
+      withIngestion(services, {
+        runs: async () => [
+          {
+            id: 'r1',
+            role: 'discovery',
+            status: 'running',
+            attemptNumber: 1,
+            errorCode: null,
+            errorMessage: null,
+            startedAt: '2026-03-04T09:15:00Z',
+            completedAt: null,
+            outputSummary: {},
+          },
+        ],
+      }),
+    )
+
+    // The badge already says `running`. A duration invented from a missing end
+    // would read as a run that finished instantly.
+    expect(await screen.findByText(/4 Mar, 09:15/)).toBeInTheDocument()
+    expect(screen.queryByText(/took/)).not.toBeInTheDocument()
+  })
+
+  it('says nothing rather than that a run took less than no time', async () => {
+    renderIngestion((services) =>
+      withIngestion(services, {
+        runs: async () => [
+          {
+            id: 'r1',
+            role: 'discovery',
+            status: 'succeeded',
+            attemptNumber: 1,
+            errorCode: null,
+            errorMessage: null,
+            startedAt: '2026-03-04T09:15:42Z',
+            completedAt: '2026-03-04T09:15:00Z',
+            outputSummary: {},
+          },
+        ],
+      }),
+    )
+
+    // Both ends are the server's clock, so an end before a start is a fact
+    // about the clock. *took -42s* would send a person looking for a bug in
+    // their project.
+    expect(await screen.findByText(/4 Mar, 09:15/)).toBeInTheDocument()
+    expect(screen.queryByText(/took/)).not.toBeInTheDocument()
+  })
+
+  it('dates nothing for a run that never started', async () => {
+    renderIngestion((services) =>
+      withIngestion(services, {
+        runs: async () => [
+          {
+            id: 'r1',
+            role: 'discovery',
+            status: 'pending',
+            attemptNumber: 1,
+            errorCode: null,
+            errorMessage: null,
+            startedAt: null,
+            completedAt: null,
+            outputSummary: {},
+          },
+        ],
+      }),
+    )
+
+    // An em dash where a date would go is a row asking a person to wonder what
+    // is missing. A queued run has no start because it has not started.
+    const row = (await screen.findByText(/reading a document/i)).closest('li')
+    expect(row).not.toBeNull()
+    expect(row?.textContent).not.toMatch(/—|took/)
+  })
+
   it('says when nothing has run at all', async () => {
     renderIngestion((services) => withIngestion(services, { runs: async () => [] }))
 

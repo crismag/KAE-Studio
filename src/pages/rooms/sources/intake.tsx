@@ -36,6 +36,7 @@ import { AlertTriangle, FileText, FolderGit2, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { contentLossClauses } from '@/lib/coverage'
+import { formatDateTime, isKnownTimestamp } from '@/lib/format'
 import { plural } from '@/lib/plural'
 import { PageLayout } from '@/components/project/PageLayout'
 import { readFailure, readRole } from './runVocabulary'
@@ -553,9 +554,29 @@ const STATUS_TONE: Record<string, 'confirmed' | 'attention' | 'blocking' | 'pend
     pending: 'neutral',
   }
 
+/**
+ * How long a finished run took, or nothing.
+ *
+ * Nothing when either end is missing or the arithmetic comes out negative:
+ * clocks are the server's and a duration below zero is a fact about them
+ * rather than about the run, and rendering it would invite a person to explain
+ * it. Seconds up to a minute and a half, because that is the range every
+ * ingestion run in this product lands in and *90s* reads faster than *1.5 min*.
+ */
+function tookFor(run: AgentRunRecord): string | null {
+  if (!run.startedAt || !run.completedAt) return null
+  if (!isKnownTimestamp(run.startedAt) || !isKnownTimestamp(run.completedAt)) return null
+
+  const seconds = (Date.parse(run.completedAt) - Date.parse(run.startedAt)) / 1000
+  if (seconds < 0) return null
+  if (seconds < 90) return `${Math.round(seconds)}s`
+  return `${Math.round(seconds / 60)} min`
+}
+
 function RunRow({ run }: { run: AgentRunRecord }) {
   const failure = readFailure(run.errorCode)
   const written = run.outputSummary.items_written
+  const took = tookFor(run)
 
   return (
     <li className="rounded-md border border-line bg-surface-sunken px-3 py-2.5">
@@ -567,6 +588,18 @@ function RunRow({ run }: { run: AgentRunRecord }) {
         )}
         {typeof written === 'number' && written > 0 && (
           <span className="text-[11.5px] text-ink-subtle">· {plural(written, 'statement')}</span>
+        )}
+        {/* The panel said *Newest first* and dated nothing, so a run from five
+            minutes ago and one from three weeks ago were the same row. Both
+            timestamps arrive on every record and were read by nobody. A run
+            still going has no end and says so by omission — the badge beside it
+            already says `running`, and inventing *0s* would be worse than
+            silence. */}
+        {run.startedAt && isKnownTimestamp(run.startedAt) && (
+          <span className="text-[11.5px] text-ink-subtle">
+            · {formatDateTime(run.startedAt)}
+            {took && ` · took ${took}`}
+          </span>
         )}
       </div>
 
