@@ -24,6 +24,7 @@ import type {
   ArchitectureGraph,
   CoverageTopic,
   MemoryConnection,
+  MessageAuthor,
   PreliminaryContext,
   ProjectBlocker,
   ProjectReview,
@@ -1304,6 +1305,13 @@ function deliverable(wire: WireDeliverable): Deliverable {
   }
 }
 
+/** Memory's `ActorType` to the arm that draws it (`D-215`). */
+function authorOf(actorType: string): MessageAuthor {
+  if (actorType === 'user') return 'user'
+  if (actorType === 'agent') return 'assistant'
+  return 'system'
+}
+
 export function createLiveServices(projectIdOverride?: string): StudioServices {
   const resolve = (given: string) => projectIdOverride ?? given
 
@@ -1335,7 +1343,14 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       >(`/api/projects/${resolve(id)}/messages`)
       return raw.map((m) => ({
         id: m.id,
-        author: m.actor_type === 'user' ? 'user' : 'assistant',
+        // `agent` alone earns the AI mark (`D-215`). This read `!== 'user'`, so
+        // Memory's `system` — the word `clarification_service.py` uses *because*
+        // no model run produced the sentence — was drawn as a CIE reply. An
+        // actor word Studio does not know falls here too rather than to
+        // `assistant`: it has not said a model produced it, and the sparkle
+        // would be Studio asserting one.
+        author: authorOf(m.actor_type),
+        actorType: m.actor_type,
         body: m.content,
         createdAt: m.created_at,
         // Read back from Memory, so it is durable by definition. A message the

@@ -47,7 +47,15 @@ export interface Project {
 
 /* ---------------------------------------------------------------- conversation */
 
-export type MessageAuthor = 'user' | 'assistant'
+/**
+ * Who a transcript turn came from (`D-215`).
+ *
+ * Three arms because KAE-Memory's `ActorType` has three, and the third is not
+ * decoration: `clarification_service.py` records a question as `SYSTEM` rather
+ * than `AGENT` precisely because no model run produced it. Collapsing it into
+ * `assistant` put the AI mark on a sentence deterministic code wrote.
+ */
+export type MessageAuthor = 'user' | 'assistant' | 'system'
 
 /** Delivery state of a message Studio submitted to KAE-Memory (ADR-0006). */
 export type MessageSyncState = 'acknowledged' | 'pending' | 'failed'
@@ -60,6 +68,14 @@ export interface AssistantUnderstanding {
 export interface ConversationMessage {
   id: string
   author: MessageAuthor
+  /**
+   * Memory's own `actor_type`, kept verbatim (`D-215`).
+   *
+   * `author` decides which arm draws the turn; this is the word that decision
+   * was made from, so an actor Studio does not recognise can show itself
+   * instead of being silently absorbed by whichever arm it fell into (`D-212`).
+   */
+  actorType?: string
   body: string
   createdAt: string
   syncState: MessageSyncState

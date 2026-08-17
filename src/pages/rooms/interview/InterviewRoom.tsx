@@ -8,6 +8,7 @@ import {
   Clock,
   CornerDownLeft,
   Loader2,
+  Info,
   Paperclip,
   PanelRightOpen,
   Sparkle,
@@ -96,6 +97,89 @@ function UserMessage({ message }: { message: ConversationMessage }) {
         </time>
       </div>
     </div>
+  )
+}
+
+/**
+ * A turn KAE recorded that no model produced (`D-215`).
+ *
+ * KAE-Memory's `ActorType` separates `agent` from `system`, and
+ * `clarification_service.py:519-522` writes the second with its reason in a
+ * comment: an agent message must name the run behind it, and a question derived
+ * from findings by deterministic code has no run. These land in the person's own
+ * session on purpose (`_LazySession`), so they sit in this transcript — and
+ * until now they were drawn as `AssistantMessage`, sparkle and all, which said a
+ * model wrote them.
+ *
+ * **The attribution is the whole component.** The glyph beside an assistant turn
+ * is `aria-hidden`, so it was never the thing carrying the claim to everybody;
+ * a line of text is. It says what the record says — that KAE holds this and no
+ * model produced it — and nothing about *which* part of KAE, because `system` is
+ * an actor and `clarification_service` being its only writer today is a fact
+ * about this deployment rather than the meaning of the word (`D-45`).
+ *
+ * An actor word Studio does not recognise arrives here too, and **shows itself**
+ * rather than being absorbed silently (`D-212`).
+ */
+function SystemMessage({ message }: { message: ConversationMessage }) {
+  const unrecognised =
+    message.actorType !== undefined && message.actorType !== '' && message.actorType !== 'system'
+  return (
+    <article className="flex items-start gap-3">
+      <div
+        className="mt-0.5 grid size-6 shrink-0 place-items-center rounded bg-surface-sunken text-ink-muted"
+        aria-hidden="true"
+      >
+        <Info className="size-3.5" />
+      </div>
+      <div className="min-w-0 max-w-[52rem] space-y-1.5">
+        <p className="text-[11.5px] text-ink-subtle">
+          {unrecognised
+            ? `Recorded by KAE as “${message.actorType}” — an author this version of Studio does not recognise.`
+            : 'Recorded by KAE — no model produced this.'}
+        </p>
+        <AssistantProse>{message.body}</AssistantProse>
+        <time className="block text-[11px] text-ink-subtle" dateTime={message.createdAt}>
+          {formatDateTime(message.createdAt)}
+        </time>
+      </div>
+    </article>
+  )
+}
+
+/**
+ * One turn of the transcript, sent to the arm its author names (`D-215`).
+ *
+ * Lifted out of the room so the routing is a thing a test can see. It was three
+ * lines inside a component that needs a query client, a router and a project to
+ * mount, which is why the arm that drew every non-user turn as a model reply had
+ * no guard on it — `D-213`'s lesson, that a check unable to reach the decision
+ * asserts something adjacent to it instead.
+ */
+export function TranscriptTurn({
+  message,
+  onSuggestion,
+  onConfirmReading,
+  onDecideRecommendation,
+}: {
+  message: ConversationMessage
+  onSuggestion: (text: string) => void
+  onConfirmReading?: (ids: string[]) => Promise<void> | void
+  onDecideRecommendation?: (
+    recommendation: Recommendation,
+    disposition: Disposition,
+    modifiedTo?: string,
+  ) => Promise<void> | void
+}) {
+  if (message.author === 'user') return <UserMessage message={message} />
+  if (message.author === 'system') return <SystemMessage message={message} />
+  return (
+    <AssistantMessage
+      message={message}
+      onSuggestion={onSuggestion}
+      onConfirmReading={onConfirmReading}
+      onDecideRecommendation={onDecideRecommendation}
+    />
   )
 }
 
@@ -1091,26 +1175,22 @@ export function InterviewRoom() {
         >
           <div className="mx-auto flex max-w-[56rem] flex-col gap-7">
             {isLoading && <p className="text-[13px] text-ink-subtle">Loading conversation…</p>}
-            {messages?.map((message) =>
-              message.author === 'user' ? (
-                <UserMessage key={message.id} message={message} />
-              ) : (
-                <AssistantMessage
-                  key={message.id}
-                  message={message}
-                  onSuggestion={handleSuggestion}
-                  onConfirmReading={(ids) => confirmReading.mutateAsync(ids)}
-                  onDecideRecommendation={(recommendation, disposition, modifiedTo) =>
-                    decideRecommendation.mutateAsync({
-                      recommendation,
-                      disposition,
-                      modifiedTo,
-                      subject: '',
-                    })
-                  }
-                />
-              ),
-            )}
+            {messages?.map((message) => (
+              <TranscriptTurn
+                key={message.id}
+                message={message}
+                onSuggestion={handleSuggestion}
+                onConfirmReading={(ids) => confirmReading.mutateAsync(ids)}
+                onDecideRecommendation={(recommendation, disposition, modifiedTo) =>
+                  decideRecommendation.mutateAsync({
+                    recommendation,
+                    disposition,
+                    modifiedTo,
+                    subject: '',
+                  })
+                }
+              />
+            ))}
             {sendMessage.isPending && (
               <div className="flex items-center gap-2.5 text-[13px] text-ink-muted" role="status">
                 <Loader2 className="size-3.5 animate-spin text-accent" aria-hidden="true" />
