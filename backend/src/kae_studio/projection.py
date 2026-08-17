@@ -592,6 +592,15 @@ def _questions(payload: Any) -> list[dict[str, Any]]:
             "id": q.get("asked_id") or q.get("candidate_key") or q.get("clarification_id", ""),
             "question": q.get("question", ""),
             "severity": q.get("severity", ""),
+            # The sentence saying what is wrong, beside the grade saying how
+            # much it matters (`D-246`, `D-248`). Carried verbatim: where the
+            # finding gave none, KAE-Memory sends its own `REASON_UNSTATED`
+            # wording and a second phrasing invented here would be one concept
+            # in two words across a boundary (`D-125`).
+            #
+            # `""` for a KAE-Memory older than the field, which is not the same
+            # as a stated absence and must not read as one.
+            "reason": q.get("reason", ""),
             "area": q.get("area_key"),
             "disposition": q.get("disposition", "open"),
             # False means nobody has been shown this. It is a fact about the

@@ -34,6 +34,7 @@ const DECISION: OpenDecision = {
   id: 'OD-011',
   question: 'Which role holds approval authority?',
   severity: 'critical',
+  reason: 'Authorization has no confirmed knowledge.',
   blocks: [],
   suggestedOwner: 'Church leadership',
   deferred: false,
@@ -124,5 +125,34 @@ describe('an open decision offers a path toward resolution', () => {
 
     expect(row.getByText(/not asked yet/i)).toBeInTheDocument()
     expect(row.getByRole('button', { name: 'Discuss this' })).toBeInTheDocument()
+  })
+
+  /**
+   * `D-248`. The row said *why* only by saying `critical`, because KAE-Memory
+   * computed no reason and `D-17` had rightly removed the label promising one.
+   * It computes one now (`D-246`), and this asserts the sentence reaches the
+   * rendered row rather than only the adapter — the difference between a value
+   * arriving and a person seeing it.
+   */
+  it('shows the reason beside the grade, without either standing for the other', async () => {
+    renderRoom()
+    const row = await decisionRow(DECISION.question)
+
+    expect(row.getByText(DECISION.reason)).toBeInTheDocument()
+    // Still a grade, still shown as one. `D-17` was these two collapsed into a
+    // single value under a label that promised the second.
+    expect(row.getByText(/critical/i)).toBeInTheDocument()
+  })
+
+  it('renders nothing where a KAE-Memory older than the field sent no reason', async () => {
+    // Not an absence notice. An empty reason means the deployment never had the
+    // field, and printing "no reason given" for it would state an absence
+    // KAE-Memory never reported (`D-38`).
+    renderRoom({ ...DECISION, reason: '' })
+    const row = await decisionRow(DECISION.question)
+
+    expect(row.queryByText(DECISION.reason)).toBeNull()
+    expect(row.queryByText(/no reason/i)).toBeNull()
+    expect(row.getByText(/critical/i)).toBeInTheDocument()
   })
 })

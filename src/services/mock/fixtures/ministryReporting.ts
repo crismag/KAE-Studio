@@ -623,6 +623,10 @@ export const openDecisions: OpenDecision[] = [
     id: 'OD-011',
     question: 'Which role holds approval authority?',
     severity: 'critical',
+    // KAE-Memory's own finding summaries, in its phrasing rather than a
+    // fixture's (`D-248`). A mock reason written as marketing copy would set an
+    // expectation the live adapter cannot meet.
+    reason: 'Authorization has no confirmed knowledge.',
     blocks: ['MOD-APR', 'SR-APR-001'],
     suggestedOwner: 'Church leadership',
     deferred: false,
@@ -632,6 +636,7 @@ export const openDecisions: OpenDecision[] = [
     id: 'OD-012',
     question: 'Is a single approval sufficient, or is a second reviewer required?',
     severity: 'major',
+    reason: 'Two knowledge items contradict each other.',
     blocks: ['MOD-APR'],
     suggestedOwner: 'Church leadership',
     deferred: false,
@@ -641,6 +646,7 @@ export const openDecisions: OpenDecision[] = [
     id: 'OD-013',
     question: 'How is a published report corrected once an error is found?',
     severity: 'major',
+    reason: 'Publication has unconfirmed knowledge.',
     blocks: ['MOD-PUB', 'FR-PUB-002'],
     suggestedOwner: 'Administrator',
     deferred: false,
@@ -650,6 +656,9 @@ export const openDecisions: OpenDecision[] = [
     id: 'OD-014',
     question: 'Can an administrator override a rejection?',
     severity: 'minor',
+    // The absence, in KAE-Memory's wording rather than Studio's, so the mock
+    // exercises the arm a live finding with no summary would take.
+    reason: 'The finding behind this question gave no reason.',
     blocks: ['MOD-APR'],
     suggestedOwner: 'Church leadership',
     deferred: true,

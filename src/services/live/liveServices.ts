@@ -673,6 +673,8 @@ interface BackendProjection {
     question: string
     severity: string
     disposition: string
+    /** Absent on a KAE-Memory older than `D-246`, which computed no reason. */
+    reason?: string
     /** Absent on a backend that only materialises. */
     asked?: boolean
   }[]
@@ -787,6 +789,12 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       // Carried as what it is. It used to arrive as `whyItMatters`, which
       // promised a reason and delivered a grade (`D-17`).
       severity: q.severity,
+      // And now the reason as well, which `D-17` could not render because
+      // KAE-Memory computed none. It does (`D-246`); this is the last hop it
+      // was dropped at (`D-248`). Verbatim — including KAE-Memory's own
+      // wording for a finding that gave no reason. Empty means an older
+      // KAE-Memory sent no field, and nothing is rendered for it.
+      reason: q.reason ?? '',
       blocks: [],
       suggestedOwner: 'you',
       // Exactly `deferred`, never "not open" (`D-198`). A question KAE

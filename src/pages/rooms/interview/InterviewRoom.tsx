@@ -655,12 +655,17 @@ function OpenDecisionRow({
         <p className="text-[12.5px] font-medium leading-snug text-ink">{decision.question}</p>
         {decision.deferred && <StatusBadge status="deferred" />}
       </div>
-      {/* A grade, shown as a grade. There is no "why" behind an open question
-          — Memory grades clarification candidates and does not explain them —
-          and a sentence here would have to be invented to exist. */}
+      {/* A grade, shown as a grade, and beside it the reason — which is now a
+          sentence KAE-Memory computed rather than one invented here (`D-246`,
+          `D-248`). `D-17` was the grade rendered *as* the reason; the two are
+          separate values in separate positions, so neither stands in for the
+          other. Nothing renders where no sentence arrived. */}
       <p className="mt-1">
         <SeverityBadge severity={decision.severity} />
       </p>
+      {decision.reason && (
+        <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">{decision.reason}</p>
+      )}
       <div className="mt-2 flex items-center gap-3">
         {/* **Not on the row** (`NAV-01` N4). A decision's id is a Memory key —
             `question:partial_area:problem_and_value:-` on the live project —

@@ -337,11 +337,22 @@ export interface OpenDecision {
    * invented; the severity is real. It answered a different question from the
    * one the label asked, and the reader supplied the difference.
    *
-   * Memory's clarification candidates carry a severity and no rationale, so
-   * there is no reason to render. An absent reason claims less than a grade
-   * wearing a reason's label.
+   * The reason is `reason`, and it is a separate field for that reason: an
+   * absent reason claims less than a grade wearing a reason's label.
    */
   severity: string
+  /**
+   * Why this matters, in KAE-Memory's words — the summary of the finding the
+   * question came from (`D-246`).
+   *
+   * Verbatim, including KAE-Memory's own sentence where the finding gave no
+   * reason. Studio does not phrase this, because a second wording for one
+   * concept is how a vocabulary splits across a boundary.
+   *
+   * Empty means a KAE-Memory older than the field sent none, which is not a
+   * stated absence and renders as nothing rather than as a notice.
+   */
+  reason: string
   blocks: string[]
   suggestedOwner: string
   deferred: boolean
