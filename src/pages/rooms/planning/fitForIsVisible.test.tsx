@@ -36,7 +36,12 @@ describe('two facts, not one score', () => {
   it('answers both questions separately', () => {
     // Most projects sit between them for a long time, and that gap is the
     // readiness model's whole subject.
-    render(<FitFor health={health({ draftEligible: true, implementationEligible: false })} />)
+    render(
+      <FitFor
+        health={health({ draftEligible: true, implementationEligible: false })}
+        unavailable={[]}
+      />,
+    )
 
     expect(screen.getByText(/enough is established to draft from/i)).toBeInTheDocument()
     expect(screen.getByText(/not safe to build from/i)).toBeInTheDocument()
@@ -46,20 +51,33 @@ describe('two facts, not one score', () => {
     // `ADR-0003`, for the reason it ruled setup: a percentage over two booleans
     // says less than the booleans.
     const { container } = render(
-      <FitFor health={health({ draftEligible: true, implementationEligible: true })} />,
+      <FitFor
+        health={health({ draftEligible: true, implementationEligible: true })}
+        unavailable={[]}
+      />,
     )
 
     expect(container.textContent).not.toMatch(/%|\d+\s*percent/i)
   })
 
   it('does not report a project as buildable because it is draftable', () => {
-    render(<FitFor health={health({ draftEligible: true, implementationEligible: false })} />)
+    render(
+      <FitFor
+        health={health({ draftEligible: true, implementationEligible: false })}
+        unavailable={[]}
+      />,
+    )
 
     expect(screen.queryByText(/safe to build from —/i)).not.toBeInTheDocument()
   })
 
   it('says so when both hold', () => {
-    render(<FitFor health={health({ draftEligible: true, implementationEligible: true })} />)
+    render(
+      <FitFor
+        health={health({ draftEligible: true, implementationEligible: true })}
+        unavailable={[]}
+      />,
+    )
 
     expect(screen.getByText(/safe to build from —/i)).toBeInTheDocument()
   })
@@ -69,14 +87,55 @@ describe('it states, and does not stop', () => {
   it('says a package can still be produced', () => {
     // `D-32`: nothing in the estate refuses on these flags. Saying "you cannot"
     // here would be the claim that had to be withdrawn, made a second time.
-    render(<FitFor health={health({ implementationEligible: false })} />)
+    render(<FitFor health={health({ implementationEligible: false })} unavailable={[]} />)
 
     expect(screen.getByText(/can still be produced/i)).toBeInTheDocument()
   })
 
   it('never says generation is prevented', () => {
-    const { container } = render(<FitFor health={health({})} />)
+    const { container } = render(<FitFor health={health({})} unavailable={[]} />)
 
     expect(container.textContent).not.toMatch(/will not generate|cannot generate|blocked from/i)
+  })
+})
+
+describe('a readiness that could not be read is not a readiness of false', () => {
+  const unread = [{ section: 'readiness', reason: 'KAE-Memory did not answer in time.' }]
+
+  it('answers neither question when the section failed', () => {
+    // `D-236`. Both flags default to false on a failed read, so the two
+    // sentences below would be statements about somebody's project composed
+    // from a request that never completed.
+    render(<FitFor health={health({})} unavailable={unread} />)
+
+    expect(screen.queryByText(/not enough is established to draft from/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/not safe to build from/i)).not.toBeInTheDocument()
+  })
+
+  it("says readiness could not be read, and carries the backend's reason", () => {
+    const { container } = render(<FitFor health={health({})} unavailable={unread} />)
+
+    expect(container.textContent).toMatch(/could not read this project's readiness/i)
+    expect(container.textContent).toMatch(/did not answer in time/i)
+  })
+
+  it('still says nothing here refuses generation', () => {
+    // The unread arm inherits `D-32`'s rule rather than being exempt from it.
+    const { container } = render(<FitFor health={health({})} unavailable={unread} />)
+
+    expect(container.textContent).toMatch(/nothing here refuses it/i)
+  })
+
+  it('reads another failed section as no reason to withhold the answer', () => {
+    // A named lookup, not the catch-all: `blockers` failing says nothing about
+    // what readiness reported.
+    render(
+      <FitFor
+        health={health({ draftEligible: true })}
+        unavailable={[{ section: 'blockers', reason: 'unreadable' }]}
+      />,
+    )
+
+    expect(screen.getByText(/enough is established to draft from/i)).toBeInTheDocument()
   })
 })

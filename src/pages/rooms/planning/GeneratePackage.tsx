@@ -390,7 +390,9 @@ export function GeneratePackage() {
         {/* Before the first control, because it is what a person needs in order
             to decide whether to use the controls at all (`D-33`). It stops
             nothing — nothing in the estate refuses on these flags. */}
-        {projection.data && <FitFor health={projection.data.health} />}
+        {projection.data && (
+          <FitFor health={projection.data.health} unavailable={projection.data.unavailable} />
+        )}
 
         {/* 1 — choose a shape */}
         <div>
