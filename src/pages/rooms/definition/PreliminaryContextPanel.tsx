@@ -31,6 +31,7 @@
 import { Panel, PanelBody, PanelHeader, PanelTitle, Badge } from '@/components/ui/primitives'
 import { SeverityBadge } from '@/components/project/SeverityBadge'
 import type { AssumedEntry, PreliminaryContext, UnknownEntry } from '@/domain/types'
+import { readableFindingKind } from './findingKinds'
 
 /**
  * Whether there is anything at all to render.
@@ -197,6 +198,7 @@ function UnknownRow({ unknown }: { unknown: UnknownEntry }) {
   // a Memory key. It is a support handle rather than a fact about the project:
   // available on hover and to a screen reader, not occupying the line a person
   // reads.
+  const kind = readableFindingKind(unknown.findingKind)
   return (
     <li className="flex flex-wrap items-baseline gap-x-2 gap-y-1" title={unknown.clarificationId}>
       <span className="sr-only">Reference {unknown.clarificationId}</span>
@@ -210,6 +212,14 @@ function UnknownRow({ unknown }: { unknown: UnknownEntry }) {
       <span className="text-[11.5px] text-ink-subtle">
         {unknown.disposition === 'open' ? 'Not yet asked' : `Asked · ${unknown.disposition}`}
       </span>
+      {/* Why the question exists, which the row could not say (`D-190`). The
+          grade beside it says how much it matters and the kind says what sort
+          of gap it came from — an area with nothing in it reads differently
+          from one partly covered. Not a rationale: `WHY-1` is still open, and
+          Memory writes no sentence about why this area matters to this
+          project. A kind it does not recognise renders nothing rather than a
+          default word. */}
+      {kind && <span className="text-[11.5px] text-ink-subtle">· {kind}</span>}
     </li>
   )
 }

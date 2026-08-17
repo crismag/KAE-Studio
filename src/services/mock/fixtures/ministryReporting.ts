@@ -1551,7 +1551,10 @@ export const preliminary: PreliminaryContext = {
       question: 'Which role holds approval authority?',
       areaKey: 'approval',
       severity: 'critical',
-      findingKind: 'missing_decision',
+      // Memory's own vocabulary. This said `missing_decision`, which is in no
+      // Memory enum — a fixture teaching a word the product does not speak
+      // (`D-190`).
+      findingKind: 'missing_area',
       material: true,
       // Nobody has been asked. Distinct from `deferred`, where somebody was
       // asked and chose not to decide (N36).
@@ -1564,7 +1567,7 @@ export const preliminary: PreliminaryContext = {
       question: 'Can an administrator override a rejection?',
       areaKey: 'approval',
       severity: 'minor',
-      findingKind: 'missing_decision',
+      findingKind: 'open_question',
       material: false,
       // Asked, and answered with *not now*. An answer, and one that has to
       // stay visible — it is the difference between a project that has not
