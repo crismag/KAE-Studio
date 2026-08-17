@@ -16,13 +16,20 @@ different shapes for one TypeScript interface, which is how a field can be
 present on one path and missing on the other with no type error anywhere.
 """
 
+import importlib.util
 from typing import Any
 
-from fastapi.testclient import TestClient
+import pytest
 
-from kae_studio.api import create_app
-from kae_studio.config import Settings
 from kae_studio.projection import extraction_coverage_view
+
+# Only the route test needs the app, and importing the app needs a private
+# sibling repository CI does not have. The mapping guards below are the ones
+# `D-232` turns on, so they run everywhere rather than skipping with it.
+needs_the_app = pytest.mark.skipif(
+    importlib.util.find_spec("cie_slim") is None,
+    reason="cris-cie-slim is a private sibling repository",
+)
 
 MEMORY_PAYLOAD = {
     "succeeded": 3,
@@ -74,7 +81,12 @@ def test_a_refusal_reports_no_loss_rather_than_zero_of_everything() -> None:
     }
 
 
-def _app() -> TestClient:
+def _app() -> Any:
+    from fastapi.testclient import TestClient
+
+    from kae_studio.api import create_app
+    from kae_studio.config import Settings
+
     return TestClient(
         create_app(
             Settings.from_environment(
@@ -88,6 +100,7 @@ def _app() -> TestClient:
     )
 
 
+@needs_the_app
 def test_both_doors_to_this_number_answer_in_one_shape() -> None:
     """The route and the projection are one mapping, not two agreeing ones.
 
