@@ -1346,10 +1346,14 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       const answered = raw.openQuestions.filter(
         (q) => q.disposition !== 'open' && q.disposition !== 'deferred',
       ).length
+      // The remainder, and the number the header could not show (`D-189`).
+      // Same predicate as `projectCounts.openDecisions`, over the same payload,
+      // so the Workspace badge and this header cannot disagree (`D-96`).
+      const unanswered = raw.openQuestions.filter((q) => q.disposition === 'open').length
       return {
         interviewType: 'Clarification queue',
         objective: 'Resolve the gaps this project actually has.',
-        questionsAsked: raw.openQuestions.length,
+        questionsUnanswered: unanswered,
         questionsAnswered: answered,
         questionsDeferred: deferred,
       } as InterviewSession

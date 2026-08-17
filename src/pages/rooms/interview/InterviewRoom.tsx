@@ -56,6 +56,7 @@ import { blockedBy } from './blockedBy'
 import type {
   ConversationMessage,
   CoverageTopic,
+  InterviewSession,
   OpenDecision,
   ProjectProjection,
 } from '@/domain/types'
@@ -490,6 +491,31 @@ export function CoverageSection({
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * How much is left to ask, which this room could not say (`D-189`).
+ *
+ * The header read *"8 answered · 2 deferred"* — a count with no denominator, so
+ * the questions that are neither, the ones **nobody has touched**, were
+ * arithmetically present and visually absent. They lead, because they are the
+ * only one of the three a person can act on.
+ *
+ * A denominator would close the gap too. It is refused: *"8 of 13 answered"*
+ * makes the reader subtract to reach the actionable number, and the total is
+ * still readable here as the sum of three numbers that partition one queue.
+ *
+ * Nothing renders until the counts arrive. Zeros while loading would say *no
+ * questions* about a project that has them (`D-38`).
+ */
+export function SessionProgress({ session }: { session?: InterviewSession }) {
+  if (!session) return null
+  return (
+    <p className="text-[11.5px] text-ink-subtle">
+      {session.questionsUnanswered} unanswered · {session.questionsAnswered} answered ·{' '}
+      {session.questionsDeferred} deferred
+    </p>
   )
 }
 
@@ -1012,10 +1038,7 @@ export function InterviewRoom() {
               </p>
             </div>
             <div className="hidden shrink-0 text-right xl:block">
-              <p className="text-[11.5px] text-ink-subtle">
-                {session?.questionsAnswered ?? 0} answered · {session?.questionsDeferred ?? 0}{' '}
-                deferred
-              </p>
+              <SessionProgress session={session} />
             </div>
             <Button
               variant="secondary"

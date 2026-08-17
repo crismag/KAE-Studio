@@ -43,13 +43,15 @@ export const project: Project = {
 
 /* ------------------------------------------------------------------ session */
 
-export const interviewSession: InterviewSession = {
+/**
+ * The words only. All three counts are derived from `openDecisions` (`D-189`),
+ * because a fixture constant beside a derived list is a second answer to one
+ * question and drifts the first time a decision is added here.
+ */
+export const interviewSession: Pick<InterviewSession, 'interviewType' | 'objective'> = {
   interviewType: 'Business workflow analysis',
   objective:
     'Establish who submits, reviews, and publishes reports, and what each step requires before it may complete.',
-  questionsAsked: 11,
-  questionsAnswered: 8,
-  questionsDeferred: 2,
 }
 
 /* ------------------------------------------------------------- conversation */

@@ -178,12 +178,24 @@ class MockProjectMemoryClient implements ProjectMemoryClient {
     })
   }
 
+  /**
+   * The three counts partition the same list the live adapter partitions.
+   *
+   * `questionsAnswered` used to be the number of user messages, so typing
+   * incremented *answered* while the queue stood still — and the remainder the
+   * header now shows would have gone negative (`D-189`). The prototype has no
+   * write that answers a question; `deferDecision` is the only decision write
+   * there is. So answered is 0 and stays 0, for the reason `confirmReading`
+   * records nothing: a mock that showed progress it has no evidence for is the
+   * fiction the fixture sweep removed from the routes.
+   */
   getInterviewSession(): Promise<InterviewSession> {
-    const answered = state.messages.filter((m) => m.author === 'user').length
+    const deferred = fixture.openDecisions.filter((d) => state.deferredDecisionIds.has(d.id)).length
     return delay({
       ...fixture.interviewSession,
-      questionsAnswered: answered,
-      questionsDeferred: state.deferredDecisionIds.size,
+      questionsUnanswered: fixture.openDecisions.length - deferred,
+      questionsAnswered: 0,
+      questionsDeferred: deferred,
     })
   }
 

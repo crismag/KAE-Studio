@@ -110,7 +110,16 @@ export interface ConversationMessage {
 export interface InterviewSession {
   interviewType: string
   objective: string
-  questionsAsked: number
+  /**
+   * Questions nobody has acted on — neither answered nor deferred.
+   *
+   * Replaces `questionsAsked`, which no surface read and which both adapters
+   * filled with the size of the whole queue. That queue includes clarification
+   * *candidates* the backend derived and nobody was ever put
+   * (`OpenDecision.asked`), so reporting them as asked would have been a new
+   * claim rather than a recovered one (`D-189`).
+   */
+  questionsUnanswered: number
   questionsAnswered: number
   questionsDeferred: number
 }
