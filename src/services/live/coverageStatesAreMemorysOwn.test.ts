@@ -25,8 +25,38 @@ import { createLiveServices } from './liveServices'
  * Written out rather than imported — the two repositories share no code — so a
  * state added there and not here is a change somebody has to make deliberately,
  * and one added here without a mapping fails immediately below.
+ *
+ * **It rotted, and both halves of why are the point (`D-213`).** `EPI-5b` added
+ * `evidenced` and `interpreted` to the enum and this transcription kept the four
+ * words it had; a copy nobody can compile against goes stale silently (`D-125`).
+ * That alone would not have hidden it — the assertion driven off this list was
+ * `toBeTruthy()`, and a state falling through to `missing` is truthy. **It
+ * asserted that something rendered, never that it was right**, which is `D-32`
+ * inside the test written to stop `D-32`.
  */
-const MEMORY_AREA_STATES = ['missing', 'partial', 'sufficient', 'not_applicable'] as const
+const MEMORY_AREA_STATES = [
+  'missing',
+  'partial',
+  'evidenced',
+  'interpreted',
+  'sufficient',
+  'not_applicable',
+] as const
+
+/**
+ * `ADR-0008`'s progression, in Memory's order — `readiness.py:40`.
+ *
+ * `not_applicable` is not on it: it is not a degree of coverage.
+ */
+const MEMORY_LADDER = ['missing', 'partial', 'evidenced', 'interpreted', 'sufficient'] as const
+
+/** Studio's five words as degrees, so *descending* is a thing that can be said. */
+const STUDIO_RANK: Record<string, number> = {
+  missing: 0,
+  thin: 1,
+  forming: 2,
+  strong: 3,
+}
 
 function area(state: string, counts: Partial<{ confirmed: number; proposed: number }> = {}) {
   return {
@@ -112,6 +142,40 @@ describe('every state KAE-Memory has is named here', () => {
     const topic = await coverage('sufficient', { confirmed: 3 })
 
     expect(['missing', 'thin']).not.toContain(topic.state)
+  })
+
+  it('never descends where KAE-Memory climbs', async () => {
+    // The guard the `toBeTruthy` one above could never be (`D-213`). Memory's
+    // ladder is walked in order and Studio's answer may not go backwards along
+    // it — so a rung this build has no arm for is a failure here rather than an
+    // area rendering as a worse gap than the tier below it.
+    const answers = []
+    for (const state of MEMORY_LADDER) {
+      answers.push(STUDIO_RANK[(await coverage(state, { confirmed: 1 })).state])
+    }
+
+    expect(answers).toEqual([...answers].sort((a, b) => a - b))
+  })
+
+  it('does not call a grounded area a gap', async () => {
+    // The defect exactly: `evidenced` is better grounded than `partial`
+    // (`readiness.py:108`) and rendered below it.
+    for (const state of ['evidenced', 'interpreted']) {
+      expect(['missing', 'thin']).not.toContain((await coverage(state)).state)
+    }
+  })
+
+  it('says what grounds a grounded area, rather than counting to zero', async () => {
+    // "0 of 2 confirmed" is the sentence `EPI-5b` exists to replace, and these
+    // are the areas it was built for.
+    const evidenced = await coverage('evidenced')
+    const interpreted = await coverage('interpreted')
+
+    expect(evidenced.detail).toContain('Evidence from a source outside KAE')
+    expect(evidenced.detail).not.toContain("KAE's reading")
+    expect(interpreted.detail).toContain("and KAE's reading of it")
+    // The counts stay beside it — a state alone cannot be acted on.
+    expect(evidenced.detail).toContain('0 of 2 confirmed')
   })
 })
 

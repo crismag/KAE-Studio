@@ -1019,15 +1019,26 @@ function lifecycleStatus(lifecycle: string): Requirement['status'] {
  * lines from a comment recording the lesson. A fix that does not check for
  * siblings is half a fix.
  *
+ * **`evidenced` and `interpreted` are `ADR-0008`'s grounded tiers** and were
+ * this defect a second time (`D-213`): `EPI-5b` put them between `partial` and
+ * `sufficient`, they cross the wire raw, and they fell to the default — so an
+ * area Memory grades *above* `partial` rendered *below* it. Both are `forming`,
+ * which is what they are: not a gap, not finished. They are deliberately **not**
+ * two more members of Studio's union — which of the three area vocabularies
+ * governs is an open ruling (`D-31`), and inventing tones here would settle it
+ * sideways. Which tier it is survives in `coverageDetail`.
+ *
  * Exhaustive over Memory's vocabulary on purpose: an unknown state returns
  * `missing` **only** because there is nothing else honest to say about a word
- * this build does not know, and the guard beside it asserts that every state
- * Memory actually has is named here.
+ * this build does not know, and the guard beside it walks Memory's ladder in
+ * order and asserts Studio's answer never descends along it.
  */
 function coverageState(area: WireArea): CoverageTopic['state'] {
   switch (area.state) {
     case 'sufficient':
       return 'strong'
+    case 'interpreted':
+    case 'evidenced':
     case 'partial':
       return 'forming'
     case 'not_applicable':
@@ -1045,6 +1056,26 @@ function coverageState(area: WireArea): CoverageTopic['state'] {
 function coverageDetail(area: WireArea): string {
   if (area.state === 'sufficient') return `${area.confirmed} confirmed — enough for now`
   if (area.state === 'not_applicable') return 'Not applicable to this project.'
+  return `${groundedIn(area.state)}${counted(area)}`
+}
+
+/**
+ * What `ADR-0008`'s grounded tiers say that a count cannot (`D-213`).
+ *
+ * Memory's own words: `evidenced` requires a source outside KAE, `interpreted`
+ * adds KAE's derived reading on top of one (`readiness.py:44`,
+ * `readiness_service.py:96-102`). Without this the two tiers read `"0 of 2
+ * confirmed"` — the sentence `EPI-5b` exists to replace, on the areas it was
+ * built for. Every other state says nothing here and keeps the counts alone.
+ */
+function groundedIn(state: string): string {
+  if (state === 'evidenced') return 'Evidence from a source outside KAE · '
+  if (state === 'interpreted')
+    return "Evidence from a source outside KAE, and KAE's reading of it · "
+  return ''
+}
+
+function counted(area: WireArea): string {
   if (area.proposed > 0) {
     return `${area.confirmed} of ${area.required} confirmed · ${area.proposed} awaiting review`
   }
