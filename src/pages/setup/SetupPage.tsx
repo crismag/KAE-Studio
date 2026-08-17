@@ -440,6 +440,43 @@ function sourceName(source: ProjectSource): string {
   return source.location.split('/').filter(Boolean).pop() || source.location
 }
 
+/**
+ * How a value that did not come from a person is named, keyed and not defaulted.
+ *
+ * The words are KAE-Memory's own `ValueState` members. Memory supplies no
+ * sentence per state, so writing one here would be a fresh claim rather than a
+ * recovered one (`D-189`).
+ */
+const PROVENANCE: Record<string, string> = {
+  inferred: 'Inferred',
+  provisional: 'Provisional',
+  inherited: 'Inherited',
+  overridden: 'Overridden',
+}
+
+/**
+ * The provenance line, or `null` where a person chose the value themselves.
+ *
+ * **Memory's own predicate over Memory's own type**, not a transcription of its
+ * `DISCLOSED` set: `ConfigurationValues.disclosures()` is *in use and not
+ * confirmed*, and `ConfiguredValue` carries both fields on the wire, so there is
+ * nothing here to go stale when a tenth `ValueState` arrives (`D-214`, `D-221`).
+ * Five states are in use and four of them are not `confirmed`; this page
+ * disclosed one of the four, so a provisional or overridden value took effect
+ * looking exactly like one somebody decided.
+ *
+ * `suggested` is the separate case and stays separate: it is the one state that
+ * is deliberately *not* in use, and saying so is the difference between a
+ * setting and a proposal.
+ */
+function provenance(current: ConfiguredValue | undefined): string | null {
+  if (!current) return null
+  if (current.state === 'suggested') return 'Suggested, not applied'
+  if (!current.in_use || current.state === 'confirmed') return null
+  // An unrecognised state shows its own word rather than a borrowed one (`D-212`).
+  return PROVENANCE[current.state] ?? current.state
+}
+
 function ConfigField({
   field,
   current,
@@ -456,19 +493,17 @@ function ConfigField({
     configure.mutate({ field: field.name, value: draft })
   }
 
+  const provenanceLabel = provenance(current)
+
   return (
     <Field
       label={field.label}
       hint={
-        current?.state === 'inferred' || current?.state === 'suggested' ? (
+        provenanceLabel ? (
           <>
-            {/* Where a value came from, when it did not come from a person.
-                `suggested` is deliberately not in use — a proposal to accept,
-                not a setting — and saying so is the difference between the two. */}
-            <span className="font-medium text-ink-muted">
-              {current.state === 'suggested' ? 'Suggested, not applied' : 'Inferred'}
-            </span>
-            {current.evidence ? ` — ${current.evidence}` : null}
+            {/* Where a value came from, when it did not come from a person. */}
+            <span className="font-medium text-ink-muted">{provenanceLabel}</span>
+            {current?.evidence ? ` — ${current.evidence}` : null}
           </>
         ) : (
           field.hint

@@ -496,3 +496,80 @@ describe('a registered destination stays registered', () => {
     expect((await screen.findAllByText('None')).length).toBeGreaterThan(0)
   })
 })
+
+/**
+ * `D-221`. KAE-Memory's `IN_USE` holds five `ValueState` members and four of
+ * them are not `confirmed`; this page disclosed one. A `provisional`,
+ * `inherited` or `overridden` value takes effect, is not required to carry
+ * evidence, and rendered with the field's static hint — indistinguishable from
+ * a value a person chose, which is the situation
+ * `ConfigurationValues.disclosures()` exists to prevent.
+ */
+describe('a value KAE chose says so, whichever way it chose it', () => {
+  /** Every in-use state that is not `confirmed`, with the word it must show. */
+  const DISCLOSED: [string, RegExp][] = [
+    ['inferred', /inferred/i],
+    ['provisional', /provisional/i],
+    ['inherited', /inherited/i],
+    ['overridden', /overridden/i],
+  ]
+
+  function withKind(state: string, inUse = true, evidence = 'from the repository') {
+    return (services: StudioServices): StudioServices =>
+      withSetup(services, {
+        getSetup: async (projectId) => {
+          const base = await services.setup.getSetup(projectId)
+          return {
+            ...base,
+            configuration: {
+              ...base.configuration,
+              project_kind: {
+                value: 'internal web application',
+                state,
+                in_use: inUse,
+                evidence,
+                confirmed_by: null,
+              },
+            },
+          }
+        },
+      })
+  }
+
+  it.each(DISCLOSED)('discloses a %s value', async (state, word) => {
+    renderSetup(withKind(state))
+
+    expect(await screen.findByText(word)).toBeInTheDocument()
+    // The provenance replaces the static hint, so the hint is the control: if
+    // it is still rendered, nothing was disclosed.
+    expect(screen.queryByText(/helps kae ask better questions/i)).not.toBeInTheDocument()
+  })
+
+  it('carries the evidence beside the word, where there is any', async () => {
+    renderSetup(withKind('provisional'))
+
+    expect(await screen.findByText(/from the repository/)).toBeInTheDocument()
+  })
+
+  it('says nothing extra about a value a person confirmed', async () => {
+    renderSetup(withKind('confirmed'))
+
+    expect(await screen.findByText(/helps kae ask better questions/i)).toBeInTheDocument()
+    DISCLOSED.forEach(([, word]) => expect(screen.queryByText(word)).not.toBeInTheDocument())
+  })
+
+  it('keeps `suggested` separate, because it is the one state not in use', async () => {
+    renderSetup(withKind('suggested', false))
+
+    expect(await screen.findByText(/suggested, not applied/i)).toBeInTheDocument()
+  })
+
+  it('shows an unrecognised in-use state its own word rather than a borrowed one', async () => {
+    // `D-212`. A tenth `ValueState` must not render as `Inferred`, and must not
+    // render as nothing either.
+    renderSetup(withKind('ratified_by_committee'))
+
+    expect(await screen.findByText(/ratified_by_committee/)).toBeInTheDocument()
+    expect(screen.queryByText(/inferred/i)).not.toBeInTheDocument()
+  })
+})
