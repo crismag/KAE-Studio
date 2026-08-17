@@ -17,6 +17,16 @@ function parse(iso: string): Date | null {
   return Number.isFinite(date.getTime()) ? date : null
 }
 
+/**
+ * Whether a timestamp is one this helper can render as a date.
+ *
+ * For callers that would rather say nothing than say *"valid until —"*: a
+ * deadline is only worth a sentence when there is a deadline in it.
+ */
+export function isKnownTimestamp(iso: string): boolean {
+  return parse(iso) !== null
+}
+
 /** Formats an ISO timestamp for display. Fixed locale for deterministic output. */
 export function formatDateTime(iso: string): string {
   const date = parse(iso)

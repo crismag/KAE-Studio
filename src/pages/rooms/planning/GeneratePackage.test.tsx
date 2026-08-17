@@ -308,6 +308,46 @@ describe('a run that neither succeeded nor failed', () => {
   })
 })
 
+describe('an approval says how long it lasts', () => {
+  /**
+   * `D-208`. `expiresAt` reached the page and was read by nothing, so a person
+   * learned the approval had lapsed from an `approval_expired` 409 after
+   * pressing Publish — a condition `Approval.check` (`domain/approval.py:113`)
+   * can state before it refuses.
+   */
+  async function approveADownload(user: ReturnType<typeof userEvent.setup>) {
+    await proposePlan(user, 'minimal-agent-context')
+    await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+    await screen.findByText(/validated and publishable/i)
+    await user.click(await screen.findByRole('button', { name: /see what would change/i }))
+    await user.click(await screen.findByRole('button', { name: /approve these/i }))
+    await screen.findByText(/approved by/i)
+  }
+
+  it('says the deadline before Publish is pressed, not after', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await approveADownload(user)
+
+    expect(screen.getByText(/valid until .* UTC/i)).toBeInTheDocument()
+    // The remedy the publisher itself gives, so the sentence is actionable.
+    expect(screen.getByText(/preview and approve again/i)).toBeInTheDocument()
+  })
+
+  it('says nothing rather than "valid until —" on a timestamp it cannot read', async () => {
+    const user = userEvent.setup()
+    const services = createMockServices()
+    const approve = services.pipeline.approve.bind(services.pipeline)
+    services.pipeline.approve = async (input) => ({ ...(await approve(input)), expiresAt: '' })
+    renderPanel(services)
+
+    await approveADownload(user)
+
+    expect(screen.queryByText(/valid until/i)).not.toBeInTheDocument()
+  })
+})
+
 describe('a publication says which files it wrote', () => {
   /**
    * `D-207`. All three publishers compute `files_written`, it survives every hop

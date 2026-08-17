@@ -37,6 +37,7 @@ import { FitFor } from './FitFor'
 import { readHandle, writeHandle } from './pipelineHandle'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/plural'
+import { formatDateTime, isKnownTimestamp } from '@/lib/format'
 import {
   Badge,
   Button,
@@ -766,6 +767,21 @@ export function GeneratePackage() {
                   <Check className="size-3.5" aria-hidden="true" />
                   Approved by <Mono>{approval.approverRef}</Mono>
                 </p>
+                {/* An approval expires, and until now the deadline surfaced only
+                    as an `approval_expired` 409 after Publish was pressed
+                    (`D-208`). `Approval.check` (`domain/approval.py:113`) refuses
+                    on `moment > expires_at` with the remedy *preview and approve
+                    again*, so the condition is knowable before the refusal.
+
+                    Silent on a timestamp Studio cannot read, rather than
+                    *"valid until —"*: an unreadable deadline is not a deadline,
+                    and a sentence about one would be worse than the 409. */}
+                {isKnownTimestamp(approval.expiresAt) && (
+                  <p className="text-[12px] text-ink-subtle">
+                    Valid until {formatDateTime(approval.expiresAt)} UTC. After that, preview and
+                    approve again.
+                  </p>
+                )}
                 <Button
                   size="sm"
                   variant="primary"
