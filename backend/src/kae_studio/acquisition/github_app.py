@@ -24,7 +24,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .github_source import GitHubSourceClient, SourceReadError
+from .. import runtime_profile
+from .github_source import GitHubSourceClient, SourceReadError, reach_of_api
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import httpx
@@ -53,6 +54,12 @@ class GitHubApp:
     ) -> None:
         if not app_id.strip() or not private_key.strip():
             raise ValueError("a GitHub App needs both an id and a private key")
+        # `installations()` asks github.com which installations exist, and it
+        # runs before any source client is built — so refusing at the client
+        # alone (`D-177`) refused one call too late (`D-179`). Here rather than
+        # in `_github()` because both methods pass through the constructor and a
+        # third would too.
+        runtime_profile.require(reach_of_api(api_base), variable="the GitHub App", value=api_base)
         self._app_id = app_id.strip()
         self._private_key = private_key
         self._api_base = api_base.rstrip("/")
@@ -141,9 +148,7 @@ class GitHubApp:
                 "githubkit is not installed, so GitHub App authentication is unavailable"
             ) from error
 
-        strategy = AppAuthStrategy(self._app_id, self._private_key).as_installation(
-            installation_id
-        )
+        strategy = AppAuthStrategy(self._app_id, self._private_key).as_installation(installation_id)
         return GitHubSourceClient(
             strategy.get_auth_flow(self._github(installation_id)),
             api_base=self._api_base,

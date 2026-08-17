@@ -15,6 +15,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from kae_studio.acquisition.github_app import GitHubApp
 from kae_studio.acquisition.github_source import GitHubSourceClient, reach_of_api
 from kae_studio.runtime_profile import (
     HYBRID,
@@ -122,3 +123,53 @@ class TestTheClientIsRefusedBeforeItExists:
 
         with pytest.raises(ValueError, match="needs a token"):
             GitHubSourceClient("  ")
+
+
+class TestTheAppIsRefusedBeforeItAsksWhereItIsInstalled:
+    """`D-179`. The client was gated and the doorway beside it was not.
+
+    ``_credentialed_client`` calls ``installations()`` — a request to
+    github.com — before it builds any source client, so an `offline` deployment
+    holding an App made the call and was refused on the following line.
+    """
+
+    def test_offline_refuses_the_app_itself(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv(VARIABLE, OFFLINE)
+
+        with pytest.raises(ProfileViolation) as raised:
+            GitHubApp("4590065", "-----BEGIN PRIVATE KEY-----")
+
+        assert "hosted" in str(raised.value)
+
+    def test_nothing_is_asked_of_github_when_the_profile_refuses(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The whole point: the refusal has to precede the request, not follow it."""
+
+        monkeypatch.setenv(VARIABLE, OFFLINE)
+        asked: list[str] = []
+
+        def _record(request: httpx.Request) -> httpx.Response:
+            asked.append(str(request.url))
+            return httpx.Response(200, json=[])
+
+        with pytest.raises(ProfileViolation):
+            GitHubApp(
+                "4590065",
+                "-----BEGIN PRIVATE KEY-----",
+                transport=httpx.MockTransport(_record),
+            ).installations()
+
+        assert asked == []
+
+    def test_local_may_hold_an_app_against_a_forge_on_the_network(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(VARIABLE, LOCAL)
+
+        assert GitHubApp(
+            "4590065", "-----BEGIN PRIVATE KEY-----", api_base="https://git.internal/api/v3"
+        )
+
+    def test_an_undeclared_profile_constrains_nothing(self) -> None:
+        assert GitHubApp("4590065", "-----BEGIN PRIVATE KEY-----")
