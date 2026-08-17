@@ -25,8 +25,11 @@ from __future__ import annotations
 import base64
 import hashlib
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
+
+from .. import runtime_profile
 
 API_VERSION = "2022-11-28"
 
@@ -35,6 +38,22 @@ API_VERSION = "2022-11-28"
 #: as though it were the whole one is the failure this bound would otherwise
 #: introduce.
 MAX_TREE_ENTRIES = 20_000
+
+
+def reach_of_api(api_base: str) -> runtime_profile.Reach:
+    """Where a GitHub API actually is.
+
+    github.com is somebody else's API however it is spelled; anything else is a
+    self-hosted forge, read with the same URL rule the rest of the estate uses.
+    KAE-Artifacts classifies its publisher the same way (`D-175`) — the axis is
+    reach, so a profile that refused the word *GitHub* would be classifying the
+    vendor.
+    """
+
+    host = urlsplit(api_base).hostname or ""
+    if host == "github.com" or host.endswith(".github.com"):
+        return runtime_profile.Reach.HOSTED
+    return runtime_profile.reach_of_url(api_base)
 
 
 class SourceReadError(RuntimeError):
@@ -85,6 +104,14 @@ class GitHubSourceClient:
         credential rather than a schedule Studio keeps (`D-57`).
         """
 
+        # Where this deployment says it may reach, before a client that reads
+        # somebody else's repository exists (`ADR-0006` §4, `D-177`). Here rather
+        # than at the caller because this is the only place that knows the API's
+        # address, and the profile rules on reach: a GitHub Enterprise on the LAN
+        # is permitted by `local` and github.com is not.
+        runtime_profile.require(
+            reach_of_api(api_base), variable="the GitHub source client", value=api_base
+        )
         #: Whether this credential is a GitHub App installation. It changes one
         #: endpoint and nothing else about what may be read.
         self._installation = installation

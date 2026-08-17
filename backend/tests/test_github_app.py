@@ -386,6 +386,36 @@ class TestConfigurationMistakes:
         # a specific fault where there is none.
         assert reason == ""
 
+    def test_a_declared_posture_is_reported_rather_than_raised(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The fifth way to have no client, with a fifth remedy (`D-177`).
+
+        Raising here would take down a deployment that is correctly configured
+        and correctly declared — an `offline` host with a token it may not use is
+        not broken, and its local directories are still readable. The refusal
+        travels as the sentence `D-58` established for the other four.
+        """
+
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+        from kae_studio.api import _source_client
+
+        monkeypatch.setenv("KAE_RUNTIME_PROFILE", "offline")
+        settings = Settings.from_environment(
+            {
+                "KAE_MEMORY_TOKEN": "t",
+                "STUDIO_SESSION_SECRET": "x" * 40,
+                "STUDIO_NO_AUTH": "1",
+                "STUDIO_GITHUB_SOURCE_TOKEN": "ghp_token",
+            }
+        )
+
+        client, reason = _source_client(settings)
+
+        assert client is None
+        assert "KAE_RUNTIME_PROFILE=offline" in reason
+        assert "hosted" in reason
+
 
 class TestWhyThePickerIsEmpty:
     """Four ways to have no client, four remedies (`D-58`).

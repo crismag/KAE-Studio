@@ -29,6 +29,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from . import runtime_profile
 from .acquisition import ANALYSIS_UNAVAILABLE, GitHubSourceClient, SourceKind, SourceReadError
 from .acquisition.clone import CloneError, clone
 from .acquisition.github_app import AppUnavailable, GitHubApp
@@ -301,7 +302,23 @@ def _source_client(settings: Settings) -> tuple[GitHubSourceClient | None, str]:
     client and they have four different remedies (`D-58`); returning `None`
     alone made a configured App report as *no credential configured* and sent
     somebody to add a token that would not have helped.
+
+    A declared runtime profile is the fifth way, with a fifth remedy that is
+    neither *add a credential* nor *install the App* (`D-177`). It is reported
+    like the others rather than raised: the picker keeps listing the local
+    directories this deployment can plainly read, and `ADR-0006` §4 is satisfied
+    because the refusal comes from the declared posture and not from a credential
+    happening to be absent.
     """
+
+    try:
+        return _credentialed_client(settings)
+    except runtime_profile.ProfileViolation as violation:
+        return None, str(violation)
+
+
+def _credentialed_client(settings: Settings) -> tuple[GitHubSourceClient | None, str]:
+    """`_source_client` without the profile refusal. Its docstring covers both."""
 
     if settings.github_app:
         app = GitHubApp(settings.github_app_id, settings.github_app_private_key)
