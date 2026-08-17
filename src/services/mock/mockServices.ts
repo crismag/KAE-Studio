@@ -1433,14 +1433,18 @@ class MockAcquisition implements AcquisitionPort {
         revision: source.snapshot.revision,
         ingested: paths.map((path) => ({
           path,
+          // The pin, because every fixture source here is a `github` one and
+          // that provider is served the revision it asked for (`D-182`).
+          revision: source.snapshot!.revision,
           ingested: { chunks_recorded: 3, truncated_chunks: 0, warnings: [] },
         })),
         // Word for word the backend's, because a mock that promises more than
         // the real path is how a prototype teaches somebody the wrong product.
         proves:
-          'these files were read at this revision and recorded as evidence. ' +
-          'Extraction proposes candidates from them; nothing is confirmed, and ' +
-          'no structure has been derived.',
+          'each file was recorded as evidence under the coordinate it was read at — ' +
+          'the pinned commit where the provider reads history, the hash of the bytes ' +
+          'where it reads a working tree. Extraction proposes candidates from them; ' +
+          'nothing is confirmed, and no structure has been derived.',
       },
       600,
     )

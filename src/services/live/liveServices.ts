@@ -2007,7 +2007,7 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     ingestFiles: async (sourceId, projectId, paths) => {
       const raw = await call<{
         revision: string
-        ingested: { path: string; ingested: Record<string, unknown> }[]
+        ingested: { path: string; revision: string; ingested: Record<string, unknown> }[]
         proves: string
       }>(`/api/sources/${sourceId}/ingest`, {
         method: 'POST',

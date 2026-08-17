@@ -90,6 +90,7 @@ import {
 } from '@/hooks/useProject'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import type { ProjectSource, SourceDisposition, SourceState } from '@/domain/types'
+import type { IngestOutcome } from '@/services/interfaces'
 
 export function SourcesRoom() {
   // Whether this room has anything to show a detail panel for. The run log is
@@ -720,7 +721,8 @@ function FileBrowser({ source }: { source: ProjectSource }) {
                       : `Read ${chosen.length || ''} ${chosen.length === 1 ? 'file' : 'files'}`.trim()}
                   </Button>
                   <span className="text-[11.5px] text-ink-subtle">
-                    Chosen files become proposed statements with provenance to this revision.
+                    Chosen files become proposed statements, each carrying provenance to what was
+                    read.
                   </span>
                 </div>
 
@@ -730,20 +732,7 @@ function FileBrowser({ source }: { source: ProjectSource }) {
                   </p>
                 )}
 
-                {ingest.data && (
-                  <p className="text-[12.5px] text-ink-muted">
-                    {ingest.data.ingested.length} file
-                    {ingest.data.ingested.length === 1 ? '' : 's'} read at{' '}
-                    <Mono>{ingest.data.revision.slice(0, 12)}</Mono>. Watch progress on{' '}
-                    <Link
-                      to="/ingestion"
-                      className="text-accent-ink underline-offset-2 hover:underline"
-                    >
-                      Ingestion
-                    </Link>
-                    .
-                  </p>
-                )}
+                {ingest.data && <WhatWasRead outcome={ingest.data} />}
               </>
             )
           }}
@@ -754,6 +743,39 @@ function FileBrowser({ source }: { source: ProjectSource }) {
         )}
       </PanelBody>
     </Panel>
+  )
+}
+
+/**
+ * What the read actually recorded, which is not always the pin (`D-182`).
+ *
+ * A GitHub source is served the revision it asked for, so the pin is what was
+ * read and the sentence is unchanged. A local directory is read from the working
+ * tree — the pin is a commit nobody opened — and saying *read at the pin* there
+ * would attribute somebody's uncommitted edit to a commit that does not contain
+ * it. The distinction is drawn from the coordinates the response already
+ * carries, not from the source's kind, because the client is what knows.
+ */
+function WhatWasRead({ outcome }: { outcome: IngestOutcome }) {
+  const count = outcome.ingested.length
+  const pinned = outcome.ingested.every((file) => file.revision === outcome.revision)
+
+  return (
+    <p className="text-[12.5px] text-ink-muted">
+      {count} file{count === 1 ? '' : 's'}{' '}
+      {pinned ? (
+        <>
+          read at <Mono>{outcome.revision.slice(0, 12)}</Mono>
+        </>
+      ) : (
+        <>read from the working tree as it stands, not at the pinned revision</>
+      )}
+      . Watch progress on{' '}
+      <Link to="/ingestion" className="text-accent-ink underline-offset-2 hover:underline">
+        Ingestion
+      </Link>
+      .
+    </p>
   )
 }
 

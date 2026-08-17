@@ -2147,7 +2147,7 @@ def create_app(settings: Settings) -> FastAPI:
         request: Request,
         _: Operator = Depends(require_operator),
     ) -> Any:
-        """Read chosen files at the pinned revision and hand them to Memory.
+        """Read chosen files and hand them to Memory, each named for what was read.
 
         **This is ingestion, and calling it analysis would be the lie this
         module exists to avoid.** Nothing here derives structure: the files
@@ -2174,13 +2174,16 @@ def create_app(settings: Settings) -> FastAPI:
         revision = source.snapshot.revision if source.snapshot else ""
 
         results = []
-        for path, text in read:
-            # One document per file, named for where it came from and pinned to
-            # the revision. That name is the provenance a reader sees later, so
-            # it carries both or it carries neither.
+        for path, text, coordinate in read:
+            # One document per file, named for where it came from and for the
+            # coordinate the bytes were actually read at — the pin where the
+            # provider reads history, the hash of the bytes where it reads a
+            # working tree (`D-182`). That name is the provenance a reader sees
+            # later, so naming it after a revision nobody opened is a claim the
+            # evidence cannot support.
             outcome = await memory(request).ingest_document(
                 body.get("project_id", ""),
-                document=f"{source.location}@{revision[:7]}:{path}",
+                document=f"{source.location}@{coordinate[:7]}:{path}",
                 text=text,
                 # What was read, and which registered source it was read out of
                 # (`D-164`). Neither was sent for the whole life of this route,
@@ -2192,16 +2195,17 @@ def create_app(settings: Settings) -> FastAPI:
                 source_type=_MEMORY_SOURCE_TYPES[source.kind],
                 source_id=source_id,
             )
-            results.append({"path": path, "ingested": outcome})
+            results.append({"path": path, "revision": coordinate, "ingested": outcome})
 
         return {
             "source_id": source_id,
             "revision": revision,
             "ingested": results,
             "proves": (
-                "these files were read at this revision and recorded as evidence. "
-                "Extraction proposes candidates from them; nothing is confirmed, "
-                "and no structure has been derived."
+                "each file was recorded as evidence under the coordinate it was read at — "
+                "the pinned commit where the provider reads history, the hash of the bytes "
+                "where it reads a working tree. Extraction proposes candidates from them; "
+                "nothing is confirmed, and no structure has been derived."
             ),
         }
 

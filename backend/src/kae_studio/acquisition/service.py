@@ -398,13 +398,17 @@ class AcquisitionService:
         in_scope.sort(key=lambda entry: entry["size"], reverse=True)
         return in_scope[:limit], truncated or len(in_scope) > limit
 
-    def read_for_ingest(self, source_id: str, paths: Sequence[str]) -> list[tuple[str, str]]:
-        """Read several in-scope files at a pinned revision.
+    def read_for_ingest(self, source_id: str, paths: Sequence[str]) -> list[tuple[str, str, str]]:
+        """Read several in-scope files, each with the coordinate it was read at.
 
-        **Ingestion, not analysis.** This returns text and the path it came
-        from. It derives no structure, and `ANALYSIS_UNAVAILABLE` stays accurate
-        until something does — relabelling this as analysis is the specific
-        dishonesty the module docstring was written against.
+        **Ingestion, not analysis.** This returns text, the path it came from
+        and the coordinate that text may be recorded under. It derives no
+        structure, and `ANALYSIS_UNAVAILABLE` stays accurate until something
+        does — relabelling this as analysis is the specific dishonesty the
+        module docstring was written against.
+
+        The coordinate is the client's answer rather than the pin, because only
+        the client knows whether it read history or a working tree (`D-182`).
 
         Scope is enforced per file rather than trusted from the caller, because
         the caller is a route and a route takes its list from a browser. A path
@@ -419,13 +423,14 @@ class AcquisitionService:
             raise SourceReadError(409, "this source has not been pinned to a revision")
 
         revision = source.snapshot.revision
-        read: list[tuple[str, str]] = []
+        read: list[tuple[str, str, str]] = []
         for path in paths:
             if source.scope.excludes(path):
                 raise SourceReadError(
                     403, f"{path} is outside the configured scope for this source"
                 )
-            read.append((path, client.read_file(source.location, path, revision)))
+            text, coordinate = client.read_at(source.location, path, revision)
+            read.append((path, text, coordinate))
         return read
 
 

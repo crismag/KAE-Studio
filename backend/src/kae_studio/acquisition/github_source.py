@@ -294,6 +294,17 @@ class GitHubSourceClient:
             raise SourceReadError(422, f"{path} is too large to read through the contents API")
         return base64.b64decode(body.get("content", "")).decode("utf-8", errors="replace")
 
+    def read_at(self, repo: str, path: str, revision: str) -> tuple[str, str]:
+        """The text, and the coordinate the text may honestly be recorded under.
+
+        The pin, because the pin is what was read: `ref` goes to the contents
+        API and GitHub serves that revision's blob. The sibling provider cannot
+        say this and returns something else, which is why the coordinate is the
+        client's answer rather than the route's assumption (`D-182`).
+        """
+
+        return self.read_file(repo, path, revision), revision
+
 
 def snapshot_digest(entries: list[dict[str, Any]]) -> str:
     """A digest over the paths and blob ids in scope.

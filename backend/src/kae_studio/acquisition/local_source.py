@@ -251,6 +251,20 @@ class LocalSourceClient:
         except OSError as error:
             raise SourceReadError(403, f"{path} could not be read: {error.strerror}") from None
 
+    def read_at(self, repo: str, path: str, revision: str) -> tuple[str, str]:
+        """The text, and the coordinate the text may honestly be recorded under.
+
+        **Not the pinned commit.** `read_file` reads the working tree, so the
+        pin describes a revision this client never opened, and an ingest that
+        named the bytes after it would record an uncommitted edit as the content
+        of a commit that does not contain it (`D-182`). The coordinate is the
+        SHA-256 of the bytes read, hashed the way `_walk` hashes a tree entry so
+        the two can be compared.
+        """
+
+        text = self.read_file(repo, path, revision)
+        return text, _sha256(self._within(self._repo(repo) / path))
+
 
 def _walk(root: Path) -> list[dict]:
     """Every readable file with its **content** hash.

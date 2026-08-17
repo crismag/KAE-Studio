@@ -113,7 +113,13 @@ function withPinnedSource(services: StudioServices, over: Partial<AcquisitionPor
     }),
     ingestFiles: async (_sourceId, _projectId, paths) => ({
       revision: PINNED.snapshot!.revision,
-      ingested: paths.map((path) => ({ path, ingested: {} })),
+      // Each coordinate equals the pin, which is the provider that reads
+      // history. The working-tree case is its own fixture below (`D-182`).
+      ingested: paths.map((path) => ({
+        path,
+        revision: PINNED.snapshot!.revision,
+        ingested: {},
+      })),
       proves: 'these files were read at the pinned revision.',
     }),
     ...over,
@@ -190,6 +196,59 @@ describe('a repository’s files are visible at all', () => {
     await user.click(screen.getByRole('button', { name: /read 1 file/i }))
 
     expect(sent).toEqual([['README.md']])
+  })
+})
+
+describe('what the page says was read', () => {
+  /**
+   * The outcome sentence itself, not the page. The pin is rendered elsewhere on
+   * this screen — legitimately, since it is a true fact about the source — so
+   * asking whether the *document* mentions it would pass either way.
+   */
+  async function outcomeSentence(): Promise<string> {
+    const link = await screen.findByRole('link', { name: /^Ingestion$/ })
+    return link.closest('p')?.textContent ?? ''
+  }
+
+  it('names the revision when that is where the bytes came from', async () => {
+    const user = userEvent.setup()
+    renderSources((services) => withPinnedSource(services))
+
+    await user.click(await screen.findByLabelText('README.md'))
+    await user.click(screen.getByRole('button', { name: /read 1 file/i }))
+
+    expect(await outcomeSentence()).toMatch(
+      new RegExp(`read at ${PINNED.snapshot!.revision.slice(0, 12)}`),
+    )
+  })
+
+  it('does not name the pin when the bytes came from a working tree', async () => {
+    // `D-182`: a local source reads the checkout as it stands, so the pin is a
+    // commit nobody opened. Saying *read at `<pin>`* here attributes somebody's
+    // uncommitted edit to a revision that does not contain it.
+    const user = userEvent.setup()
+    renderSources((services) =>
+      withPinnedSource(services, {
+        ingestFiles: async (_sourceId, _projectId, paths) => {
+          return {
+            revision: PINNED.snapshot!.revision,
+            ingested: paths.map((path) => ({
+              path,
+              revision: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4',
+              ingested: {},
+            })),
+            proves: '',
+          }
+        },
+      }),
+    )
+
+    await user.click(await screen.findByLabelText('README.md'))
+    await user.click(screen.getByRole('button', { name: /read 1 file/i }))
+
+    const sentence = await outcomeSentence()
+    expect(sentence).toMatch(/read from the working tree as it stands/i)
+    expect(sentence).not.toContain(PINNED.snapshot!.revision.slice(0, 12))
   })
 })
 

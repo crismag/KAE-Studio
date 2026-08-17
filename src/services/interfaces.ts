@@ -506,9 +506,16 @@ export interface SourceFileListing {
 }
 
 export interface IngestOutcome {
+  /** The source's pin. A true fact about the source, not about what was read. */
   revision: string
   ingested: {
     path: string
+    /**
+     * The coordinate this file's bytes were recorded under (`D-182`) — the pin
+     * where the provider reads history, a content hash where it reads a working
+     * tree. Equal to `revision` only in the first case.
+     */
+    revision: string
     /** Memory's 202 body: chunk counts, truncation and warnings. */
     ingested: Record<string, unknown>
   }[]
