@@ -59,7 +59,7 @@ import { ChevronRight, FileCode, Lock, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { PageLayout } from '@/components/project/PageLayout'
-import { Field, Input } from '@/components/ui/form'
+import { Field, Input, Select } from '@/components/ui/form'
 import {
   Badge,
   Button,
@@ -77,6 +77,7 @@ import { plural } from '@/lib/plural'
 import { CloneRepository } from './CloneRepository'
 import { PickRepository } from './PickRepository'
 import {
+  useClassifySource,
   useIngestFiles,
   useSampleFile,
   useSourceFiles,
@@ -87,7 +88,7 @@ import {
   useSourcesUnavailable,
 } from '@/hooks/useProject'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
-import type { ProjectSource, SourceState } from '@/domain/types'
+import type { ProjectSource, SourceDisposition, SourceState } from '@/domain/types'
 
 export function SourcesRoom() {
   // Whether this room has anything to show a detail panel for. The run log is
@@ -443,8 +444,106 @@ function SourceDetail({ source }: { source: ProjectSource }) {
         </PanelBody>
       </Panel>
 
+      <Disposition source={source} />
+
       {pinned && <FileBrowser source={source} />}
     </div>
+  )
+}
+
+/**
+ * The five words `ADR-0004` uses for where a source's material is to live.
+ *
+ * Written as *what happens to the material*, not as the enum value: `rag` and
+ * `artifact` are internal words for two different answers to one question a
+ * person can actually answer — where should this live, given you already keep
+ * it somewhere.
+ */
+const DISPOSITION: { value: SourceDisposition; label: string; means: string }[] = [
+  { value: 'memory', label: 'Keep the text in KAE', means: 'For material with no other home.' },
+  { value: 'rag', label: 'Keep files, indexed', means: 'Location, revision and digest recorded.' },
+  {
+    value: 'artifact',
+    label: 'Leave it in your repository',
+    means: 'Path and revision here, never the bytes.',
+  },
+  {
+    value: 'reference',
+    label: 'Leave it where it is',
+    means: 'A pinned coordinate, nothing copied.',
+  },
+  { value: 'ephemeral', label: 'Keep nothing', means: 'A record that it was read and discarded.' },
+]
+
+/**
+ * Where this source's material is to live — recorded, and acted on by nothing.
+ *
+ * `ADR-0004` says the decision has to exist before a repository is ingested at
+ * volume, because reclassifying real data afterwards is the expensive order.
+ * KAE-Memory has held the column since `D-21` and closed it to five words in
+ * `D-162`; until now nothing in the product could write one, so the only way to
+ * make the decision was to call the API by hand.
+ *
+ * **The note is not decoration.** No ingest path reads the column: choosing
+ * *Keep nothing* discards nothing today. A picker that implied otherwise would
+ * be a setting which appears to govern what KAE keeps and governs none of it,
+ * which is exactly the illusion this estate audits itself for.
+ */
+function Disposition({ source }: { source: ProjectSource }) {
+  const classify = useClassifySource()
+  // `undefined` when nobody has decided, which is what `null` on the wire
+  // means. Not folded into `memory`: an undecided source reading as one
+  // somebody chose to keep is the more expensive of the two mistakes, and it
+  // is why KAE-Memory supplies no default either.
+  const chosen = DISPOSITION.find((option) => option.value === source.disposition)
+
+  return (
+    <Panel>
+      {/* No badge repeating the choice. The picker below already shows which
+          of the six options is selected — including *Not decided*, which is a
+          real answer and not an empty one — and a badge beside it would be the
+          same word twice, which is `D-166`'s say-it-once rule. */}
+      <PanelHeader>
+        <PanelTitle>Where this material lives</PanelTitle>
+      </PanelHeader>
+      <PanelBody className="space-y-3">
+        <Field
+          label="What KAE should keep of this source"
+          hint={chosen ? chosen.means : 'Nobody has decided this yet.'}
+        >
+          {(props) => (
+            <Select
+              {...props}
+              value={source.disposition ?? ''}
+              disabled={classify.isPending}
+              onChange={(event) =>
+                classify.mutate({
+                  sourceId: source.sourceId,
+                  disposition: event.target.value as SourceDisposition,
+                })
+              }
+            >
+              <option value="" disabled>
+                Not decided
+              </option>
+              {DISPOSITION.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+
+        {classify.error instanceof Error && (
+          <p role="alert" className="text-[12px] text-blocking">
+            {classify.error.message}
+          </p>
+        )}
+
+        <CapabilityNote reason="This decision is recorded and nothing acts on it yet. Choosing “Keep nothing” does not delete anything, and choosing to leave material where it is does not stop KAE reading it — every source is still read the same way. It is recorded now because changing it once a repository has been read in full is far more expensive than deciding first." />
+      </PanelBody>
+    </Panel>
   )
 }
 

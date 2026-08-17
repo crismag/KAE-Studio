@@ -149,6 +149,26 @@ class RecordingMemory:
                 return row
         raise AssertionError(f"recorded state for an unknown source {source_id}")
 
+    async def classify_source(
+        self, project_id: str, source_id: str, disposition: str
+    ) -> dict[str, Any]:
+        """Memory owns the vocabulary (`ADR-0004`, `D-168`), so the double does too.
+
+        A double that accepted any word would let a Studio-side typo pass a test
+        the deployment refuses.
+        """
+
+        from kae_studio.memory_client import MemoryRefused
+
+        known = ("memory", "rag", "artifact", "reference", "ephemeral")
+        if disposition.strip().lower() not in known:
+            raise MemoryRefused(422, f"disposition must be one of {', '.join(known)}")
+        for row in self.rows.get(project_id, []):
+            if row["source_id"] == source_id:
+                row["disposition"] = disposition.strip().lower()
+                return row
+        raise AssertionError(f"classified an unknown source {source_id}")
+
     async def aclose(self) -> None:
         """Closing is not a failure, and a stub that raises breaks teardown."""
 
@@ -820,3 +840,85 @@ class TestTheRepairInfersTheKind:
             client.__exit__(None, None, None)
 
         assert memory.rows["p1"][0]["kind"] == "github"
+
+
+class TestTheDispositionIsDecidedInStudioAndKeptInMemory:
+    """`ING-REF`/`D-168`: where a source's material lives becomes decidable.
+
+    Recorded, and acted on by nothing — which is why every assertion here is
+    about the record and none is about content moving.
+    """
+
+    def _configured_source(self, client: TestClient) -> str:
+        registered = client.post(
+            "/api/projects/p1/sources",
+            json={**CONFIGURED, "connection_id": connect(client)},
+        ).json()
+        return str(registered["source_id"])
+
+    def test_an_undecided_source_reports_nothing_rather_than_a_default(self) -> None:
+        """`null` and `memory` are different claims, and a reader must see which."""
+
+        client = app_with(RecordingMemory())
+        try:
+            self._configured_source(client)
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed["sources"][0]["disposition"] is None
+
+    def test_the_chosen_word_reaches_memory_and_comes_back(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            response = client.post(
+                f"/api/sources/{source_id}/disposition", json={"disposition": "ephemeral"}
+            )
+        finally:
+            client.__exit__(None, None, None)
+
+        assert response.status_code == 200
+        assert response.json()["disposition"] == "ephemeral"
+        assert memory.rows["p1"][0]["disposition"] == "ephemeral"
+
+    def test_the_decision_outlives_the_process(self) -> None:
+        """`AUD-005`. The second app never saw the choice being made."""
+
+        memory = RecordingMemory()
+        first = app_with(memory)
+        source_id = self._configured_source(first)
+        first.post(f"/api/sources/{source_id}/disposition", json={"disposition": "reference"})
+        first.__exit__(None, None, None)
+
+        second = app_with(memory)
+        try:
+            listed = second.get("/api/projects/p1/sources").json()
+        finally:
+            second.__exit__(None, None, None)
+
+        assert listed["sources"][0]["disposition"] == "reference"
+
+    def test_a_word_memory_refuses_never_lands_in_the_working_set(self) -> None:
+        """Studio holds no second copy of the vocabulary (`D-125`).
+
+        It must also not keep a value the record does not have: a working set
+        that accepted `archive` would show a disposition no restart could
+        reproduce.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            refused = client.post(
+                f"/api/sources/{source_id}/disposition", json={"disposition": "archive"}
+            )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert refused.status_code == 422
+        assert "ephemeral" in refused.json()["detail"]
+        assert listed["sources"][0]["disposition"] is None

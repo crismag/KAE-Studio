@@ -222,6 +222,12 @@ class Source:
     state: SourceState = SourceState.CONFIGURED
     snapshot: SourceSnapshot | None = None
     last_error: str = ""
+    #: Where this source's material is to live (`ADR-0004`), or `""` when
+    #: nobody has decided. Not defaulted to `memory`: KAE-Memory keeps the
+    #: column nullable because an undecided source passing for one somebody
+    #: chose to keep is the more expensive of the two mistakes. The five words
+    #: are Memory's and are validated there; this carries whichever it returned.
+    disposition: str = ""
 
     def describe(self) -> dict[str, object]:
         """What a browser sees, including what is *not* true yet.
@@ -258,6 +264,9 @@ class Source:
                 else None
             ),
             "last_error": self.last_error,
+            # `null`, never a default word. A reader has to be able to tell
+            # "nobody has decided" from "somebody chose to keep this".
+            "disposition": self.disposition or None,
             "analysis": ANALYSIS_UNAVAILABLE,
         }
 

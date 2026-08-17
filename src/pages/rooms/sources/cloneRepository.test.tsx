@@ -46,6 +46,10 @@ function show(over: Partial<AcquisitionPort> = {}) {
       addSource: (projectId: string, input: Parameters<AcquisitionPort['addSource']>[1]) =>
         port.addSource(projectId, input),
       pinSource: (sourceId: string) => port.pinSource(sourceId),
+      classifySource: (
+        sourceId: string,
+        disposition: Parameters<AcquisitionPort['classifySource']>[1],
+      ) => port.classifySource(sourceId, disposition),
       listFiles: (sourceId: string, limit?: number) => port.listFiles(sourceId, limit),
       sample: (sourceId: string, path: string) => port.sample(sourceId, path),
       ingestFiles: (sourceId: string, projectId: string, paths: string[]) =>

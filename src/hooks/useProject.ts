@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServices } from '@/hooks/useServices'
 import type { ArtifactPlanEdit, ModuleDecision, PublishInput } from '@/services/interfaces'
-import type { ArtifactPublication, ArtifactDestination, ProjectSource } from '@/domain/types'
+import type {
+  ArtifactPublication,
+  ArtifactDestination,
+  ProjectSource,
+  SourceDisposition,
+} from '@/domain/types'
 
 /**
  * The mock fixture's project id.
@@ -525,6 +530,22 @@ export function usePinSource() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (sourceId: string) => acquisition.pinSource(sourceId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+  })
+}
+
+/**
+ * Record where a source's material is to live (`ADR-0004`, `D-168`).
+ *
+ * A decision and not a behaviour: nothing reads the column, so nothing but the
+ * source list can change here — no projection, no coverage, no run.
+ */
+export function useClassifySource() {
+  const { acquisition, projectId } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { sourceId: string; disposition: SourceDisposition }) =>
+      acquisition.classifySource(input.sourceId, input.disposition),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
   })
 }

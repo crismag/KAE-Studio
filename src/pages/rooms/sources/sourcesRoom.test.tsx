@@ -53,6 +53,7 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
       listSources: (projectId) => port.listSources(projectId),
       addSource: (projectId, input) => port.addSource(projectId, input),
       pinSource: (sourceId) => port.pinSource(sourceId),
+      classifySource: (sourceId, disposition) => port.classifySource(sourceId, disposition),
       listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
       sample: (sourceId, path) => port.sample(sourceId, path),
       ingestFiles: (sourceId, projectId, paths) => port.ingestFiles(sourceId, projectId, paths),
@@ -78,6 +79,7 @@ const PINNED: ProjectSource = {
     contentDigest: 'sha256:deadbeef',
   },
   lastError: '',
+  disposition: null,
   analysis: {
     capability: 'repository-analysis',
     reason: 'not built',
@@ -270,6 +272,61 @@ describe('the page never calls connecting analysis', () => {
     expect(
       screen.getAllByText(/the repository was not found at this revision/i).length,
     ).toBeGreaterThan(0)
+  })
+})
+
+describe('deciding where a source’s material lives', () => {
+  /**
+   * `ADR-0004`'s five dispositions, decidable from the product for the first
+   * time (`D-168`). KAE-Memory has held the column since `D-21` and closed the
+   * vocabulary in `D-162`; until this control existed the only way to record
+   * the decision was to call the API by hand.
+   */
+
+  it('says nobody has decided rather than showing a default', async () => {
+    // `null` is not "keep it in KAE". Memory keeps the column nullable for
+    // exactly this reason, and a picker opening on `memory` would answer the
+    // question on the person's behalf and then show them their own answer.
+    renderSources((services) => withPinnedSource(services))
+
+    expect(await screen.findByText(/Nobody has decided this yet/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/What KAE should keep of this source/i)).toHaveValue('')
+  })
+
+  it('says the decision is recorded and acted on by nothing', async () => {
+    // The whole reason this control can ship before the retention boundary
+    // does. Nothing reads the column: choosing "Keep nothing" deletes nothing,
+    // and a picker that implied otherwise would be a setting which appears to
+    // govern what KAE keeps and governs none of it.
+    renderSources((services) => withPinnedSource(services))
+
+    expect(await screen.findByText(/recorded and nothing acts on it yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/does not delete anything/i)).toBeInTheDocument()
+  })
+
+  it('sends the chosen word and shows what came back', async () => {
+    const asked: { sourceId: string; disposition: string }[] = []
+    renderSources((services) =>
+      withPinnedSource(services, {
+        classifySource: async (sourceId, disposition) => {
+          asked.push({ sourceId, disposition })
+          return { ...PINNED, disposition }
+        },
+        listSources: async () => ({
+          sources: [{ ...PINNED, disposition: asked.length ? 'ephemeral' : null }],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    const picker = await screen.findByLabelText(/What KAE should keep of this source/i)
+    await userEvent.selectOptions(picker, 'ephemeral')
+
+    expect(asked).toEqual([{ sourceId: 'src-1', disposition: 'ephemeral' }])
+    // Read back from the record rather than from the click, so a word the
+    // backend refused cannot sit on the page as though it had been accepted.
+    expect(await screen.findByText(/A record that it was read and discarded/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/What KAE should keep of this source/i)).toHaveValue('ephemeral')
   })
 })
 

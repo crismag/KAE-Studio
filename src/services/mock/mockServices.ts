@@ -36,6 +36,7 @@ import type {
   PublicationTarget,
   PublisherAvailability,
   SetupState,
+  SourceDisposition,
   SourceListing,
   SynthesizedObject,
   SynthesizedObjectDetail,
@@ -1178,6 +1179,9 @@ class MockAcquisition implements AcquisitionPort {
       state: 'configured',
       snapshot: null,
       lastError: '',
+      // Undecided, like every source on every deployment: nothing has ever
+      // written this column from the product, which is what `D-168` builds.
+      disposition: null,
       analysis: {
         capability: 'source.analysis',
         reason:
@@ -1320,6 +1324,7 @@ class MockAcquisition implements AcquisitionPort {
       state: 'configured',
       snapshot: null,
       lastError: '',
+      disposition: null,
       analysis: ANALYSIS_GAP,
     }
     this.sources.push(source)
@@ -1346,6 +1351,17 @@ class MockAcquisition implements AcquisitionPort {
     }
     this.sources[index] = pinned
     return delay({ ...pinned }, 700)
+  }
+
+  classifySource(sourceId: string, disposition: SourceDisposition): Promise<ProjectSource> {
+    const index = this.sources.findIndex((s) => s.sourceId === sourceId)
+    if (index === -1) throw new Error(`Unknown source: ${sourceId}`)
+    // Recorded, and nothing else happens — which is what the live product does
+    // too. A mock that dropped the fixture's content on `ephemeral` would teach
+    // a rule the deployment does not have (`D-142`, `D-166`).
+    const classified: ProjectSource = { ...this.sources[index], disposition }
+    this.sources[index] = classified
+    return delay({ ...classified }, 400)
   }
 
   listFiles(sourceId: string, limit = 50): Promise<SourceFileListing> {

@@ -41,6 +41,7 @@ import type {
   PublicationTarget,
   PublisherAvailability,
   SetupState,
+  SourceDisposition,
   SourceListing,
   SynthesizedObject,
   SynthesizedObjectDetail,
@@ -401,6 +402,17 @@ export interface AcquisitionPort {
   ): Promise<ProjectSource>
   /** Resolve to an immutable commit. The furthest a source can currently go. */
   pinSource(sourceId: string): Promise<ProjectSource>
+  /**
+   * Record where this source's material is to live (`ADR-0004`, `D-168`).
+   *
+   * **A decision, not a behaviour.** Nothing in the estate reads the column
+   * yet — `ephemeral` discards nothing — and the surface that offers these
+   * words has to say so, because a setting that appears to govern what KAE
+   * keeps and governs nothing is the illusion this codebase audits itself for.
+   *
+   * KAE-Memory validates the word and refuses a sixth with the five named.
+   */
+  classifySource(sourceId: string, disposition: SourceDisposition): Promise<ProjectSource>
 
   /**
    * The in-scope files of a pinned source, largest first. **Reads nothing into

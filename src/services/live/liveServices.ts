@@ -43,6 +43,7 @@ import type {
   ProjectSource,
   ProviderConnection,
   Requirement,
+  SourceDisposition,
   StakeholderEntry,
   SynthesizedObject,
   ValidationResult,
@@ -522,6 +523,10 @@ interface WireSource {
     content_digest: string
   } | null
   last_error: string
+  //: `null` when nobody has classified the source. Optional because a backend
+  //: older than this field is silent about it, and silence there is the same
+  //: fact as `null` — nobody has decided.
+  disposition?: SourceDisposition | null
   analysis: { capability: string; reason: string; state: 'planned'; proved_instead: string[] }
 }
 
@@ -559,6 +564,7 @@ function projectSource(wire: WireSource): ProjectSource {
         }
       : null,
     lastError: wire.last_error,
+    disposition: wire.disposition ?? null,
     analysis: {
       capability: wire.analysis.capability,
       reason: wire.analysis.reason,
@@ -2024,6 +2030,14 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     pinSource: async (sourceId) =>
       projectSource(
         await callArtifacts<WireSource>(`/api/sources/${sourceId}/pin`, { method: 'POST' }),
+      ),
+
+    classifySource: async (sourceId, disposition) =>
+      projectSource(
+        await callArtifacts<WireSource>(`/api/sources/${sourceId}/disposition`, {
+          method: 'POST',
+          body: JSON.stringify({ disposition }),
+        }),
       ),
   }
 

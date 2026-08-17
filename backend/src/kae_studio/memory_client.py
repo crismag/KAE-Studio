@@ -116,6 +116,21 @@ class MemoryClient:
             json={"state": state, "detail": detail},
         )
 
+    async def classify_source(self, project_id: str, source_id: str, disposition: str) -> Any:
+        """Record where this source's material is to live (`ADR-0004`, `D-168`).
+
+        The word is passed through unread. Memory holds the five and refuses
+        anything else with the list in the message, so a closed set here would
+        be a second authority over one vocabulary — free to disagree the day a
+        sixth is ruled.
+        """
+
+        return await self._request(
+            "POST",
+            f"/v1/projects/{project_id}/sources/{source_id}/disposition",
+            json={"disposition": disposition},
+        )
+
     async def pin_source(self, project_id: str, source_id: str, body: dict[str, Any]) -> Any:
         """Fix a source to the revision Studio resolved against the provider."""
 

@@ -220,6 +220,17 @@ class SourceIn(BaseModel):
     documentation_only: bool = False
 
 
+class DispositionIn(BaseModel):
+    """Where a source's material is to live (`ADR-0004`).
+
+    A string, and deliberately not an enum. KAE-Memory owns the five words and
+    refuses anything else by name; a closed set repeated here would be a second
+    authority over one vocabulary (`D-168`).
+    """
+
+    disposition: str = Field(min_length=1)
+
+
 class SignIn(BaseModel):
     password: str = Field(min_length=1)
 
@@ -1722,6 +1733,11 @@ def create_app(settings: Settings) -> FastAPI:
                         documentation_only=bool(scope.get("documentation_only", False)),
                     ),
                     state=state,
+                    # `""` when Memory says `null`, which means nobody has
+                    # decided. Not defaulted to a word: an undecided source
+                    # reading as one somebody chose to keep is the expensive
+                    # mistake `SourceResponse` keeps the column nullable for.
+                    disposition=str(entry.get("disposition") or ""),
                 )
             )
             return location
@@ -1862,6 +1878,33 @@ def create_app(settings: Settings) -> FastAPI:
                 source.project_id, source.source_id, source.state.value, source.last_error
             )
         return source.describe()
+
+    @app.post("/api/sources/{source_id}/disposition")
+    async def classify_source(
+        source_id: str,
+        body: DispositionIn,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Record where this source's material is to live (`ADR-0004`, `D-168`).
+
+        **Recorded, and acted on by nothing.** No ingest path reads the column:
+        `ephemeral` discards no content and `reference` withholds none. The
+        decision is worth taking first because `ADR-0004` says reclassifying
+        real data afterwards is the expensive order — but the surface offering
+        these words has to say so, and does.
+
+        Memory is asked first and the working set takes what came back, so a
+        word Memory refuses never reaches this process, and one it accepts
+        cannot be missing from the list this page has already loaded.
+        """
+
+        source = acquisition(request).source(source_id)
+        recorded = await memory(request).classify_source(
+            source.project_id, source_id, body.disposition
+        )
+        applied = str(recorded.get("disposition") or "") if isinstance(recorded, dict) else ""
+        return acquisition(request).record_disposition(source_id, applied).describe()
 
     @app.post("/api/sources/{source_id}/sample")
     async def sample_source(

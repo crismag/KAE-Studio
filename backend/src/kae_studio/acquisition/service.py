@@ -286,6 +286,21 @@ class AcquisitionService:
             raise UnknownResource(f"unknown source {source_id}")
         return found
 
+    def record_disposition(self, source_id: str, disposition: str) -> Source:
+        """Take a classification KAE-Memory has already accepted (`ADR-0004`).
+
+        **Not the decision, and it validates nothing.** Memory owns both the
+        record and the five words, and refuses a sixth; this applies whatever
+        came back so the working set cannot disagree with the record it was
+        just told about. Without it, `adopt`'s `setdefault` would keep the old
+        value until a restart — the page saying one thing and the record
+        another, which is what rehydration exists to close.
+        """
+
+        updated = _with_source(self.source(source_id), disposition=disposition)
+        self._sources[source_id] = updated
+        return updated
+
     def pin(self, source_id: str) -> Source:
         """Resolve the reference to an immutable commit and describe the scope.
 

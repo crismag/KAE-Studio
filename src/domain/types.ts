@@ -654,6 +654,19 @@ export interface CapabilityGap {
   provedInstead: string[]
 }
 
+/**
+ * Where a source's material is to live (`ADR-0004`, `D-162`).
+ *
+ * Five words, and `null` for a source nobody has classified — which is not the
+ * same as *keep it in Memory*. KAE-Memory keeps its column nullable for that
+ * reason and supplies no default, so neither does this.
+ *
+ * **Recorded and enforced by nothing.** No ingest path reads it: `ephemeral`
+ * discards no content and `reference` withholds none. The surface offering
+ * these words says so (`D-168`).
+ */
+export type SourceDisposition = 'memory' | 'rag' | 'artifact' | 'reference' | 'ephemeral'
+
 export interface ProjectSource {
   sourceId: string
   projectId: string
@@ -673,6 +686,8 @@ export interface ProjectSource {
   state: SourceState
   snapshot: SourceSnapshot | null
   lastError: string
+  /** `null` until somebody decides. Never defaulted — see `SourceDisposition`. */
+  disposition: SourceDisposition | null
   /** Present on every source, always. A conditional field is one a UI forgets. */
   analysis: CapabilityGap
 }
