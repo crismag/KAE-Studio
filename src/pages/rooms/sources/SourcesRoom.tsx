@@ -84,6 +84,7 @@ import {
   useAvailableRepositories,
   useHasConnection,
   useProjection,
+  useSourceMaterial,
   useSourcesOfKind,
   useSourcesUnavailable,
 } from '@/hooks/useProject'
@@ -263,6 +264,7 @@ function Repositories() {
             <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
               <div className="space-y-3">
                 <SourceList sources={rows} selectedId={chosen?.sourceId} onSelect={setSelectedId} />
+                <Ungoverned />
                 <AddSource
                   localRoots={localRoots}
                   connected={connected}
@@ -406,6 +408,32 @@ function SourceList({
   )
 }
 
+/**
+ * Material no decision on this page can reach (`D-170`, `D-171`).
+ *
+ * Every pasted document, and everything read before KAE recorded which source a
+ * document came from (`D-164`). It sits under the list rather than on a source,
+ * because attaching it to whichever source happens to be selected would
+ * attribute it by proximity — the guess the database itself refused to make
+ * when the link was added and no backfill was written.
+ *
+ * Shown only when it is non-zero. A project with nothing unattributed does not
+ * need telling, and a permanent zero is a sentence people stop reading.
+ */
+function Ungoverned() {
+  const material = useSourceMaterial()
+  const documents = material.data?.unattributedDocuments ?? 0
+  if (documents === 0) return null
+
+  return (
+    <p className="px-1 text-[11.5px] leading-snug text-ink-subtle">
+      {plural(documents, 'document')} in this project {documents === 1 ? 'names' : 'name'} no
+      source, so nothing you decide here reaches {documents === 1 ? 'it' : 'them'} — pasted text,
+      and anything read before KAE recorded which source a document came from.
+    </p>
+  )
+}
+
 function SourceDetail({ source }: { source: ProjectSource }) {
   const pinned = Boolean(source.snapshot)
 
@@ -541,9 +569,46 @@ function Disposition({ source }: { source: ProjectSource }) {
           </p>
         )}
 
+        <Material sourceId={source.sourceId} />
+
         <CapabilityNote reason="This decision is recorded and nothing acts on it yet. Choosing “Keep nothing” does not delete anything, and choosing to leave material where it is does not stop KAE reading it — every source is still read the same way. It is recorded now because changing it once a repository has been read in full is far more expensive than deciding first." />
       </PanelBody>
     </Panel>
+  )
+}
+
+/**
+ * How much stored text the word above would apply to (`D-170`, `D-171`).
+ *
+ * The picker could say what KAE should keep of a source and not how much of it
+ * there is, which left *Keep nothing* as a decision made blind. Two counts,
+ * because they answer different questions: a document is what somebody chose to
+ * read, and a stored copy is what that choice produced — one file can be many.
+ *
+ * **Unknown is not zero.** A material read that failed says so rather than
+ * rendering nothing, because a silent absence beside a control reads as *this
+ * would affect nothing* — the one thing the number must not say by accident
+ * (`D-38`).
+ */
+function Material({ sourceId }: { sourceId: string }) {
+  const material = useSourceMaterial()
+  const row = material.data?.sources.find((entry) => entry.sourceId === sourceId)
+
+  if (material.isError) {
+    return (
+      <p className="text-[12px] text-ink-subtle">
+        How much material this would apply to could not be read just now.
+      </p>
+    )
+  }
+  if (!row) return null
+
+  return (
+    <p className="text-[12px] text-ink-muted">
+      {row.documents === 0
+        ? 'Nothing has been read from this source yet, so this decision would apply to nothing.'
+        : `This would apply to ${plural(row.documents, 'document')} read from this source, held as ${plural(row.storedBodies, 'stored copy', 'stored copies')} of their text.`}
+    </p>
   )
 }
 

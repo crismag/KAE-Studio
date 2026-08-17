@@ -1801,6 +1801,26 @@ def create_app(settings: Settings) -> FastAPI:
             "unavailable": unavailable,
         }
 
+    @app.get("/api/projects/{project_id}/source-material")
+    async def source_material(
+        project_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Any:
+        """What a decision about each source would apply to (`D-170`, `D-171`).
+
+        **Reports, and enforces nothing.** Material under a source classified
+        `ephemeral` is counted exactly like material under one classified
+        `memory`, because no ingest or retention path reads the column. The
+        counts make the decision better informed; they do not make it effective,
+        and the surface that shows them still says so.
+
+        Proxied unshaped. `documents` is what a person chose and `stored_bodies`
+        is how many copies of text that choice produced, and folding them into
+        one number here would decide for the surface which question it is
+        answering.
+        """
+
+        return await memory(request).source_material(project_id)
+
     @app.post("/api/projects/{project_id}/sources", status_code=status.HTTP_201_CREATED)
     async def add_source(
         project_id: str,

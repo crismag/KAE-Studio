@@ -33,6 +33,7 @@ import type {
   ExtractionCoverage,
   GenerationRun,
   InterviewSession,
+  MaterialReport,
   MemoryConnection,
   Project,
   ProjectProjection,
@@ -413,6 +414,20 @@ export interface AcquisitionPort {
    * KAE-Memory validates the word and refuses a sixth with the five named.
    */
   classifySource(sourceId: string, disposition: SourceDisposition): Promise<ProjectSource>
+  /**
+   * How much stored text each source's disposition would apply to (`D-170`).
+   *
+   * **A report, and no behaviour.** It is read beside the picker so a person
+   * choosing *Keep nothing* can see the size of what they are deciding about —
+   * but nothing acts on the word, and a number beside a control is the most
+   * persuasive way there is to imply otherwise. The surface says so in words
+   * for exactly that reason (`D-171`).
+   *
+   * Its own call rather than fields on `listSources`, because Memory serves it
+   * as its own route: merging them here would invent a shape nothing sends and
+   * would let one failed read hide the other.
+   */
+  sourceMaterial(projectId: string): Promise<MaterialReport>
 
   /**
    * The in-scope files of a pinned source, largest first. **Reads nothing into

@@ -37,7 +37,7 @@ import { createMockServices } from '@/services/mock/mockServices'
 import { SourcesRoom } from './SourcesRoom'
 import { PasteDocument } from './intake'
 import type { AcquisitionPort, StudioServices } from '@/services/interfaces'
-import type { ProjectSource } from '@/domain/types'
+import type { MaterialReport, ProjectSource } from '@/domain/types'
 
 function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): StudioServices {
   const port = base.acquisition
@@ -54,6 +54,7 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
       addSource: (projectId, input) => port.addSource(projectId, input),
       pinSource: (sourceId) => port.pinSource(sourceId),
       classifySource: (sourceId, disposition) => port.classifySource(sourceId, disposition),
+      sourceMaterial: (projectId) => port.sourceMaterial(projectId),
       listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
       sample: (sourceId, path) => port.sample(sourceId, path),
       ingestFiles: (sourceId, projectId, paths) => port.ingestFiles(sourceId, projectId, paths),
@@ -327,6 +328,133 @@ describe('deciding where a source’s material lives', () => {
     // backend refused cannot sit on the page as though it had been accepted.
     expect(await screen.findByText(/A record that it was read and discarded/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/What KAE should keep of this source/i)).toHaveValue('ephemeral')
+  })
+})
+
+describe('what the recorded word would apply to', () => {
+  /**
+   * `D-171`. The picker could say what KAE should keep of a source and not how
+   * much of it there is, which left *Keep nothing* as a decision made blind.
+   * `GET /source-material` has answered this since `D-170` and no surface read
+   * it — declared and uncalled, one repository over from where `G3` usually
+   * finds that shape.
+   */
+
+  const material = (over: Partial<MaterialReport> = {}): MaterialReport => ({
+    sources: [
+      {
+        sourceId: 'src-1',
+        kind: 'github',
+        location: 'ministry/reporting-platform',
+        disposition: null,
+        documents: 4,
+        storedBodies: 11,
+      },
+    ],
+    unattributedDocuments: 0,
+    unattributedBodies: 0,
+    ...over,
+  })
+
+  it('says how much material the decision would reach, in both counts', async () => {
+    // Two numbers because they answer different questions: a document is what
+    // somebody chose to read, a stored copy is what that choice produced. A
+    // report giving only the first understates a long file by however many
+    // chunks it split into.
+    renderSources((services) =>
+      withPinnedSource(services, { sourceMaterial: async () => material() }),
+    )
+
+    expect(await screen.findByText(/4 documents read from this source/i)).toBeInTheDocument()
+    expect(screen.getByText(/11 stored copies of their text/i)).toBeInTheDocument()
+  })
+
+  it('still says nothing acts on the word once it carries a number', async () => {
+    // The sentence is more load-bearing after the counts than before them: a
+    // number beside a control is the most persuasive way there is to imply the
+    // control does something.
+    renderSources((services) =>
+      withPinnedSource(services, { sourceMaterial: async () => material() }),
+    )
+
+    expect(await screen.findByText(/4 documents read from this source/i)).toBeInTheDocument()
+    expect(screen.getByText(/recorded and nothing acts on it yet/i)).toBeInTheDocument()
+  })
+
+  it('says a source nobody has read would reach nothing', async () => {
+    // A registered source with no material is a real answer, and the route
+    // lists it at zero rather than omitting it. Rendering nothing here would
+    // make it indistinguishable from a source the query could not see.
+    renderSources((services) =>
+      withPinnedSource(services, {
+        sourceMaterial: async () =>
+          material({
+            sources: [
+              {
+                sourceId: 'src-1',
+                kind: 'github',
+                location: 'ministry/reporting-platform',
+                disposition: null,
+                documents: 0,
+                storedBodies: 0,
+              },
+            ],
+          }),
+      }),
+    )
+
+    expect(
+      await screen.findByText(/Nothing has been read from this source yet/i),
+    ).toBeInTheDocument()
+  })
+
+  it('says the counts could not be read rather than leaving the space blank', async () => {
+    // Unknown is not zero. A silent absence beside the picker reads as "this
+    // would affect nothing", which is the one thing a missing number must not
+    // say by accident (`D-38`).
+    renderSources((services) =>
+      withPinnedSource(services, {
+        sourceMaterial: async () => {
+          throw new Error('KAE-Memory did not answer')
+        },
+      }),
+    )
+
+    expect(
+      await screen.findByText(/How much material this would apply to could not be read/i),
+    ).toBeInTheDocument()
+    // The decision is still recordable. The scale of it being unreadable is not
+    // a reason to take the control away.
+    expect(screen.getByLabelText(/What KAE should keep of this source/i)).toBeInTheDocument()
+  })
+
+  it('keeps material naming no source apart from every source', async () => {
+    // Pasted text, and everything read before KAE recorded which source a
+    // document came from (`D-164`). Attaching it to whichever source happens to
+    // be selected would attribute it by proximity — the guess the database
+    // itself refused to make when no backfill was written.
+    renderSources((services) =>
+      withPinnedSource(services, {
+        sourceMaterial: async () => material({ unattributedDocuments: 2, unattributedBodies: 6 }),
+      }),
+    )
+
+    expect(
+      await screen.findByText(/2 documents in this project name no source/i),
+    ).toBeInTheDocument()
+    // Not folded into the selected source's own number.
+    expect(screen.getByText(/4 documents read from this source/i)).toBeInTheDocument()
+  })
+
+  it('says nothing about unattributed material when there is none', async () => {
+    // A permanent zero is a sentence people stop reading, and this one has to
+    // be noticed the day it is not zero.
+    renderSources((services) =>
+      withPinnedSource(services, { sourceMaterial: async () => material() }),
+    )
+
+    expect(await screen.findByText(/4 documents read from this source/i)).toBeInTheDocument()
+    expect(screen.queryByText(/name no source/i)).not.toBeInTheDocument()
   })
 })
 

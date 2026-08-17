@@ -667,6 +667,42 @@ export interface CapabilityGap {
  */
 export type SourceDisposition = 'memory' | 'rag' | 'artifact' | 'reference' | 'ephemeral'
 
+/**
+ * How much stored text one source's disposition would apply to (`D-170`).
+ *
+ * Two counts because they answer different questions. `documents` is what a
+ * person chose to read; `storedBodies` is how many copies of text that choice
+ * produced, which is the number `ADR-0004` step 3 is about — a long file is one
+ * document and many bodies.
+ */
+export interface SourceMaterial {
+  sourceId: string
+  kind: string
+  location: string
+  disposition: SourceDisposition | null
+  documents: number
+  storedBodies: number
+}
+
+/**
+ * What a retention decision would reach, before anything is removed.
+ *
+ * **Reports and enforces nothing** — material under a source classified
+ * `ephemeral` is counted exactly like material under one classified `memory`,
+ * because nothing in the estate acts on the column (`D-171`).
+ */
+export interface MaterialReport {
+  sources: SourceMaterial[]
+  /**
+   * Material naming no source, and therefore governed by nothing a person can
+   * decide here: every pasted document, and everything read before the source
+   * link existed (`D-164`). Its own number rather than a share of a total,
+   * because *nothing you choose reaches this* is the part a reader most needs.
+   */
+  unattributedDocuments: number
+  unattributedBodies: number
+}
+
 export interface ProjectSource {
   sourceId: string
   projectId: string

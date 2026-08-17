@@ -149,6 +149,31 @@ class RecordingMemory:
                 return row
         raise AssertionError(f"recorded state for an unknown source {source_id}")
 
+    async def source_material(self, project_id: str) -> dict[str, Any]:
+        """What a decision about each source would apply to (`D-170`).
+
+        The double counts nothing itself: the join is KAE-Memory's and is proved
+        against a real database in its own suite. What is Studio's to prove is
+        that the numbers arrive unchanged, so the shape is fixed here and the
+        values are arbitrary.
+        """
+
+        return {
+            "sources": [
+                {
+                    "source_id": row["source_id"],
+                    "kind": row["kind"],
+                    "location": row["location"],
+                    "disposition": row.get("disposition"),
+                    "documents": 4,
+                    "stored_bodies": 11,
+                }
+                for row in self.rows.get(project_id, [])
+            ],
+            "unattributed_documents": 2,
+            "unattributed_bodies": 6,
+        }
+
     async def classify_source(
         self, project_id: str, source_id: str, disposition: str
     ) -> dict[str, Any]:
@@ -922,3 +947,59 @@ class TestTheDispositionIsDecidedInStudioAndKeptInMemory:
         assert refused.status_code == 422
         assert "ephemeral" in refused.json()["detail"]
         assert listed["sources"][0]["disposition"] is None
+
+    def test_the_material_a_decision_would_reach_is_carried_unshaped(self) -> None:
+        """`D-171`. Both counts arrive, and neither is folded into the other.
+
+        `documents` is what a person chose and `stored_bodies` is what that
+        choice produced. A proxy that summed or dropped one would answer a
+        question the surface did not ask, and the surface is the only place that
+        can decide which number it is showing.
+        """
+
+        client = app_with(RecordingMemory())
+        try:
+            source_id = self._configured_source(client)
+            report = client.get("/api/projects/p1/source-material")
+        finally:
+            client.__exit__(None, None, None)
+
+        assert report.status_code == 200
+        body = report.json()
+        assert body["sources"] == [
+            {
+                "source_id": source_id,
+                "kind": "github",
+                "location": "kae/ministry-reporting",
+                "disposition": None,
+                "documents": 4,
+                "stored_bodies": 11,
+            }
+        ]
+        # Kept apart, never folded into a total. Material naming no source is
+        # material no decision on this page can govern.
+        assert body["unattributed_documents"] == 2
+        assert body["unattributed_bodies"] == 6
+
+    def test_the_report_does_not_act_on_the_word_it_reports(self) -> None:
+        """Counted the same whichever disposition was chosen (`D-169`).
+
+        Nothing in the estate reads the column, and a proxy that quietly zeroed
+        an `ephemeral` source's material would be the first thing that did —
+        while looking like a display detail.
+        """
+
+        client = app_with(RecordingMemory())
+        try:
+            source_id = self._configured_source(client)
+            before = client.get("/api/projects/p1/source-material").json()
+            client.post(
+                f"/api/sources/{source_id}/disposition", json={"disposition": "ephemeral"}
+            )
+            after = client.get("/api/projects/p1/source-material").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert before["sources"][0]["documents"] == after["sources"][0]["documents"]
+        assert before["sources"][0]["stored_bodies"] == after["sources"][0]["stored_bodies"]
+        assert after["sources"][0]["disposition"] == "ephemeral"

@@ -506,6 +506,20 @@ interface WireConnectivity {
   proves: string
 }
 
+/** `GET /api/projects/{id}/source-material`, proxied from Memory unshaped. */
+interface WireMaterialReport {
+  sources: {
+    source_id: string
+    kind: string
+    location: string
+    disposition: SourceDisposition | null
+    documents: number
+    stored_bodies: number
+  }[]
+  unattributed_documents: number
+  unattributed_bodies: number
+}
+
 interface WireSource {
   source_id: string
   project_id: string
@@ -2039,6 +2053,27 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
           body: JSON.stringify({ disposition }),
         }),
       ),
+
+    sourceMaterial: async (id) => {
+      const raw = await callArtifacts<WireMaterialReport>(
+        `/api/projects/${resolve(id)}/source-material`,
+      )
+      return {
+        sources: (raw.sources ?? []).map((row) => ({
+          sourceId: row.source_id,
+          kind: row.kind,
+          location: row.location,
+          disposition: row.disposition ?? null,
+          documents: row.documents,
+          // Both counts carried. `documents` is what a person chose and
+          // `stored_bodies` is what that choice produced, and dropping either
+          // would answer a question the surface did not ask.
+          storedBodies: row.stored_bodies,
+        })),
+        unattributedDocuments: raw.unattributed_documents,
+        unattributedBodies: raw.unattributed_bodies,
+      }
+    },
   }
 
   const synthesis: SynthesisPort = {

@@ -28,6 +28,7 @@ import type {
   ExtractionCoverage,
   GenerationRun,
   InterviewSession,
+  MaterialReport,
   MemoryConnection,
   ProjectModule,
   ProjectProjection,
@@ -1362,6 +1363,31 @@ class MockAcquisition implements AcquisitionPort {
     const classified: ProjectSource = { ...this.sources[index], disposition }
     this.sources[index] = classified
     return delay({ ...classified }, 400)
+  }
+
+  sourceMaterial(): Promise<MaterialReport> {
+    return delay({
+      // Every registered source, including one nobody has ingested — the live
+      // route lists those at zero rather than omitting them, and a mock that
+      // dropped them would teach that a source with no material is a source
+      // that could not be read (`D-170`).
+      sources: this.sources.map((source, index) => ({
+        sourceId: source.sourceId,
+        kind: source.kind,
+        location: source.location,
+        disposition: source.disposition,
+        // Fixture counts, and deliberately unequal: `stored_bodies` exceeds
+        // `documents` because a long file is one document and many chunks,
+        // which is the distinction the surface exists to show.
+        documents: index === 0 ? 4 : 0,
+        storedBodies: index === 0 ? 11 : 0,
+      })),
+      // The fixture project was built from an interview, and conversation is
+      // not a source. Material no disposition can govern is the normal case
+      // here, not an edge one.
+      unattributedDocuments: 2,
+      unattributedBodies: 6,
+    })
   }
 
   listFiles(sourceId: string, limit = 50): Promise<SourceFileListing> {

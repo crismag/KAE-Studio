@@ -131,6 +131,18 @@ class MemoryClient:
             json={"disposition": disposition},
         )
 
+    async def source_material(self, project_id: str) -> Any:
+        """What a retention decision about each source would apply to (`D-170`).
+
+        Reports and enforces nothing: material under a source classified
+        `ephemeral` is counted exactly like material under one classified
+        `memory`, because nothing in the estate acts on the column. Carried
+        through unshaped — the two counts answer different questions, and
+        collapsing them here would decide for the surface which one matters.
+        """
+
+        return await self._request("GET", f"/v1/projects/{project_id}/source-material")
+
     async def pin_source(self, project_id: str, source_id: str, body: dict[str, Any]) -> Any:
         """Fix a source to the revision Studio resolved against the provider."""
 

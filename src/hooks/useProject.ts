@@ -546,7 +546,31 @@ export function useClassifySource() {
   return useMutation({
     mutationFn: (input: { sourceId: string; disposition: SourceDisposition }) =>
       acquisition.classifySource(input.sourceId, input.disposition),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+        // The material report carries each source's disposition too, so a word
+        // recorded here and not invalidated there leaves two readings of one
+        // column on the same screen (`D-171`).
+        queryClient.invalidateQueries({ queryKey: ['source-material', projectId] }),
+      ])
+    },
+  })
+}
+
+/**
+ * How much stored text each source's disposition would apply to (`D-170`).
+ *
+ * Read beside the picker, and its own query rather than part of the source
+ * listing: Memory serves it as its own route, and a failed material read has to
+ * leave the picker working — the decision is recordable whether or not the
+ * scale of it can be shown (`D-171`).
+ */
+export function useSourceMaterial() {
+  const { acquisition, projectId } = useServices()
+  return useQuery({
+    queryKey: ['source-material', projectId],
+    queryFn: () => acquisition.sourceMaterial(projectId),
   })
 }
 
@@ -590,6 +614,10 @@ export function useIngestFiles() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+        // Reading files is the one act that changes how much material stands
+        // under a source, so the counts beside the disposition are stale from
+        // the moment this succeeds.
+        queryClient.invalidateQueries({ queryKey: ['source-material', projectId] }),
       ])
     },
   })
