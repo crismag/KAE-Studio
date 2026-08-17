@@ -83,3 +83,22 @@ export const MEMORY_ACTOR_TYPES = ['user', 'agent', 'system']
 
 /** `EvidenceBindingKind`, `domain/synthesis.py:55`. */
 export const BINDING_KINDS = ['supports', 'contradicts', 'superseded_by', 'resolved_by']
+
+/**
+ * `ModuleRelation`, `domain/relationships.py:58` — how one part of a system
+ * relates to another part, or to knowledge.
+ *
+ * Pinned because the architecture diagram draws one of these six and drops the
+ * rest through a filter (`D-219`). A filter is a silent reader: a seventh
+ * relation recorded in KAE-Memory would arrive over `/modules/graph`, fail the
+ * `depends_on` comparison, and vanish without failing anything. The diagram
+ * partitions this list instead, and the partition is asserted to cover it.
+ */
+export const MEMORY_MODULE_RELATIONS = [
+  'depends_on',
+  'owns',
+  'exposes',
+  'consumes',
+  'satisfies',
+  'verified_by',
+]

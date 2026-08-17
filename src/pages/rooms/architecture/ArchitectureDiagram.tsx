@@ -18,13 +18,18 @@
  * deliberately constant, because a reader will find meaning in any variation a
  * diagram offers them.
  *
- * Only `depends_on` edges are drawn. `satisfies` and `verified_by` run to
- * statements rather than modules and have no node to point at; drawing them to
- * a box would say a module depends on another when it does not.
+ * Only `depends_on` edges are drawn, and `ModuleRelation` has six members. What
+ * happens to the other five is `drawnRelations.ts`, three lists rather than one
+ * comparison: the reason differs by member, only two of the five exclusions
+ * were ever argued for, and the three the argument did not reach were dropped
+ * silently until `D-219`. Those three are named in the caption when a project
+ * records them, because a drawing that omits without a word is read as a
+ * complete one.
  */
 
 import { cn } from '@/lib/cn'
 import { layersFrom } from './buildOrderLayers'
+import { DRAWN, UNDRAWN_STRUCTURAL } from './drawnRelations'
 import type { ArchitectureGraph } from '@/domain/types'
 
 /**
@@ -109,9 +114,15 @@ export function ArchitectureDiagram({
   })
 
   const edges = graph.edges
-    .filter((edge) => edge.relation === 'depends_on' && edge.targetModule)
+    .filter((edge) => DRAWN.includes(edge.relation) && edge.targetModule)
     .map((edge) => ({ from: placed.get(edge.source), to: placed.get(edge.targetModule!) }))
     .filter((edge): edge is { from: Placed; to: Placed } => !!edge.from && !!edge.to)
+
+  // Named only when this project has them, so the common graph carries no
+  // standing disclaimer and the sentence is always about edges that exist.
+  const undrawn = UNDRAWN_STRUCTURAL.filter((relation) =>
+    graph.edges.some((edge) => edge.relation === relation && edge.targetModule),
+  )
 
   return (
     <div className={cn('overflow-x-auto', className)}>
@@ -205,6 +216,16 @@ export function ArchitectureDiagram({
         confirmed; a long-dashed one was confirmed and then retired, and is still shown in build
         order because that is the order KAE-Memory gives.
       </p>
+
+      {undrawn.length > 0 && (
+        // Stated once for the drawing rather than marked per edge — a picture
+        // that omits something without saying so is read as a complete one
+        // (`D-219`, `AUD-009`).
+        <p className="mt-1.5 text-[11.5px] leading-relaxed text-ink-subtle">
+          This project also records {undrawn.join(', ')} between modules, which this drawing leaves
+          out. They are listed under <em>Other relationships</em> in the dependency view.
+        </p>
+      )}
     </div>
   )
 }
