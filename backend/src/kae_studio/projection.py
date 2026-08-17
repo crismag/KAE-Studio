@@ -379,6 +379,12 @@ def _statements(payload: Any) -> list[dict[str, Any]]:
                 # listing started returning it, which is what lets Definition
                 # show a problem statement at all.
                 "areas": list(item.get("areas") or []),
+                # Which claim inside an area this statement establishes, keyed
+                # by area. Memory has served it since `RUN-D14`; this hop did
+                # not copy it, so Definition read `{}` for every statement in
+                # existence and reported every project as having no value
+                # proposition (`D-224`).
+                "claims": _claims(item),
                 # Which statements say adjacent things (`ES-5`, `PPA-15`).
                 # Carried, never acted on: Studio groups them for reading and
                 # merges nothing, because `EM-3`'s ruling on unattended merging
@@ -395,6 +401,20 @@ def _statements(payload: Any) -> list[dict[str, Any]]:
             }
         )
     return flattened
+
+
+def _claims(item: dict[str, Any]) -> dict[str, str]:
+    """Which claim this statement establishes, per area.
+
+    Anything that is not a mapping is no claim at all rather than an error: the
+    reader downstream distinguishes *nobody classified this* from *classified as
+    something else*, and a malformed payload is the first of the two.
+    """
+
+    claims = item.get("claims")
+    if not isinstance(claims, dict):
+        return {}
+    return {str(area): str(claim) for area, claim in claims.items()}
 
 
 def _version_number(item: dict[str, Any]) -> int:

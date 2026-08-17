@@ -100,6 +100,19 @@ EXCLUDED_KINDS: dict[str, str] = {
 #: sections were reported uncomputable until the listing began returning areas.
 PROBLEM_AREA = "problem_and_value"
 
+#: Why `value` is unavailable while nothing has classified the area's statements.
+#:
+#: Not a permanent entry in `_UNCOMPUTABLE`, because the section *is* computable
+#: from what Memory exposes — `claims` is on the wire. It is unavailable while
+#: every assignment in the area names no claim, which is the state of every
+#: project today: `AreaLink.claim_key` is written by no route, no worker and no
+#: tool in KAE-Memory (`D-224`).
+UNCLASSIFIED_VALUE = (
+    "Nothing has classified which of these statements are the value rather than "
+    "the problem. KAE-Memory records that distinction per statement and nothing "
+    "sets it yet, so an empty value here would mean unclassified, not absent."
+)
+
 #: Sections that cannot be computed from what Memory exposes, and why.
 _UNCOMPUTABLE: dict[str, str] = {
 
@@ -160,7 +173,9 @@ def build_definition(statements: list[dict[str, Any]]) -> tuple[dict[str, Any], 
     # ranking is CIE's (ADR-0002). Picking one here would also throw away the
     # rest of what a person confirmed, which is worse than a longer paragraph.
     #
-    # **`value` is computable now** (`RUN-D14`). The area still covers problem
+    # **`value` is computable wherever somebody classified the statements**
+    # (`RUN-D14`), and unavailable rather than absent where nobody has — which is
+    # every project today (`D-224`). The area still covers problem
     # *and* value, and Memory now records which claim a statement establishes —
     # so this is a read of what somebody classified rather than the guess it
     # would have been. A statement whose link names no claim stays in `problem`,
@@ -215,6 +230,27 @@ def build_definition(statements: list[dict[str, Any]]) -> tuple[dict[str, Any], 
         {"section": f"definition.{name}", "reason": reason}
         for name, reason in _UNCOMPUTABLE.items()
     ]
+
+    # An empty `value` has two causes and the interface draws them the same way.
+    #
+    # `NotEstablished` says *nobody has established this yet*, which is a claim
+    # about the project. It is only true where somebody classified the area's
+    # statements and none of them is the value. Where nothing classified them at
+    # all, the honest sentence is *we cannot tell you* — and that is every
+    # project today, because nothing writes a claim (`D-224`).
+    #
+    # A project with no statements in the area is deliberately not covered: with
+    # nothing to classify there is nothing we failed to read, and `NotEstablished`
+    # is then the true note.
+    in_area = [
+        statement
+        for statement in statements
+        if statement.get("lifecycle") == "validated"
+        and PROBLEM_AREA in (statement.get("areas") or [])
+    ]
+    if in_area and not any(_claim(statement) for statement in in_area):
+        unavailable.append({"section": "definition.value", "reason": UNCLASSIFIED_VALUE})
+
     return definition, unavailable
 
 
@@ -222,5 +258,6 @@ __all__ = [
     "EXCLUDED_KINDS",
     "KIND_TO_SECTION",
     "MAPPING_VERSION",
+    "UNCLASSIFIED_VALUE",
     "build_definition",
 ]
