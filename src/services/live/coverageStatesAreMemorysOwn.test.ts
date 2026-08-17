@@ -20,11 +20,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createLiveServices } from './liveServices'
 
 /**
- * `AreaState` in `kae_memory/domain/readiness.py`, verbatim.
+ * `AreaState` in `kae_memory/domain/readiness.py`, verbatim and **in the enum's
+ * own order**, which is `ADR-0008`'s progression (`readiness.py:40`).
  *
  * Written out rather than imported — the two repositories share no code — so a
  * state added there and not here is a change somebody has to make deliberately,
- * and one added here without a mapping fails immediately below.
+ * and one added here without a mapping fails immediately below. Registered in
+ * `vocabulary_drift.py`'s `COPIED_VOCABULARIES`, so a member added upstream is
+ * reported by the one check that reads both repositories.
  *
  * **It rotted, and both halves of why are the point (`D-213`).** `EPI-5b` added
  * `evidenced` and `interpreted` to the enum and this transcription kept the four
@@ -44,11 +47,14 @@ const MEMORY_AREA_STATES = [
 ] as const
 
 /**
- * `ADR-0008`'s progression, in Memory's order — `readiness.py:40`.
+ * `ADR-0008`'s progression — the pin above, less the one state that is not a
+ * degree of coverage.
  *
- * `not_applicable` is not on it: it is not a degree of coverage.
+ * Derived rather than written out a second time: a rung added upstream has to
+ * enter the ladder as well as the vocabulary, and two lists to update by hand is
+ * how one of them stays behind (`D-125`, and `D-213` is what that costs).
  */
-const MEMORY_LADDER = ['missing', 'partial', 'evidenced', 'interpreted', 'sufficient'] as const
+const MEMORY_LADDER = MEMORY_AREA_STATES.filter((state) => state !== 'not_applicable')
 
 /** Studio's five words as degrees, so *descending* is a thing that can be said. */
 const STUDIO_RANK: Record<string, number> = {
