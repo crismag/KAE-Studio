@@ -43,6 +43,10 @@ import { NextAction } from '@/components/project/NextAction'
 import { PageLayout } from '@/components/project/PageLayout'
 import { floorAction } from '@/components/project/nextActionFloor'
 import { SectionsNotRead } from '@/components/project/SectionsNotRead'
+// The shared judgement, rather than a second reading of the same fields here.
+// Two surfaces answering *has anything looked?* differently is how one of them
+// ends up wrong (`D-244`).
+import { neverClassified } from '@/pages/rooms/interview/neverClassified'
 import {
   Badge,
   Button,
@@ -450,10 +454,24 @@ export function SurfaceCard({ surface }: { surface: SurfaceDefinition }) {
  *
  * `§3` and `ADR-0003` agree: `7 of 10 areas` says what `70%` cannot, because
  * the reader can tell what the whole is.
+ *
+ * ## Why the empty case is three cases (`D-244`)
+ *
+ * This panel used to answer an empty area list with *"Nothing has classified
+ * what this project holds"* — the strong claim, from a missing field, which is
+ * the substitution `neverClassified` exists to refuse.
+ *
+ * An empty list does not mean that. Areas are the template's discovery areas
+ * and arrive whether or not anything has been classified; the way the list
+ * actually empties is the readiness call failing, `projection.py` substituting
+ * `{}`, and `readiness` being recorded in `unavailable`. So the state that
+ * rendered the sentence is the state where **Memory could not be read** — and
+ * the reader was told something confident about their project instead.
  */
 function Coverage({ projection }: { projection: ProjectProjection }) {
   const areas = projection.health.coverage
   const sufficient = areas.filter((area) => area.state === 'strong').length
+  const readinessNotRead = projection.unavailable.some((entry) => entry.section === 'readiness')
 
   return (
     <Panel>
@@ -463,7 +481,11 @@ function Coverage({ projection }: { projection: ProjectProjection }) {
       <PanelBody className="space-y-2">
         {areas.length === 0 ? (
           <p className="text-[12.5px] text-ink-muted">
-            No area has been assessed yet. Nothing has classified what this project holds.
+            {readinessNotRead
+              ? 'Readiness could not be read this time, so there is nothing here to show. This is about the read, not about your project.'
+              : neverClassified(projection.classification)
+                ? 'No area has been assessed yet. Nothing has classified what this project holds.'
+                : 'No area has been assessed yet.'}
           </p>
         ) : (
           <>

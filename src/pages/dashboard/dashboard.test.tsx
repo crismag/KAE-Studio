@@ -411,9 +411,50 @@ describe('coverage carries a denominator, never a percentage', () => {
   })
 
   it('says when nothing has been assessed rather than showing zero of zero', async () => {
-    renderDashboard((base) => ({ ...base, health: { ...base.health, coverage: [] } }))
+    renderDashboard((base) => ({
+      ...base,
+      health: { ...base.health, coverage: [] },
+      unavailable: [],
+      classification: { engine: null, degraded: false, note: '', reviewedAt: null },
+    }))
 
     expect(await screen.findByText(/no area has been assessed yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/nothing has classified what this project holds/i)).toBeInTheDocument()
+  })
+
+  it('does not blame the project when the readiness read is what failed', async () => {
+    // `D-244`. An empty area list is what a failed readiness call looks like —
+    // `projection.py` substitutes `{}` and records the section — so the
+    // confident sentence about the project was rendered exactly when nobody
+    // had read the project.
+    renderDashboard((base) => ({
+      ...base,
+      health: { ...base.health, coverage: [] },
+      unavailable: [{ section: 'readiness', reason: 'upstream timeout' }],
+      classification: { engine: null, degraded: false, note: '', reviewedAt: null },
+    }))
+
+    expect(await screen.findByText(/about the read, not about your project/i)).toBeInTheDocument()
+    expect(
+      screen.queryByText(/nothing has classified what this project holds/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not claim a review never ran on a backend that will not say', async () => {
+    // `unknown` is a Memory too old to report classification. It is not the
+    // claim that no review has run, and `neverClassified` refuses to read it
+    // as one — so the observation is made and left unexplained.
+    renderDashboard((base) => ({
+      ...base,
+      health: { ...base.health, coverage: [] },
+      unavailable: [],
+      classification: { engine: 'unknown', degraded: false, note: '', reviewedAt: null },
+    }))
+
+    expect(await screen.findByText(/no area has been assessed yet/i)).toBeInTheDocument()
+    expect(
+      screen.queryByText(/nothing has classified what this project holds/i),
+    ).not.toBeInTheDocument()
   })
 })
 
