@@ -109,18 +109,56 @@ describe('a project that was classified', () => {
     // Verbatim, including the clause that says the cause is not the project.
     // A client that summarised this would be deciding how alarmed to be.
     expect(screen.getByText(/not about the project/i)).toBeInTheDocument()
+  })
+
+  it('says when the pass ran, because the number describes the project as it was then', () => {
+    render(<ClassificationState classification={BY_MODEL} onClassify={() => {}} />)
+
+    // `D-243`. A review runs once and the conversation continues, so a
+    // percentage with no date on it describes an older project — and unlike
+    // the zero above, a plausible number invites no question at all.
+    expect(screen.getByText(/review pass on 10 Aug/i)).toBeInTheDocument()
+  })
+
+  it('does not raise an alarm beside it', () => {
+    render(<ClassificationState classification={BY_MODEL} onClassify={() => {}} />)
+
+    // The half that keeps this honest, and the reason the date is subtle text
+    // rather than a notice: a standing warning on every project is a warning
+    // nobody reads. Nothing here claims the number is wrong — only when it
+    // was reached.
+    expect(screen.queryByText(/out of date|stale|no longer/i)).not.toBeInTheDocument()
+  })
+
+  it('offers the pass again, because a date nobody can act on is a complaint', async () => {
+    const user = userEvent.setup()
+    const onClassify = vi.fn()
+    render(<ClassificationState classification={BY_MODEL} onClassify={onClassify} />)
+
+    await user.click(screen.getByRole('button', { name: /classify again/i }))
+
+    expect(onClassify).toHaveBeenCalledOnce()
+  })
+
+  it('says queued rather than done here too', () => {
+    render(<ClassificationState classification={BY_MODEL} onClassify={() => {}} queued />)
+
+    expect(screen.getByText(/queued/i)).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('says nothing at all when a model classified it', () => {
-    const { container } = render(
-      <ClassificationState classification={BY_MODEL} onClassify={() => {}} />,
+  it('renders no date rather than an em dash when the pass did not record one', () => {
+    render(
+      <ClassificationState
+        classification={{ ...BY_MODEL, reviewedAt: null }}
+        onClassify={() => {}}
+      />,
     )
 
-    // The half that keeps this honest. A standing notice on every project is
-    // a notice nobody reads, and this one has to be believed the once it
-    // appears.
-    expect(container).toBeEmptyDOMElement()
+    // `D-241`: an em dash sits exactly where a date is expected and only
+    // invites somebody to wonder what is missing. The absence is said instead.
+    expect(screen.getByText(/did not record when it ran/i)).toBeInTheDocument()
+    expect(screen.queryByText(/—/)).not.toBeInTheDocument()
   })
 
   it('says nothing on a backend that does not report classification', () => {
@@ -128,6 +166,16 @@ describe('a project that was classified', () => {
       <ClassificationState classification={undefined} onClassify={() => {}} />,
     )
 
+    // `unknown` and `undefined` are not claims that a review ran, so neither
+    // gets a date. Unchanged, and the reason the block above is safe.
     expect(container).toBeEmptyDOMElement()
+
+    const older = render(
+      <ClassificationState
+        classification={{ ...BY_MODEL, engine: 'unknown' }}
+        onClassify={() => {}}
+      />,
+    )
+    expect(older.container).toBeEmptyDOMElement()
   })
 })

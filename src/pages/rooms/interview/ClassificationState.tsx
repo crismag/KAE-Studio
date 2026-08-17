@@ -24,13 +24,39 @@
  * to whoever pays for it. Making the capability reachable does not, so it is
  * reachable now and the automatic version is recorded as a decision waiting on
  * an owner rather than taken quietly here.
+ *
+ * ## The zero has a sibling, and it is harder to see
+ *
+ * A project that *has* been reviewed carries the date of the pass, and the same
+ * control (`D-243`). A review runs once; the conversation continues; the
+ * percentage keeps describing the project as it was. **A plausible number
+ * invites no question at all**, which is what makes it worse than the zero.
+ *
+ * It is a date in the subtle tone and not a notice. The judgement below — that
+ * a standing warning on every project is a warning nobody reads — is why there
+ * is no amber here and no sentence claiming the number is wrong. What is said
+ * is when the pass ran, which is a fact, and what is offered is the pass again.
  */
 
 import { Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/primitives'
 import type { ClassificationState as Classification } from '@/domain/types'
+import { formatDateTime, isKnownTimestamp } from '@/lib/format'
 import { neverClassified } from './neverClassified'
+
+/**
+ * Queued is not done, and saying otherwise is the failure mode this whole
+ * surface exists to prevent. A worker runs the pass; the numbers change on a
+ * later read.
+ */
+function Queued() {
+  return (
+    <p className="mt-2 text-[12px] text-ink-muted">
+      Queued. A worker is reading the project now — the areas below will change once it finishes.
+    </p>
+  )
+}
 
 export function ClassificationState({
   classification,
@@ -58,13 +84,7 @@ export function ClassificationState({
           about the review, not about your project.
         </p>
         {queued ? (
-          // Queued is not done, and saying otherwise is the failure mode this
-          // whole surface exists to prevent. A worker runs it; the numbers
-          // change on a later read.
-          <p className="mt-2 text-[12px] text-ink-muted">
-            Queued. A worker is reading the project now — the areas below will change once it
-            finishes.
-          </p>
+          <Queued />
         ) : (
           <Button className="mt-2.5" onClick={onClassify} disabled={pending}>
             <Sparkles className="size-3.5" aria-hidden="true" />
@@ -75,15 +95,37 @@ export function ClassificationState({
     )
   }
 
-  if (classification.degraded) {
-    return (
-      <p className="mt-3 text-[11.5px] leading-relaxed text-ink-subtle">
-        {/* Memory's own sentence. It names its limits precisely and says the
-            cause is not the project, which is the part a person needs. */}
-        {classification.note}
+  return (
+    <div className="mt-3">
+      {classification.degraded ? (
+        <p className="text-[11.5px] leading-relaxed text-ink-subtle">
+          {/* Memory's own sentence. It names its limits precisely and says the
+              cause is not the project, which is the part a person needs. */}
+          {classification.note}
+        </p>
+      ) : null}
+      <p className="mt-1 text-[11.5px] leading-relaxed text-ink-subtle">
+        {/* A missing date renders as no date rather than as `formatDateTime`'s
+            em dash. An em dash sits exactly where a date is expected and only
+            invites somebody to wonder what is missing (`D-241`). */}
+        {classification.reviewedAt && isKnownTimestamp(classification.reviewedAt)
+          ? `Areas reflect a review pass on ${formatDateTime(classification.reviewedAt)}.`
+          : 'Areas reflect a review pass, which did not record when it ran.'}
       </p>
-    )
-  }
-
-  return null
+      {queued ? (
+        <Queued />
+      ) : (
+        <Button
+          className="mt-1.5 -ml-3"
+          variant="ghost"
+          size="sm"
+          onClick={onClassify}
+          disabled={pending}
+        >
+          <Sparkles className="size-3.5" aria-hidden="true" />
+          {pending ? 'Asking…' : 'Classify again'}
+        </Button>
+      )}
+    </div>
+  )
 }
