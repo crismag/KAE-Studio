@@ -823,7 +823,6 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
         state: coverageState(a),
         detail: coverageDetail(a),
       })),
-      blockingDecisionIds: [],
       // Warnings only. The capability gaps that used to be flattened into this
       // list now travel as `unavailable` and `modulesGap` on the projection,
       // because a surface has to find *its own* section and cannot do that in a

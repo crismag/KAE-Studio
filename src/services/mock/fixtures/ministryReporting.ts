@@ -1252,7 +1252,6 @@ export const health: ProjectHealth = {
       detail: 'Not yet discussed.',
     },
   ],
-  blockingDecisionIds: ['OD-011', 'OD-013'],
   recommendedNext: [
     'Resolve who holds approval authority (OD-011) — it blocks the most work.',
     'Decide the correction path for a published report (OD-013).',

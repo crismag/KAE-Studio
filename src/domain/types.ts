@@ -798,7 +798,6 @@ export interface ProjectHealth {
   implementationEligible: boolean
   summary: string
   coverage: CoverageTopic[]
-  blockingDecisionIds: string[]
   recommendedNext: string[]
 }
 

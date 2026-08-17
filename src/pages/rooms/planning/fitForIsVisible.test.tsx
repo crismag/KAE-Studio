@@ -27,7 +27,6 @@ function health(over: Partial<ProjectHealth>): ProjectHealth {
     draftEligible: false,
     implementationEligible: false,
     coverage: [],
-    blockingDecisionIds: [],
     recommendedNext: [],
     ...over,
   } as ProjectHealth
