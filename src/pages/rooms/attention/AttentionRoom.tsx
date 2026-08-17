@@ -528,6 +528,19 @@ function Evidence({
 }
 
 /**
+ * Lifecycles under which `authority` cannot be anything but one value.
+ *
+ * `SynthesizedObject.__post_init__` (`domain/synthesis.py:212-224`): `human`
+ * authority requires `authoritative`, `superseded` or `resolved`, and an
+ * `authoritative` object must carry `human`. So on these three the word is
+ * derivable from the one printed before it, and only `superseded` and `resolved`
+ * leave it free. A lifecycle outside this set forces nothing, so it falls
+ * through to showing both — suppressing on a word Memory added later would be
+ * Studio asserting an invariant it has not read (`D-38`, `D-190`).
+ */
+const AUTHORITY_FORCED_BY_LIFECYCLE = new Set(['working', 'proposed_change', 'authoritative'])
+
+/**
  * One object in the model, with how much of the project stands behind it
  * (`SYN-4b`, `D-167`).
  *
@@ -546,16 +559,22 @@ function ModelObject({ object }: { object: SynthesizedObject }) {
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="neutral">{readable(object.domain)}</Badge>
         <span className="text-[13px] text-ink">{object.title}</span>
-        {/* Memory's own words for how settled this is and who settled it.
-            Rendered rather than translated: `working_model` and `human` are
-            different facts about the same object and collapsing them would
-            make KAE's reading indistinguishable from a person's.
+        {/* Memory's own words, rendered rather than translated.
+
+            The authority word comes only where the lifecycle does not already
+            force it (`D-206`). It used to be unconditional, under a comment
+            claiming the two were *different facts* — true of two lifecycles and
+            false of the other three, so every ordinary card read `· working ·
+            working model`, where the second word cannot be anything else.
 
             This `lifecycle` is `SynthesizedLifecycle`. The one on the evidence
             rows above is `LifecycleState`, a different enum under the same
             field name (`D-197`). */}
         <span className="text-[11.5px] text-ink-subtle">
-          · {readable(object.lifecycle)} · {readable(object.authority)}
+          · {readable(object.lifecycle)}
+          {!AUTHORITY_FORCED_BY_LIFECYCLE.has(object.lifecycle) && (
+            <> · {readable(object.authority)}</>
+          )}
         </span>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{object.statement}</p>

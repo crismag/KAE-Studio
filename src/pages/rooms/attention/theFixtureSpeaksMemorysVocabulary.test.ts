@@ -11,63 +11,25 @@
  * cards render whatever arrives, so the demo taught a vocabulary the product
  * does not speak and the words it does speak were rendered by nobody.
  *
- * The sets are literal because Studio's CI has no KAE-Memory checkout — the
- * same reason `vocabulary_drift.py` is run deliberately rather than by either
- * pipeline. Each names where it comes from, so a fourth word cannot be typed
- * into the fixture without somebody going and looking.
+ * The sets are literal, and they live in `memorysVocabulary.ts` rather than
+ * here, because the fourth instance of this defect was in a *test's* own
+ * fixture and not the demo's (`D-206`) — a guard that only the fixture is
+ * checked against reads the words nobody typed by hand.
  */
 
 import { describe, expect, it } from 'vitest'
 import * as fixture from '@/services/mock/fixtures/ministryReporting'
 
-/** `KnowledgeKind`, `domain/models.py:112` — what `_require_kind` allows. */
-const KNOWLEDGE_KINDS = [
-  'actor',
-  'goal',
-  'rule',
-  'constraint',
-  'requirement',
-  'decision',
-  'unknown',
-  'assumption',
-]
-
-/**
- * `LifecycleState`, `domain/lifecycle.py:8` — where a *knowledge item* is.
- *
- * Not the enum below. Two vocabularies are called `lifecycle`, they are
- * rendered thirty-eight lines apart in `AttentionRoom.tsx`, and they share one
- * member and one near-homograph (`D-197`).
- */
-const LIFECYCLE_STATES = ['proposed', 'validated', 'rejected', 'superseded']
-
-/** `SynthesizedLifecycle`, `domain/synthesis.py:64` — where an *object* is. */
-const SYNTHESIZED_LIFECYCLES = [
-  'working',
-  'proposed_change',
-  'authoritative',
-  'superseded',
-  'resolved',
-]
-
-/** `Authority`, `domain/synthesis.py:79`. Two members, and only two. */
-const AUTHORITIES = ['working_model', 'human']
-
-/** `AttentionKind`, `domain/synthesis.py:86`. */
-const ATTENTION_KINDS = [
-  'decision',
-  'conflict',
-  'correction',
-  'assumption',
-  'unknown',
-  'material_change',
-]
-
-/** `AttentionStatus`, `domain/synthesis.py:97`. */
-const ATTENTION_STATUSES = ['open', 'deferred', 'resolved', 'dismissed']
-
-/** `EvidenceBindingKind`, `domain/synthesis.py:55`. */
-const BINDING_KINDS = ['supports', 'contradicts', 'superseded_by', 'resolved_by']
+import {
+  ATTENTION_KINDS,
+  ATTENTION_STATUSES,
+  AUTHORITIES,
+  BINDING_KINDS,
+  KNOWLEDGE_KINDS,
+  LIFECYCLES_A_PERSON_MAY_HOLD,
+  LIFECYCLE_STATES,
+  SYNTHESIZED_LIFECYCLES,
+} from './memorysVocabulary'
 
 describe('the synthesized model fixture speaks Memory’s vocabulary', () => {
   it('carries objects at all, so the assertions below are not vacuous', () => {
@@ -101,7 +63,7 @@ describe('the synthesized model fixture speaks Memory’s vocabulary', () => {
     for (const object of fixture.synthesizedModel) {
       if (object.lifecycle === 'authoritative') expect(object.authority).toBe('human')
       if (object.authority === 'human') {
-        expect(['authoritative', 'superseded', 'resolved']).toContain(object.lifecycle)
+        expect(LIFECYCLES_A_PERSON_MAY_HOLD).toContain(object.lifecycle)
       }
     }
   })

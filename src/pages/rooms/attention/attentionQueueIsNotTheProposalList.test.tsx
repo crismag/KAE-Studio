@@ -31,6 +31,12 @@ import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
 import type { StudioServices } from '@/services/interfaces'
 import type { AttentionItem, UnknownSynthesisReport } from '@/domain/types'
+import {
+  AUTHORITIES,
+  KNOWLEDGE_KINDS,
+  LIFECYCLES_A_PERSON_MAY_HOLD,
+  SYNTHESIZED_LIFECYCLES,
+} from './memorysVocabulary'
 
 const REPORT: UnknownSynthesisReport = {
   considered: 41,
@@ -330,17 +336,57 @@ describe('an item can say what it rests on', () => {
   })
 })
 
+/**
+ * One object, in words Memory can send.
+ *
+ * It said `proposed`/`synthesized` — the same defect `D-196` removed from the
+ * demo fixture, hiding in a test's own literal where the guard that reads
+ * `fixture.synthesizedModel` could never see it. `proposed` is `LifecycleState`,
+ * the *other* enum under this field name (`D-197`), and `synthesized` is in no
+ * enum at all. The pins below are asserted against, not just trusted.
+ */
 const UNBOUND = {
   id: 'syn-goal-unbound',
   domain: 'goal',
   identityKey: 'goal:unbound',
   title: 'A guess with nothing behind it',
   statement: 'KAE minted this and bound nothing to it.',
-  lifecycle: 'proposed',
-  authority: 'synthesized',
+  lifecycle: 'working',
+  authority: 'working_model',
   revision: 1,
   supportingEvidence: 0,
 }
+
+/** A person rewrote it, so it is `superseded` and theirs. */
+const CORRECTED = { ...UNBOUND, lifecycle: 'superseded', authority: 'human', revision: 2 }
+
+/** A person settled it. `authoritative` cannot be anything but `human`. */
+const SETTLED = { ...UNBOUND, lifecycle: 'authoritative', authority: 'human' }
+
+/** Closed out by a person, which leaves the authority free to say so. */
+const RESOLVED = { ...UNBOUND, lifecycle: 'resolved', authority: 'human' }
+
+const OVERRIDDEN = [CORRECTED, SETTLED, RESOLVED]
+
+describe('this file’s own object is one Memory could have sent', () => {
+  it('names a domain, a lifecycle and an authority Memory holds', () => {
+    expect(KNOWLEDGE_KINDS).toContain(UNBOUND.domain)
+    expect(SYNTHESIZED_LIFECYCLES).toContain(UNBOUND.lifecycle)
+    expect(AUTHORITIES).toContain(UNBOUND.authority)
+  })
+
+  it('does not put a person’s authority on a lifecycle that forbids it', () => {
+    // `domain/synthesis.py:212-224`. Every object this file hands the Room goes
+    // through here, including the overridden ones below, because an object that
+    // could not exist proves nothing about a screen that renders it.
+    for (const object of [UNBOUND, ...OVERRIDDEN]) {
+      if (object.authority === 'human') {
+        expect(LIFECYCLES_A_PERSON_MAY_HOLD).toContain(object.lifecycle)
+      }
+      if (object.lifecycle === 'authoritative') expect(object.authority).toBe('human')
+    }
+  })
+})
 
 describe('the model says how much of the project stands behind each object', () => {
   /* `SYN-4b`, `D-167`. Doc 01's aggregation is a count and a disclosure
@@ -648,10 +694,7 @@ describe('the model says when an object has been reworded since KAE first wrote 
     // restates its own reading, `with_human_correction` when a person rewrites
     // it. The `authority` word beside it already says who may change it now,
     // and a sentence attributing a person's correction to KAE would be false.
-    harness({
-      listSynthesizedModel: () =>
-        Promise.resolve([{ ...UNBOUND, authority: 'human', revision: 2 }]),
-    })
+    harness({ listSynthesizedModel: () => Promise.resolve([CORRECTED]) })
 
     const line = await screen.findByText(/Reworded/)
 
@@ -667,5 +710,48 @@ describe('the model says when an object has been reworded since KAE first wrote 
     await screen.findByText('Reworded 2 times since KAE first wrote it')
 
     expect(screen.getAllByText(/Reworded/)).toHaveLength(2)
+  })
+})
+
+describe('the model says the authority only where the lifecycle leaves it free', () => {
+  /**
+   * `D-206`. The card printed both words always, under a comment calling them
+   * *different facts about the same object*. `SynthesizedObject.__post_init__`
+   * (`domain/synthesis.py:212-224`) says otherwise on three of the five
+   * lifecycles: `human` requires `authoritative`, `superseded` or `resolved`,
+   * and `authoritative` requires `human`. So every ordinary card read `· working
+   * · working model`, where the second word could not have been anything else.
+   */
+  async function words(object: unknown) {
+    harness({ listSynthesizedModel: () => Promise.resolve([object] as never) })
+    await screen.findByText('A guess with nothing behind it')
+
+    return screen.getByText(/^· /).textContent
+  }
+
+  it('says one word for a working object, since the other is forced', async () => {
+    expect(await words(UNBOUND)).toBe('· working')
+  })
+
+  it('says an object is authoritative without repeating that a person holds it', async () => {
+    expect(await words(SETTLED)).toBe('· authoritative')
+  })
+
+  it('says both on a superseded object, where the authority is a fact', async () => {
+    // Superseded is a lifecycle both authorities can reach: KAE restating its
+    // own reading and a person overriding it land in the same word.
+    expect(await words(CORRECTED)).toBe('· superseded · human')
+  })
+
+  it('says both on a resolved object', async () => {
+    expect(await words(RESOLVED)).toBe('· resolved · human')
+  })
+
+  it('says the authority under a lifecycle it has never heard of', async () => {
+    // A word Memory adds later forces nothing that Studio has read. Suppressing
+    // on it would be this page asserting an invariant it cannot see (`D-38`),
+    // and it is deliberately outside the pins above for that reason.
+    expect(SYNTHESIZED_LIFECYCLES).not.toContain('retired')
+    expect(await words({ ...UNBOUND, lifecycle: 'retired' })).toBe('· retired · working model')
   })
 })
