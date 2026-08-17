@@ -45,13 +45,6 @@ const UNREACHED: Record<string, string> = {
     'let it go.',
   useAddConnection: 'The write half of useConnections, unreached for the same reason.',
   useCheckConnectivity: 'The probe half of useConnections, unreached for the same reason.',
-  usePinSource:
-    'A defect, not a decision. POST /api/sources/{id}/pin is wired all the way ' +
-    'to this hook and no control calls it, while SourcesRoom tells a person ' +
-    '“Not pinned to a commit yet” and the file browser renders only when a ' +
-    'source is pinned. Filed as SRC-PIN-UNREACHABLE; this entry goes when the ' +
-    'control lands, and it is here rather than absent so the gap is not ' +
-    'rediscovered by a third audit.',
 }
 
 function sourceFiles(dir: string): string[] {

@@ -79,6 +79,7 @@ import { PickRepository } from './PickRepository'
 import {
   useClassifySource,
   useIngestFiles,
+  usePinSource,
   useSampleFile,
   useSourceFiles,
   useAvailableRepositories,
@@ -486,6 +487,60 @@ function Ungoverned() {
   )
 }
 
+/**
+ * The kinds `AcquisitionService.pin` will resolve — the backend's own set.
+ *
+ * Anything else raises there, so offering the gesture for a pasted document
+ * would be a control whose only outcome is a 500.
+ */
+const PINNABLE: ProjectSource['kind'][] = ['github', 'local']
+
+/**
+ * Pinning, as something a person can do (`SRC-PIN-UNREACHABLE`, `D-237`).
+ *
+ * Every layer of this existed — the route, the client call, the port method,
+ * both adapters and `usePinSource` — and no component called the hook, while
+ * the panel beside it said *"Not pinned to a commit yet"* and showed the file
+ * browser only once a source was pinned. A page naming a gesture it does not
+ * offer is `AUD-009` one layer down.
+ *
+ * **A failed pin is a 200.** `AcquisitionService.pin` catches `SourceReadError`
+ * and returns the source in `configured` with `last_error` set, so the mutation
+ * resolving says nothing about whether a revision was fixed. Nothing here
+ * announces success for that reason — the panel re-renders from the source
+ * itself, whose `lastError` is already rendered above.
+ */
+function Pin({ source }: { source: ProjectSource }) {
+  const pin = usePinSource()
+  if (!PINNABLE.includes(source.kind)) return null
+
+  const pinned = source.snapshot !== null
+
+  return (
+    <div className="flex flex-wrap items-center gap-2.5">
+      <Button
+        variant="secondary"
+        disabled={pin.isPending}
+        onClick={() => pin.mutate(source.sourceId)}
+      >
+        {pin.isPending ? 'Resolving…' : pinned ? 'Pin again' : 'Pin to a commit'}
+      </Button>
+      <span className="text-[11.5px] leading-snug text-ink-subtle">
+        {pinned
+          ? // A pin nobody can move is the same missing gesture one step later:
+            // the source would read at that commit forever.
+            'Resolves this source again and fixes it to the current revision.'
+          : 'Resolves the reference to one commit and lists what is in scope. Nothing is read yet.'}
+      </span>
+      {pin.error instanceof Error && (
+        <p role="alert" className="w-full text-[12px] text-blocking">
+          {pin.error.message}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function SourceDetail({ source }: { source: ProjectSource }) {
   const pinned = Boolean(source.snapshot)
 
@@ -504,12 +559,19 @@ function SourceDetail({ source }: { source: ProjectSource }) {
                 `, ${source.snapshot.excludedCount.toLocaleString()} excluded by this source’s rules`}
               .
             </p>
-          ) : (
+          ) : PINNABLE.includes(source.kind) ? (
             <p className="text-[12.5px] text-ink-muted">
               Not pinned to a commit yet, so there is nothing to list. Pinning fixes what KAE reads
               to one revision.
             </p>
+          ) : (
+            <p className="text-[12.5px] text-ink-muted">
+              Pinning is for repositories — there is no revision to fix for this kind of source, and
+              KAE reads what it was given.
+            </p>
           )}
+
+          <Pin source={source} />
 
           {source.lastError && (
             <p role="alert" className="text-[12px] text-blocking">

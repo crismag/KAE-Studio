@@ -862,3 +862,95 @@ describe('the source list is a table, because these rows are compared', () => {
     expect(screen.getByRole('columnheader', { name: /state/i })).toBeInTheDocument()
   })
 })
+
+/**
+ * `SRC-PIN-UNREACHABLE` / `D-237` — pinning is something a person can do.
+ *
+ * The route, the client call, the port method, both adapters and `usePinSource`
+ * all existed and no component called the hook, while this page told a person
+ * *"Not pinned to a commit yet"* and rendered the file browser only for a
+ * pinned source. `everyHookReachesASurface.test.ts` fails if the hook loses its
+ * caller again; these assert what the caller does.
+ */
+describe('pinning is reachable', () => {
+  const UNPINNED: ProjectSource = { ...PINNED, state: 'configured', snapshot: null }
+
+  it('offers the gesture the panel already names', async () => {
+    const user = userEvent.setup()
+    const asked: string[] = []
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({
+          sources: [asked.length > 0 ? PINNED : UNPINNED],
+          unavailable: '',
+        }),
+        pinSource: async (sourceId) => {
+          asked.push(sourceId)
+          return PINNED
+        },
+      }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /pin to a commit/i }))
+
+    expect(asked).toEqual([UNPINNED.sourceId])
+  })
+
+  it('shows the files it could not show before', async () => {
+    // The acceptance the row was filed on: pin, and then see what is in scope.
+    const user = userEvent.setup()
+    let pinned = false
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({ sources: [pinned ? PINNED : UNPINNED], unavailable: '' }),
+        pinSource: async () => {
+          pinned = true
+          return PINNED
+        },
+      }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /pin to a commit/i }))
+
+    expect(await screen.findByText('README.md')).toBeInTheDocument()
+  })
+
+  it('lets a pinned source be moved to the current revision', async () => {
+    // A pin nobody can move is the same missing gesture one step later.
+    renderSources((services) => withPinnedSource(services))
+
+    expect(await screen.findByRole('button', { name: /pin again/i })).toBeInTheDocument()
+  })
+
+  it('offers nothing to pin for a source that has no revision', async () => {
+    // `AcquisitionService.pin` raises for every kind but these two, so the
+    // control would have exactly one outcome there: a 500.
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({
+          sources: [{ ...UNPINNED, kind: 'paste', location: 'A pasted brief' }],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    expect(await screen.findByText(/pinning is for repositories/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pin to a commit/i })).not.toBeInTheDocument()
+  })
+
+  it('says a refused pin failed, in the words it arrived in', async () => {
+    const user = userEvent.setup()
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({ sources: [UNPINNED], unavailable: '' }),
+        pinSource: async () => {
+          throw new Error('that credential cannot read ministry/reporting-platform')
+        },
+      }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /pin to a commit/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/cannot read ministry/i)
+  })
+})
