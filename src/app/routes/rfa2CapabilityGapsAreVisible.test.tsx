@@ -24,7 +24,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices } from '@/services/mock/mockServices'
 import { ProjectDefinition } from '@/pages/rooms/definition/DefinitionRoom'
-import { CoverageSection } from '@/pages/rooms/interview/InterviewRoom'
+import { CoverageSection, GenerableNow } from '@/pages/rooms/interview/InterviewRoom'
+import { Memory } from '@/pages/memory/MemoryPage'
 import { SectionsNotRead } from '@/components/project/SectionsNotRead'
 import { sectionsNotRead } from '@/components/project/sectionsNotRead'
 import { Modules } from '@/pages/rooms/architecture/ModulesSubflow'
@@ -99,6 +100,38 @@ describe('a capability gap reaches the screen', () => {
     // And the counts are gone: "0 accepted" beside a capability that cannot
     // produce a module reads as a project with none.
     expect(screen.queryByText(/0 accepted/i)).not.toBeInTheDocument()
+  })
+
+  it('says module packages cannot be listed rather than that none were proposed', async () => {
+    // `D-184`. The panel is headed *What can be generated now* and branched on
+    // `modules.length`, which the live adapter sets to `[]` on every projection
+    // — so a project with modules and a project with none produced the same
+    // sentence, and the sentence was about the project.
+    const projection = {
+      modules: [],
+      openDecisions: [],
+      modulesGap: {
+        capability: 'modules',
+        reason: MODULES_REASON,
+        state: 'planned',
+        provedInstead: [],
+      },
+    } as unknown as ProjectProjection
+
+    renderWithProjection(<GenerableNow projection={projection} />)
+
+    expect(await screen.findByText(new RegExp(MODULES_REASON))).toBeInTheDocument()
+    expect(screen.queryByText(/no modules have been proposed yet/i)).not.toBeInTheDocument()
+  })
+
+  it('answers "not readable" where the Memory page counted a zero', async () => {
+    renderWithProjection(<Memory />)
+
+    // The stat, and the reason beneath it. A bare `0` on the page that claims
+    // to say *why the system believes what it believes* reads as the record
+    // having been consulted and found empty.
+    expect(await screen.findByText('not readable')).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(MODULES_REASON))).toBeInTheDocument()
   })
 
   it('says nothing when there is nothing to say', async () => {

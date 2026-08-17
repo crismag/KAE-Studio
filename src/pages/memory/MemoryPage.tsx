@@ -128,7 +128,15 @@ export function Memory() {
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[
                 { label: 'Statements', value: counts.statements },
-                { label: 'Modules', value: projection.modules.length },
+                // **Not a zero** (`D-184`). The adapter cannot read modules on any
+                // live deployment, so the count is `0` for a project with twenty
+                // of them and for a project with none alike — and on a page whose
+                // subject is what the record holds, a number reads as having
+                // asked. The gap carries the reason and is rendered under the row.
+                {
+                  label: 'Modules',
+                  value: projection.modulesGap ? 'not readable' : projection.modules.length,
+                },
                 { label: 'Open decisions', value: counts.openDecisions },
                 // **Not "Findings"** (`D-96`). This labelled 174 proposed statements as
                 // findings, which are a different set of a different size — there
@@ -145,6 +153,11 @@ export function Memory() {
                 </div>
               ))}
             </dl>
+            {projection.modulesGap && (
+              <p className="mt-3 max-w-3xl text-[12.5px] leading-relaxed text-ink-muted">
+                Modules are not counted here: {projection.modulesGap.reason}
+              </p>
+            )}
             <p className="mt-4 max-w-3xl text-[12.5px] leading-relaxed text-ink-muted">
               Every item below is versioned and traceable to the evidence that produced it. A
               correction never erases the original statement — it supersedes it, and both remain in

@@ -318,7 +318,7 @@ function UnderstandingSection({ projection }: { projection: ProjectProjection })
  * prototype fixture. The count was genuine, which made it worse: real derived
  * data wrapped around invented names reads as though KAE had worked it out.
  */
-function GenerableNow({ projection }: { projection: ProjectProjection }) {
+export function GenerableNow({ projection }: { projection: ProjectProjection }) {
   const deployment = useDeploymentStatus()
   const blocked = (moduleKey: string) =>
     projection.openDecisions.filter((d) => !d.deferred && d.blocks.includes(moduleKey)).length
@@ -333,6 +333,19 @@ function GenerableNow({ projection }: { projection: ProjectProjection }) {
       <p className="text-[12.5px] leading-relaxed text-ink-muted">
         Package generation is not configured on this deployment, so nothing can be generated here
         yet. The project knowledge above is unaffected.
+      </p>
+    )
+  }
+
+  // A gap is checked before the count, because the count is `0` on every live
+  // deployment whether or not the project has modules — the adapter cannot read
+  // them at all (`D-184`). "None have been proposed yet" is then a claim about
+  // somebody's project made out of a limit of ours.
+  if (projection.modulesGap) {
+    return (
+      <p className="text-[12.5px] leading-relaxed text-ink-muted">
+        The project context package can be generated. Module packages cannot be listed here:{' '}
+        {projection.modulesGap.reason}
       </p>
     )
   }
