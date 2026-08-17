@@ -91,11 +91,19 @@ class _RecordingMemory:
 
     def __init__(self) -> None:
         self.documents: list[tuple[str, str]] = []
+        self.provenance: list[tuple[str | None, str | None]] = []
 
     async def ingest_document(
-        self, project_id: str, document: str, text: str, max_chunks: int | None = None
+        self,
+        project_id: str,
+        document: str,
+        text: str,
+        max_chunks: int | None = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
     ) -> Any:
         self.documents.append((document, text))
+        self.provenance.append((source_type, source_id))
         return {"chunks_recorded": 1, "truncated_chunks": 0, "warnings": []}
 
     def __getattr__(self, name: str) -> Any:
@@ -169,6 +177,68 @@ def test_chosen_files_become_evidence_in_memory(client_and_memory: Any) -> None:
     assert REVISION[:7] in document
     assert "README.md" in document
     assert "Invoices are sent within three days." in text
+
+
+def test_a_repository_file_is_recorded_as_one(client_and_memory: Any) -> None:
+    """The name carried the provenance and the request did not (`D-164`).
+
+    `IngestDocumentRequest.source_type` defaults to an imported document, so a
+    caller that says nothing has every file it read out of a repository stored
+    as something somebody pasted — in the product whose claim is that it can say
+    where a statement came from. The source identifier travels with it because
+    the disposition that decides whether the body may be kept lives on that row
+    and nothing else connects the two.
+    """
+
+    client, memory, source_id = client_and_memory
+
+    client.post(
+        f"/api/sources/{source_id}/ingest",
+        json={"project_id": "p1", "paths": ["README.md"]},
+    )
+
+    assert memory.provenance == [("repository", source_id)]
+
+
+def test_every_kind_that_can_be_read_says_what_it_is() -> None:
+    """The mapping covers the read path exactly, and is not allowed to drift.
+
+    `_MEMORY_SOURCE_TYPES` is indexed rather than defaulted, so a kind added to
+    the read path and forgotten here would be a `KeyError` at ingest — and a
+    kind given a fallback would be the defect the table exists to close, quietly
+    back. Both directions fail here first.
+    """
+
+    from pathlib import Path
+
+    from kae_studio.acquisition.local_source import LocalSourceClient
+    from kae_studio.acquisition.model import Source, SourceScope
+    from kae_studio.acquisition.service import SourceReadError
+    from kae_studio.api import _MEMORY_SOURCE_TYPES
+
+    service = AcquisitionService(github=_github(), local=LocalSourceClient((Path("/tmp"),)))
+
+    for kind in SourceKind:
+        source = Source(
+            source_id="s1",
+            project_id="p1",
+            kind=kind,
+            connection_id="c1",
+            location="owner/repo",
+            reference="main",
+            scope=SourceScope(),
+        )
+        try:
+            service._client_for(source)
+        except SourceReadError:
+            readable = False
+        else:
+            readable = True
+
+        assert readable == (kind in _MEMORY_SOURCE_TYPES), (
+            f"{kind.value} is readable={readable} and mapped="
+            f"{kind in _MEMORY_SOURCE_TYPES}; the two sets must be the same one"
+        )
 
 
 def test_a_path_outside_scope_is_refused_rather_than_skipped(client_and_memory: Any) -> None:

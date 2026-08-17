@@ -42,6 +42,29 @@ from .memory_client import MODULE_GAP, MemoryClient, MemoryRefused, MemoryUnavai
 from .security import SESSION_COOKIE, SESSION_MAX_AGE, Operator, Sessions, require_operator
 
 
+_MEMORY_SOURCE_TYPES: dict[SourceKind, str] = {
+    SourceKind.GITHUB: "repository",
+    SourceKind.LOCAL: "repository",
+}
+"""Which of Memory's four provenance kinds each source kind is read as (`D-164`).
+
+The mapping lives here rather than in Memory because `kind` is Studio's
+vocabulary — `source_service`'s own docstring says it is *"carried rather than
+policed"* — and a `project_sources.kind` is free text on that side. Memory
+deriving `repository` from the string `github` would give two systems an opinion
+about one vocabulary, and would need a fallback for the value it did not
+recognise.
+
+**Partial on purpose, and indexed rather than defaulted.** Exactly the kinds
+`AcquisitionService` can read are mapped, which is a tested invariant rather than
+a coincidence: a kind added to the read path and not to this table fails that
+test before it can reach a caller. Falling back to `imported_document` for the
+unrecognised one is the defect this constant exists to close, so there is no
+fallback. `PASTE` and `UPLOAD` never arrive here — they carry their content with
+the request and go through `/projects/{id}/documents`.
+"""
+
+
 class DestinationIn(BaseModel):
     """Where a package goes. **Never carries a credential.**
 
@@ -2074,6 +2097,15 @@ def create_app(settings: Settings) -> FastAPI:
                 body.get("project_id", ""),
                 document=f"{source.location}@{revision[:7]}:{path}",
                 text=text,
+                # What was read, and which registered source it was read out of
+                # (`D-164`). Neither was sent for the whole life of this route,
+                # so every repository file Memory holds is recorded as a
+                # document somebody pasted. The identifier is Memory's own —
+                # `D-21` made Studio adopt it rather than mint a second one —
+                # so it needs no translation and is refused there if it names
+                # nothing.
+                source_type=_MEMORY_SOURCE_TYPES[source.kind],
+                source_id=source_id,
             )
             results.append({"path": path, "ingested": outcome})
 

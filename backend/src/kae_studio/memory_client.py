@@ -189,7 +189,13 @@ class MemoryClient:
         )
 
     async def ingest_document(
-        self, project_id: str, document: str, text: str, max_chunks: int | None = None
+        self,
+        project_id: str,
+        document: str,
+        text: str,
+        max_chunks: int | None = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
     ) -> Any:
         """Hand Memory a document. It chunks, records verbatim, and queues extraction.
 
@@ -205,11 +211,20 @@ class MemoryClient:
         Returns Memory's 202 body, which carries `truncated_chunks` and
         `warnings`. **Both must reach a person.** A document silently cut at
         `max_chunks` is the failure `AUD-024` was about.
+
+        `source_type` and `source_id` say what was read and where from. Both
+        omitted is a paste, which is what Memory assumes when neither arrives —
+        and for the whole life of this method that assumption was applied to
+        repository files too, because the parameters did not exist (`D-164`).
         """
 
         body: dict[str, Any] = {"document": document, "text": text}
         if max_chunks is not None:
             body["max_chunks"] = max_chunks
+        if source_type is not None:
+            body["source_type"] = source_type
+        if source_id is not None:
+            body["source_id"] = source_id
         return await self._request("POST", f"/v1/projects/{project_id}/documents", json=body)
 
     async def extraction_coverage(self, project_id: str) -> Any:
