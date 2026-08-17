@@ -77,9 +77,20 @@ const GROUPS: { kind: FindingKind; title: string; description: string; icon: typ
     },
     {
       kind: 'agent_proposal',
-      title: 'Agent-proposed knowledge',
+      // **Not "Agent-proposed knowledge"** (`D-185`). The adapter stamps this
+      // kind on every proposed statement KAE-Memory holds, whatever produced
+      // it, and nothing anywhere reads an origin — so the old heading told a
+      // person that a coding agent had found, in their repository, a sentence
+      // KAE had read off their own conversation. The card's `detail` said
+      // *"Derived from conversation as …"* directly beneath it. The kind's
+      // identifier is Studio's invention (`D-30`) and is left alone here; what
+      // a person reads is what was untrue.
+      // Not *Proposed statements* either: `ProposedStatements.tsx` already
+      // uses those exact words for the sub-group holding findings that carry
+      // no kind, and one panel cannot have two things under one name.
+      title: 'Proposed knowledge',
       description:
-        'Discovered by a coding agent during implementation and submitted through KAE MCP. Proposed until a person confirms it.',
+        'What KAE has read from this project and not yet been told is right. Proposed until a person confirms it.',
       icon: Bot,
     },
   ]

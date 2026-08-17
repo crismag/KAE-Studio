@@ -54,13 +54,28 @@ describe('Modules', () => {
 })
 
 describe('Reviews', () => {
-  it('separates agent-proposed knowledge and marks it unconfirmed', async () => {
+  it('separates proposed knowledge and marks it unconfirmed', async () => {
     renderRoute(<Reviews />)
-    expect(await screen.findByText('Agent-proposed knowledge')).toBeInTheDocument()
+    expect(await screen.findByText('Proposed knowledge')).toBeInTheDocument()
     // Two agent proposals in the fixture; both must carry the same disclaimer.
     expect(
       screen.getAllByText(/an agent cannot change the project definition/i).length,
     ).toBeGreaterThan(0)
+  })
+
+  it('does not attribute every proposed statement to a coding agent', async () => {
+    // `D-185`. The adapter stamps `agent_proposal` on everything Memory has
+    // proposed, whatever produced it, so this group holds statements read off
+    // the project's own conversation — and it used to head them *Agent-proposed
+    // knowledge*, *"Discovered by a coding agent during implementation"*. The
+    // absent sentence is asserted as well as the present one, because the two
+    // coexisted: the card's own detail said "Derived from conversation as …"
+    // three lines under a heading that said an agent found it.
+    renderRoute(<Reviews />)
+    await screen.findByText('Proposed knowledge')
+
+    expect(screen.queryByText('Agent-proposed knowledge')).not.toBeInTheDocument()
+    expect(screen.queryByText(/discovered by a coding agent/i)).not.toBeInTheDocument()
   })
 
   it('surfaces the contradiction with both competing statements', async () => {
