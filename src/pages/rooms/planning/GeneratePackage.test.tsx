@@ -490,3 +490,74 @@ describe('a publication says which files it wrote', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/holds no published bytes/i)
   })
 })
+
+/*
+ * `D-210`. Every finding carries the artifact it is about and the panel drew
+ * severity, message and remedy — so on a package of a dozen documents "a
+ * section is empty" named none of them.
+ */
+describe('a validation finding says what it is about', () => {
+  async function generate(user: ReturnType<typeof userEvent.setup>) {
+    await proposePlan(user, 'minimal-agent-context')
+    await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+    await screen.findByText(/validated and publishable/i)
+  }
+
+  /*
+   * The finding's own line, not the panel. The plan rows above it show the
+   * same paths, so a bare text query would pass on the file list while the
+   * finding still named nothing.
+   */
+  function findingLine() {
+    return screen.findByText(
+      (_, element) =>
+        element?.tagName === 'P' && /some sections have nothing/i.test(element.textContent ?? ''),
+    )
+  }
+
+  function servicesFinding(artifactId: string) {
+    const services = createMockServices()
+    const validate = services.pipeline.validate.bind(services.pipeline)
+    services.pipeline.validate = async (packageId) => {
+      const result = await validate(packageId)
+      return { ...result, findings: result.findings.map((f) => ({ ...f, artifactId })) }
+    }
+    return services
+  }
+
+  it('names the file, from the manifest the finding only points at', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await generate(user)
+
+    expect(
+      within(await findingLine()).getByText('docs/context/PROJECT_CONTEXT.md'),
+    ).toBeInTheDocument()
+  })
+
+  it('says a finding about the package is about the package, rather than nothing', async () => {
+    // KAE-Artifacts leaves `artifact_id` empty on its limit and integrity
+    // checks. Beside findings that name a file, a blank would read as one
+    // nobody bothered to name.
+    const user = userEvent.setup()
+    renderPanel(servicesFinding(''))
+
+    await generate(user)
+
+    expect(within(await findingLine()).getByText(/across the whole package/i)).toBeInTheDocument()
+  })
+
+  it('shows an identifier the manifest cannot explain, rather than dropping it', async () => {
+    // Dropping it would attribute a finding about one file to the package,
+    // which is the one wrong sentence available here.
+    const user = userEvent.setup()
+    renderPanel(servicesFinding('art_missing'))
+
+    await generate(user)
+
+    const line = within(await findingLine())
+    expect(line.getByText('art_missing')).toBeInTheDocument()
+    expect(line.queryByText(/across the whole package/i)).not.toBeInTheDocument()
+  })
+})

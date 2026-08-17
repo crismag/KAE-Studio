@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/primitives'
 import {
   useApprovePreview,
+  useArtifactPackage,
   useArtifactProfiles,
   useArtifactPublishers,
   useCreateArtifactPlan,
@@ -64,6 +65,7 @@ import {
 import type {
   ArtifactApproval,
   ArtifactDestination,
+  ArtifactPackage,
   ArtifactPlan,
   ArtifactPlanEntry,
   ArtifactPreview,
@@ -116,6 +118,31 @@ const UNFINISHED_RUN_SENTENCE: Record<
  */
 function idempotencyKey(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`
+}
+
+/**
+ * Where a validation finding applies, in words a reader can act on (`D-210`).
+ *
+ * A finding carries an artifact identifier and the path lives in the package
+ * manifest, so this is the one thing on the panel that needs two reads to say.
+ *
+ * Three answers, and none of them is a blank. An **empty** identifier is a
+ * fact — KAE-Artifacts leaves it empty on the checks that are about the package
+ * itself, its limits and its integrity — so it is said rather than left to look
+ * like a file nobody named. An identifier the manifest does not explain is
+ * shown as itself, because dropping it would attribute a finding about one file
+ * to the whole package. `null` only while the manifest is still in flight: an
+ * identifier that flickers into a path is worse than a slot that fills.
+ */
+function findingLocation(
+  artifactId: string,
+  manifest: ArtifactPackage | undefined,
+  settled: boolean,
+): { label: string; mono: boolean } | null {
+  if (!artifactId) return { label: 'across the whole package', mono: false }
+  const entry = manifest?.artifacts.find((a) => a.artifactId === artifactId)
+  if (entry) return { label: entry.logicalPath, mono: true }
+  return settled ? { label: artifactId, mono: true } : null
 }
 
 /** What went wrong, in the words KAE-Artifacts used, with its remedy. */
@@ -290,6 +317,9 @@ export function GeneratePackage() {
   const [published, setPublished] = useState<ArtifactPublication | null>(null)
 
   const validation = useValidatePackage(run?.packageId)
+  // The manifest, for the one thing a finding cannot say by itself: a finding
+  // carries an artifact identifier and the path lives here (`D-210`).
+  const manifest = useArtifactPackage(run?.packageId)
   // The 202 is a receipt, not an outcome. `published` holds what the POST
   // returned; this holds what the publication has since become (AUD-018).
   // Recover work in flight after a refresh. The identifiers are the only thing
@@ -555,15 +585,28 @@ export function GeneratePackage() {
                     ? 'Validated and publishable.'
                     : 'This package cannot be published as it stands.'}
                 </p>
-                {validation.data.findings.map((finding, index) => (
-                  <p
-                    key={`${finding.check}-${index}`}
-                    className="pl-5 text-[12px] leading-relaxed text-ink-muted"
-                  >
-                    <Mono className="text-[11px]">{finding.severity}</Mono> {finding.message}{' '}
-                    {finding.remedy}
-                  </p>
-                ))}
+                {validation.data.findings.map((finding, index) => {
+                  const where = findingLocation(
+                    finding.artifactId,
+                    manifest.data,
+                    !manifest.isPending,
+                  )
+                  return (
+                    <p
+                      key={`${finding.check}-${index}`}
+                      className="pl-5 text-[12px] leading-relaxed text-ink-muted"
+                    >
+                      <Mono className="text-[11px]">{finding.severity}</Mono>{' '}
+                      {where &&
+                        (where.mono ? (
+                          <Mono className="text-[11px] text-ink">{where.label}</Mono>
+                        ) : (
+                          <span className="text-ink">{where.label}</span>
+                        ))}{' '}
+                      {finding.message} {finding.remedy}
+                    </p>
+                  )
+                })}
               </div>
             )}
           </div>
