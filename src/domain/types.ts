@@ -793,19 +793,6 @@ export interface ProjectHealth {
   recommendedNext: string[]
 }
 
-/* ---------------------------------------------------------------- memory view */
-
-export interface MemoryRecord {
-  id: string
-  kind: string
-  statement: string
-  status: NodeStatus
-  revision: number
-  changedAt: string
-  supportedBy: TraceReference[]
-  supersedes?: string
-}
-
 /** Whole projection the UI renders. Assembled by ProjectProjectionService. */
 /**
  * A section the backend could not compute, and why.
