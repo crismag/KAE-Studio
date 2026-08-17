@@ -169,6 +169,48 @@ describe('GeneratePackage', () => {
     expect(await screen.findByText(/current content will be overwritten/i)).toBeInTheDocument()
   })
 
+  it('names the version an overwrite would replace, on that row and no other', async () => {
+    // `D-211`. The warning above says *some* of these replace existing files.
+    // Which version is being replaced is a fact about one row, and it is the
+    // same value S3 sends as `if_match` — so it is what a stale approval is
+    // about, not an internal identifier.
+    const user = userEvent.setup()
+    renderPanel()
+    await proposePlan(user, 'minimal-agent-context')
+    await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+    await screen.findByText(/validated and publishable/i)
+
+    await user.selectOptions(await screen.findByLabelText(/destination/i), 'github')
+    await user.type(await screen.findByLabelText(/repository/i), 'crismag/kae-artifacts-proof')
+    await user.click(screen.getByRole('button', { name: /see what would change/i }))
+
+    // Asserted inside the row, because the sentence has to be next to the path
+    // it is about. A page-wide query would pass with it anywhere on screen.
+    const changes = await screen.findByRole('list', { name: /what publishing would change/i })
+    const overwritten = within(changes).getByText('docs/context/PROJECT_CONTEXT.md').closest('li')!
+    expect(within(overwritten).getByText(/replaces/i)).toBeInTheDocument()
+    expect(within(overwritten).getByText(/blob9f8e7d/)).toBeInTheDocument()
+
+    // An addition has nothing at the destination to identify, so the row says
+    // nothing rather than showing an empty identity.
+    const added = within(changes).getByText('AGENTS.md').closest('li')!
+    expect(within(added).queryByText(/replaces/i)).not.toBeInTheDocument()
+  })
+
+  it('says how much each file would write', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await proposePlan(user, 'minimal-agent-context')
+    await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+    await screen.findByText(/validated and publishable/i)
+
+    await user.click(await screen.findByRole('button', { name: /see what would change/i }))
+
+    const changes = await screen.findByRole('list', { name: /what publishing would change/i })
+    const row = within(changes).getByText('AGENTS.md').closest('li')!
+    expect(within(row).getByText(/KB/)).toBeInTheDocument()
+  })
+
   it('warns that a moved destination invalidates the approval', async () => {
     const user = userEvent.setup()
     renderPanel()

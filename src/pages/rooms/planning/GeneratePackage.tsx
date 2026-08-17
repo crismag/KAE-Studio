@@ -84,6 +84,14 @@ const READINESS: Record<
   blocked: { label: 'Blocked', tone: 'attention' },
 }
 
+/**
+ * A size somebody can read. Bytes are how the wire carries it and not how a
+ * person judges whether a file is a paragraph or a document.
+ */
+function sizeLabel(bytes: number): string {
+  return `${Math.round(bytes / 102.4) / 10} KB`
+}
+
 const OUTCOME: Record<FileOutcome, { label: string; tone: 'accent' | 'attention' | 'neutral' }> = {
   add: { label: 'add', tone: 'accent' },
   modify: { label: 'overwrites', tone: 'attention' },
@@ -724,18 +732,41 @@ export function GeneratePackage() {
               <div className="mt-3">
                 {proposed.hasChanges ? (
                   <>
-                    <ul className="rounded-panel border border-line">
+                    <ul
+                      aria-label="What publishing would change"
+                      className="rounded-panel border border-line"
+                    >
                       {proposed.changes.map((change) => (
                         <li
                           key={change.path}
                           className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-3 py-2 first:border-t-0"
                         >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <FileText
-                              className="size-3.5 shrink-0 text-ink-subtle"
-                              aria-hidden="true"
-                            />
-                            <Mono className="truncate text-[12px]">{change.path}</Mono>
+                          <span className="flex min-w-0 flex-col gap-0.5">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <FileText
+                                className="size-3.5 shrink-0 text-ink-subtle"
+                                aria-hidden="true"
+                              />
+                              <Mono className="truncate text-[12px]">{change.path}</Mono>
+                            </span>
+                            {/*
+                             * The identity is empty on an addition by
+                             * construction — there is nothing at the
+                             * destination to identify — so it is said only
+                             * where it means something. It is the same value
+                             * S3 passes as `if_match`, which is to say it names
+                             * the version this approval is against.
+                             */}
+                            <span className="pl-[22px] text-[11.5px] text-ink-subtle">
+                              {change.outcome === 'modify' && change.existingIdentity ? (
+                                <>
+                                  {sizeLabel(change.sizeBytes)} · replaces{' '}
+                                  <Mono>{change.existingIdentity.slice(0, 12)}</Mono>
+                                </>
+                              ) : (
+                                sizeLabel(change.sizeBytes)
+                              )}
+                            </span>
                           </span>
                           <Badge tone={OUTCOME[change.outcome].tone}>
                             {OUTCOME[change.outcome].label}
