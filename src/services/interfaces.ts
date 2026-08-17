@@ -109,10 +109,29 @@ export interface ProjectMemoryClient {
   ): Promise<MemoryWriteResult>
 }
 
+/** One link in KAE-Memory's chain of custody for a statement.
+ *
+ *  What `detail` holds depends on the relation: a `source_message` step carries
+ *  the message's own text, a `produced_by_run` step the engine, a
+ *  `knowledge_version` step the version's provenance source. It is optional
+ *  upstream and empty when nothing was recorded, so an absent detail means
+ *  *not recorded* and never *empty evidence*. */
+export interface TraceStep {
+  relation: string
+  reference: string
+  detail?: string | null
+}
+
 export interface KnowledgeTrace {
   kind: string
   lifecycle: string
   source_message_ids?: string[]
+  /**
+   * The chain of custody, in order. Absent on a KAE-Memory older than the
+   * field, which renders as the message count alone — exactly as this surface
+   * read before the steps were carried.
+   */
+  steps?: TraceStep[]
   produced_by_run_id?: string | null
   /**
    * The engine the producing run recorded — a model identifier, or

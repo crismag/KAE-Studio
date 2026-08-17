@@ -11,70 +11,14 @@ import {
   PanelTitle,
   Skeleton,
 } from '@/components/ui/primitives'
-import { useKnowledgeTrace, useProject, useProjection } from '@/hooks/useProject'
+import { useProject, useProjection } from '@/hooks/useProject'
+import { RecordProvenance } from '@/components/project/RecordProvenance'
 import { projectCounts } from '@/lib/counts'
 
 /**
  * Memory is a trust and continuity surface, not the primary workflow. It shows
  * what the system believes, how sure it is, and where each belief came from.
  */
-/**
- * One record's provenance, read on demand.
- *
- * The same question `/requirements` asks, against the same endpoint. It lives
- * here as its own component so the query is scoped to a row that has actually
- * been opened — a project holds hundreds of records, and reading provenance for
- * all of them on page load would replace a dishonest page with a slow one.
- *
- * A failure says so. Provenance that could not be read must never render as
- * provenance that does not exist, because on this page the difference is the
- * entire point.
- */
-function RecordProvenance({ knowledgeId, status }: { knowledgeId: string; status: string }) {
-  const { data, isLoading, isError } = useKnowledgeTrace(knowledgeId)
-
-  if (isLoading) return <p className="text-[12px] text-ink-subtle">Reading provenance…</p>
-  if (isError || !data)
-    return (
-      <p className="text-[12px] text-ink-subtle">
-        Provenance could not be read. Nothing is being guessed in its place.
-      </p>
-    )
-
-  return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]">
-      <dt className="text-ink-subtle">Recorded as</dt>
-      <dd className="text-ink-muted">{data.kind}</dd>
-      <dt className="text-ink-subtle">State</dt>
-      <dd className="text-ink-muted">
-        {status === 'confirmed' ? 'confirmed by a person' : status}
-      </dd>
-      {data.produced_by && (
-        <>
-          <dt className="text-ink-subtle">Produced by</dt>
-          <dd className="text-ink-muted">
-            {data.produced_by === 'deterministic-fixture'
-              ? 'the offline fixture — sentences split on punctuation, not a model reading'
-              : data.produced_by}
-          </dd>
-        </>
-      )}
-      <dt className="text-ink-subtle">Derived from</dt>
-      <dd className="text-ink-muted">
-        {data.source_message_ids?.length
-          ? `${data.source_message_ids.length} message(s) in this project's conversation`
-          : 'no recorded source message'}
-      </dd>
-      {data.produced_by_run_id && (
-        <>
-          <dt className="text-ink-subtle">By</dt>
-          <dd className="text-ink-muted">an extraction run</dd>
-        </>
-      )}
-    </dl>
-  )
-}
-
 export function Memory() {
   const { data: projection, isLoading } = useProjection()
   const { data: project } = useProject()

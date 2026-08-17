@@ -7,7 +7,7 @@ import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
 import { CATEGORY_LABEL, STATUS_COUNT_WORD } from '@/components/project/labels'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
-import { useKnowledgeTrace } from '@/hooks/useProject'
+import { RecordProvenance } from '@/components/project/RecordProvenance'
 import {
   Badge,
   Button,
@@ -81,59 +81,6 @@ const CATEGORY_SHORT: Record<string, string> = {
   decision: 'Decision',
   assumption: 'Assumption',
   open_question: 'Question',
-}
-
-/**
- * U3. Stored provenance, fetched from KAE-Memory's trace endpoint.
- *
- * **Not a model explaining itself.** The distinction matters more here than
- * anywhere else on the page: a generated rationale reads exactly like recorded
- * evidence, and a reader cannot tell them apart. Everything below came out of
- * the record.
- */
-function Provenance({ knowledgeId, status }: { knowledgeId: string; status: string }) {
-  const { data, isLoading, isError } = useKnowledgeTrace(knowledgeId)
-
-  if (isLoading) return <p className="text-[12px] text-ink-subtle">Reading provenance…</p>
-  if (isError || !data)
-    return (
-      <p className="text-[12px] text-ink-subtle">
-        Provenance could not be read. Nothing is being guessed in its place.
-      </p>
-    )
-
-  return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]">
-      <dt className="text-ink-subtle">Recorded as</dt>
-      <dd className="text-ink-muted">{data.kind}</dd>
-      <dt className="text-ink-subtle">State</dt>
-      <dd className="text-ink-muted">
-        {status === 'confirmed' ? 'confirmed by a person' : status}
-      </dd>
-      {data.produced_by && (
-        <>
-          <dt className="text-ink-subtle">Produced by</dt>
-          <dd className="text-ink-muted">
-            {data.produced_by === 'deterministic-fixture'
-              ? 'the offline fixture — sentences split on punctuation, not a model reading'
-              : data.produced_by}
-          </dd>
-        </>
-      )}
-      <dt className="text-ink-subtle">Derived from</dt>
-      <dd className="text-ink-muted">
-        {data.source_message_ids?.length
-          ? `${data.source_message_ids.length} message(s) in this project's conversation`
-          : 'no recorded source message'}
-      </dd>
-      {data.produced_by_run_id && (
-        <>
-          <dt className="text-ink-subtle">By</dt>
-          <dd className="text-ink-muted">an extraction run</dd>
-        </>
-      )}
-    </dl>
-  )
 }
 
 /**
@@ -448,7 +395,7 @@ function RequirementRow({
               </Collapsible.Trigger>
               <Collapsible.Content>
                 <div className="mt-2 space-y-2 rounded-md border border-line bg-surface-sunken/60 px-3.5 py-3">
-                  <Provenance knowledgeId={requirement.id} status={requirement.status} />
+                  <RecordProvenance knowledgeId={requirement.id} status={requirement.status} />
                   {requirement.trace.map((t) => (
                     <figure key={t.evidenceId}>
                       <blockquote className="flex gap-2 text-[12.5px] leading-relaxed text-ink-muted">

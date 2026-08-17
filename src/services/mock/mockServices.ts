@@ -305,8 +305,28 @@ class MockProjectMemoryClient implements ProjectMemoryClient {
     return delay({ accepted: true, memoryRevision: state.memoryRevision })
   }
 
+  // The steps are the chain of custody KAE-Memory builds per request, and the
+  // fixture answers with both arms it has: a message whose text was recorded,
+  // and one whose text was not. A prototype that only ever quotes is a
+  // prototype nobody can develop the counted-only case against.
   knowledgeTrace(_projectId: string, _knowledgeId: string) {
-    return delay({ kind: 'rule', lifecycle: 'proposed', source_message_ids: ['fixture'] })
+    return delay({
+      kind: 'rule',
+      lifecycle: 'proposed',
+      source_message_ids: ['fixture', 'fixture-2'],
+      produced_by_run_id: 'run-fixture',
+      steps: [
+        { relation: 'project', reference: 'demo' },
+        { relation: 'session', reference: 'session-fixture', detail: 'discovery' },
+        {
+          relation: 'source_message',
+          reference: 'fixture',
+          detail: 'Every export has to carry the tenant it came from, or the audit is worthless.',
+        },
+        { relation: 'source_message', reference: 'fixture-2', detail: '' },
+        { relation: 'produced_by_run', reference: 'run-fixture', detail: '' },
+      ],
+    })
   }
 
   confirmFinding(_projectId: string, findingId: string): Promise<MemoryWriteResult> {
