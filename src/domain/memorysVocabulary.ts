@@ -1,5 +1,6 @@
 /**
- * The words KAE-Memory can send, transcribed once so two guards can share them.
+ * The words KAE-Memory can send, transcribed once so several guards can share
+ * them.
  *
  * The sets are literal because Studio's CI has no KAE-Memory checkout — the same
  * reason `vocabulary_drift.py` is run deliberately rather than by either
@@ -9,6 +10,10 @@
  * They live outside the test file that first held them because a second test
  * file needs them, and importing a `.test.ts` would re-run its suites inside the
  * importer (`D-125`).
+ *
+ * They live beside `types.ts` rather than under the room that first needed them
+ * because none of them belongs to a room: the guards reading this file are in
+ * the attention room, the interview room and the adapter (`D-217`).
  */
 
 /** `KnowledgeKind`, `domain/models.py:112` — what `_require_kind` allows. */
@@ -65,6 +70,16 @@ export const ATTENTION_KINDS = [
 
 /** `AttentionStatus`, `domain/synthesis.py:97`. */
 export const ATTENTION_STATUSES = ['open', 'deferred', 'resolved', 'dismissed']
+
+/**
+ * `ActorType`, `domain/workspace.py:40` — who produced a message.
+ *
+ * The one transcription. `D-215` wrote two, in the adapter's guard and the
+ * interview room's, and neither was compared to anything (`D-217`). Studio's
+ * `MessageAuthor` is a different vocabulary and is mapped from this one; the
+ * mapping declares itself total against this list rather than repeating it.
+ */
+export const MEMORY_ACTOR_TYPES = ['user', 'agent', 'system']
 
 /** `EvidenceBindingKind`, `domain/synthesis.py:55`. */
 export const BINDING_KINDS = ['supports', 'contradicts', 'superseded_by', 'resolved_by']

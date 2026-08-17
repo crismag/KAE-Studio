@@ -14,15 +14,18 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { MEMORY_ACTOR_TYPES } from '@/domain/memorysVocabulary'
 import { createLiveServices } from './liveServices'
 
 /**
- * `ActorType` in `kae_memory/domain/workspace.py`, verbatim and in the enum's
- * own order, with the author Studio owes each one.
+ * The `MessageAuthor` Studio owes each of KAE-Memory's actors, in the enum's own
+ * order.
  *
- * Written out rather than imported — the repositories share no code — so an
- * actor added upstream and left unmapped is a change somebody has to make
- * deliberately. `vocabulary_drift.py`'s second list is what reported this one.
+ * **Not a transcription of `ActorType`** — `assistant` is Studio's word and is
+ * in no KAE-Memory enum, so this cannot be compared member for member against
+ * one (`D-217`). The transcription is `MEMORY_ACTOR_TYPES`, and the last case
+ * below asserts this mapping covers exactly it, so an actor added upstream and
+ * left unmapped fails here rather than only in a list of judgement.
  */
 const MEMORY_ACTORS = [
   { actorType: 'user', author: 'user' },
@@ -70,5 +73,15 @@ describe('every actor KAE-Memory has reaches the author it means', () => {
 
     expect(message.author).toBe('system')
     expect(message.actorType).toBe('orchestrator')
+  })
+
+  it('maps every actor KAE-Memory has and no word it does not', () => {
+    // The cases above are driven off this mapping and the interview room's are
+    // driven off the pin, so both shrink quietly when a member goes missing —
+    // `D-213`'s shape, where a guard's assertions came off a copy that had
+    // rotted. This is the one case that fails instead.
+    expect(MEMORY_ACTORS.map(({ actorType }) => actorType as string).sort()).toEqual(
+      [...MEMORY_ACTOR_TYPES].sort(),
+    )
   })
 })

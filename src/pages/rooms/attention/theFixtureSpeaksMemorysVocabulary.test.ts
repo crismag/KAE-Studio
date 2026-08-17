@@ -29,7 +29,7 @@ import {
   LIFECYCLES_A_PERSON_MAY_HOLD,
   LIFECYCLE_STATES,
   SYNTHESIZED_LIFECYCLES,
-} from './memorysVocabulary'
+} from '@/domain/memorysVocabulary'
 
 describe('the synthesized model fixture speaks Memory’s vocabulary', () => {
   it('carries objects at all, so the assertions below are not vacuous', () => {

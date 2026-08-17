@@ -36,7 +36,7 @@ import {
   KNOWLEDGE_KINDS,
   LIFECYCLES_A_PERSON_MAY_HOLD,
   SYNTHESIZED_LIFECYCLES,
-} from './memorysVocabulary'
+} from '@/domain/memorysVocabulary'
 
 const REPORT: UnknownSynthesisReport = {
   considered: 41,

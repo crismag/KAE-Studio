@@ -21,18 +21,9 @@
 
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MEMORY_ACTOR_TYPES } from '@/domain/memorysVocabulary'
 import type { ConversationMessage } from '@/domain/types'
 import { TranscriptTurn } from './InterviewRoom'
-
-/**
- * `ActorType` in `kae_memory/domain/workspace.py:40-45`, verbatim.
- *
- * Written out because the repositories share no code, and registered nowhere
- * else — the assertions below name every member, so an actor added upstream and
- * not here is caught by `vocabulary_drift.py`'s second list, which is what found
- * this in the first place.
- */
-const MEMORY_ACTOR_TYPES = ['user', 'agent', 'system'] as const
 
 function turn(overrides: Partial<ConversationMessage> = {}): ConversationMessage {
   return {
