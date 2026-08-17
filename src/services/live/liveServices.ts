@@ -1310,6 +1310,8 @@ interface WireDeliverable {
   }
   recorded_by: string | null
   superseded_by: string | null
+  publication_eligible?: boolean
+  ineligibility_reason?: string | null
 }
 
 /**
@@ -1360,6 +1362,11 @@ function deliverable(wire: WireDeliverable): Deliverable {
       areaKey: gap.area_key,
       summary: gap.summary,
     })),
+    // The reason rather than the boolean: Memory sets one exactly when the
+    // other is false, and its words are written for a reader. Empty where the
+    // deployment is too old to send either, since a refusal nobody made is a
+    // worse claim than none.
+    unreproducibleReason: wire.publication_eligible ? '' : (wire.ineligibility_reason ?? ''),
     generatedAt: undefined,
   }
 }

@@ -176,6 +176,50 @@ describe('deliverables arrive in a shape the page can render', () => {
     expect(mapped.unresolvedGaps).toEqual([])
   })
 
+  /**
+   * `D-253`. `RenderService.render` raises `UnreproducibleError` before it
+   * produces anything, and KAE-Memory sends the reason it would raise with.
+   * `WireDeliverable` named neither field, so every deliverable in Studio was
+   * drawn as one that can be re-rendered — including the ones a render call
+   * refuses.
+   */
+  it('carries the reason KAE-Memory would refuse to re-render this package', async () => {
+    respond({
+      deliverables: [
+        {
+          ...RECORDED,
+          publication_eligible: false,
+          ineligibility_reason: 'recorded before render inputs were captured (N20.1)',
+        },
+      ],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unreproducibleReason).toBe('recorded before render inputs were captured (N20.1)')
+  })
+
+  it('says nothing about reproduction for a package Memory would render', async () => {
+    respond({
+      deliverables: [{ ...RECORDED, publication_eligible: true, ineligibility_reason: null }],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unreproducibleReason).toBe('')
+  })
+
+  it('claims no refusal from a deployment too old to send one', async () => {
+    // `RECORDED` carries neither field. A missing pair is not a refusal, and
+    // inferring one from the boolean's absence would put words in Memory's
+    // mouth on every deliverable a older deployment holds.
+    respond({ deliverables: [RECORDED] })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unreproducibleReason).toBe('')
+  })
+
   it('returns nothing, and says nothing, when the envelope is the sibling one', async () => {
     // The failure mode itself rather than a description of it. `results` is
     // KAE-Memory's connection envelope and never its deliverable envelope; an

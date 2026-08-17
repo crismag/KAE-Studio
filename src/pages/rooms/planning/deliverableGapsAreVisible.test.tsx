@@ -59,6 +59,26 @@ describe('a package says what it was assembled around', () => {
     expect(screen.queryByText(/authority_model/)).not.toBeInTheDocument()
   })
 
+  /**
+   * `D-253`. The refusal exists — `RenderService.render` raises before
+   * producing bytes — and the page drew every package as though it did not.
+   */
+  it('says a package cannot be re-rendered, in the words Memory refused with', async () => {
+    renderPage([
+      {
+        ...WITH_GAPS,
+        unresolvedGaps: [],
+        unreproducibleReason: 'render inputs were captured but the statements were not pinned',
+      },
+    ])
+
+    expect(
+      await screen.findByText(
+        /cannot be re-rendered: render inputs were captured but the statements were not pinned/i,
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('says nothing when there is nothing to say', async () => {
     // The control. A complete package must not carry a warning shaped like one,
     // which is the failure mode of announcing an empty list.
@@ -66,5 +86,6 @@ describe('a package says what it was assembled around', () => {
 
     expect(await screen.findByText('Project context package')).toBeInTheDocument()
     expect(screen.queryByText(/critical gap/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/cannot be re-rendered/i)).not.toBeInTheDocument()
   })
 })

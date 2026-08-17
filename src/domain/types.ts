@@ -498,6 +498,13 @@ export interface Deliverable {
    * than optional so a fixture cannot be silent about it either.
    */
   unresolvedGaps: { areaKey: string; summary: string }[]
+  /**
+   * Why KAE-Memory would refuse to re-render this package, in its own words.
+   *
+   * Empty when it would not. `RenderService.render` raises before producing
+   * anything, so this is a refusal that exists rather than a caution.
+   */
+  unreproducibleReason?: string
   publishedTo?: { target: PublishTargetKind; reference: string; at: string }
   blockedReason?: string
 }

@@ -140,6 +140,16 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           </div>
         )}
 
+        {deliverable.unreproducibleReason && (
+          <p className="flex items-start gap-2 rounded-md border border-line bg-surface-sunken/60 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
+            <span>
+              This record cannot be re-rendered: {deliverable.unreproducibleReason}. It stays
+              readable.
+            </span>
+          </p>
+        )}
+
         {deliverable.blockedReason && (
           <p className="flex items-start gap-2 rounded-md border border-line bg-surface-sunken/60 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
             <Lock className="mt-0.5 size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
