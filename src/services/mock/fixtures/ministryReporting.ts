@@ -1864,7 +1864,12 @@ export const WITHHELD_THEMES: string[] = [
 export const attentionItems: AttentionItem[] = [
   {
     id: 'attn-001',
-    kind: 'material_unknown',
+    // `AttentionKind.UNKNOWN`, which is the word Memory writes. This said
+    // `material_unknown` — a kind the enum does not hold and no service can
+    // produce — so the card's badge read *material unknown* here and *unknown*
+    // on every deployment (`D-166`). Nothing branches on it, so the whole cost
+    // was a label that could not be reproduced live.
+    kind: 'unknown',
     title: 'Who approves a return before it is published',
     explanation:
       'Nine unanswered questions across the record ask this, and nothing in the project ' +
@@ -1879,7 +1884,7 @@ export const attentionItems: AttentionItem[] = [
   },
   {
     id: 'attn-002',
-    kind: 'material_unknown',
+    kind: 'unknown',
     title: 'What happens to a figure after the return is published',
     explanation:
       'Corrections are a stated goal and no source says how one is made, so the goal has ' +

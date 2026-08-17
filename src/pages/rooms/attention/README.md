@@ -16,6 +16,24 @@ backlog, and a queue nobody can finish is the shape of that failure.
 The governing cross-Room migration is
 [`docs/architecture/EPISTEMIC_PRESENTATION_MODEL.md`](../../../../docs/architecture/EPISTEMIC_PRESENTATION_MODEL.md).
 
+## The page-level summary (`SYN-4b`, `D-166`)
+
+Doc 01 asks for *"4 things need your attention"* and forbids *"174 candidates
+awaiting review"* as a statement of human workload. The queue now says its own
+number, with what was postponed named beside it rather than folded in, and the
+kinds named only when the queue holds more than one — every item the live system
+produces is an `unknown`, so a breakdown would otherwise repeat the subject.
+
+Doc 01's other two summary forms are **refused**, not owed. *"1 decision blocks
+architecture"* would need the blocked areas as fields, and they reach Studio only
+inside `explanation`, already composed into prose by Memory. *"2 questions can
+wait until implementation"* is urgency, the one ranking dimension `SYN-11` closed
+without (`D-165`).
+
+The count comes from `attentionCounts` in `src/lib/counts.ts` and is computed
+nowhere else — this Room and the Dashboard were applying the deferral rule at
+their own call sites, which is `D-96` one layer over.
+
 ## Entry conditions
 
 A project exists. Nothing else — an unsynthesized project is a legitimate state

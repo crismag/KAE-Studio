@@ -56,7 +56,7 @@ import {
 import { QueryState } from '@/components/ui/QueryState'
 import { SURFACES, surfacesInGroup, type SurfaceDefinition } from '@/app/registries/rooms'
 import { useAttention, useProjection } from '@/hooks/useProject'
-import { projectCounts } from '@/lib/counts'
+import { attentionCounts, projectCounts } from '@/lib/counts'
 import type { AttentionItem, ProjectProjection } from '@/domain/types'
 import type { UseQueryResult } from '@tanstack/react-query'
 
@@ -210,7 +210,13 @@ function NeedsYou({
   // compartments because the Room draws both; a Dashboard row that counted what
   // somebody deferred would make Defer a gesture that changes nothing on the
   // surface they look at first.
-  const matters = attention.data?.filter((item) => item.status !== 'deferred').length
+  //
+  // Through `attentionCounts` rather than filtered here (`D-166`): this page and
+  // the Room were each applying that rule at their own call site, which is the
+  // same shape as the defect named above and free to diverge the day a third
+  // status stops meaning *waiting*. Still `undefined` while the query is
+  // unresolved, because unknown is not zero and the panel says so below.
+  const matters = attention.data ? attentionCounts(attention.data).waiting : undefined
   const decisions = counts.openDecisions
   const contradictions = counts.unresolvedContradictions
   const lost = projection.extractionCoverage && !projection.extractionCoverage.complete

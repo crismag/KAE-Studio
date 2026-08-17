@@ -14,8 +14,8 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { projectCounts } from './counts'
-import type { ProjectProjection } from '@/domain/types'
+import { attentionCounts, partitionAttention, projectCounts } from './counts'
+import type { AttentionItem, ProjectProjection } from '@/domain/types'
 
 function projection(over: Partial<ProjectProjection> = {}): ProjectProjection {
   return {
@@ -103,5 +103,47 @@ describe('what the counts mean', () => {
 
     expect(counts.reviewFindings).toBe(0)
     expect(counts.criticalReviewFindings).toBe(0)
+  })
+})
+
+describe('what the attention queue counts', () => {
+  const item = (over: Partial<AttentionItem> = {}) =>
+    ({ id: Math.random().toString(), kind: 'unknown', status: 'open', ...over }) as AttentionItem
+
+  it('keeps what is waiting apart from what somebody postponed', () => {
+    // The rule the Dashboard and the Room were each applying at their own call
+    // site (`D-166`). Two copies of one predicate is how the same queue comes to
+    // be two different numbers on two pages, which is `D-96` exactly.
+    const counts = attentionCounts([
+      item(),
+      item({ status: 'deferred' }),
+      item({ status: 'deferred' }),
+    ])
+
+    expect(counts.waiting).toBe(1)
+    expect(counts.postponed).toBe(2)
+  })
+
+  it('counts kinds over what is waiting and not over what was postponed', () => {
+    const counts = attentionCounts([
+      item({ kind: 'unknown' }),
+      item({ kind: 'unknown' }),
+      item({ kind: 'conflict' }),
+      item({ kind: 'conflict', status: 'deferred' }),
+    ])
+
+    expect(counts.waitingByKind).toEqual({ unknown: 2, conflict: 1 })
+  })
+
+  it('splits the queue by the same rule it counts it with', () => {
+    // The page renders the items and the sentence above them states the number.
+    // If those came from two predicates, a heading disagreeing with the list
+    // beneath it would be one status away.
+    const items = [item(), item({ status: 'deferred' }), item({ status: 'resolved' })]
+    const split = partitionAttention(items)
+    const counts = attentionCounts(items)
+
+    expect(split.waiting).toHaveLength(counts.waiting)
+    expect(split.postponed).toHaveLength(counts.postponed)
   })
 })

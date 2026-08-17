@@ -187,10 +187,91 @@ describe('a run says what it withheld', () => {
   })
 })
 
+describe('the page says how much there is to do', () => {
+  /**
+   * The **whole** summary sentence, not the emphasised clause inside it.
+   *
+   * `findByText` returns the innermost element holding the match, which here is
+   * the `<span>` carrying *"3 things need your attention"* — so a negative
+   * assertion made against it passes whatever the rest of the paragraph says.
+   * Two of the guards below did exactly that until the positive one failed and
+   * showed it.
+   */
+  async function summary(): Promise<string> {
+    const said = await screen.findByText(/things? needs? your attention/)
+    return said.closest('p')!.textContent!
+  }
+
+  it('states the count, so the number a person quotes is one the page said', async () => {
+    harness()
+
+    // Doc 01's page-level summary. The queue rendered fine without it; what it
+    // could not do is be quoted without counting rows.
+    const said = Number((await summary()).match(/^(\d+)/)![1])
+    expect(said).toBe(2)
+    expect(await screen.findAllByRole('button', { name: /postpone/i })).toHaveLength(said)
+  })
+
+  it('agrees with itself in the singular', async () => {
+    harness({ listAttention: () => Promise.resolve([{ ...WORDS_ONLY }]) })
+
+    expect(await screen.findByText(/1 thing needs your attention/)).toBeTruthy()
+  })
+
+  it('leaves the kinds unsaid while the queue holds only one', async () => {
+    harness()
+
+    // Both fixture items are `unknown`, as every item the live system has ever
+    // produced is. "2 things need your attention — 2 unknowns" is a clause that
+    // repeats its own subject.
+    expect(await summary()).not.toMatch(/unknown/)
+  })
+
+  it('names the kinds once the queue is mixed, in Memory’s own word', async () => {
+    harness({
+      listAttention: () =>
+        Promise.resolve([
+          { ...WORDS_ONLY, id: 'a', kind: 'unknown' },
+          { ...WORDS_ONLY, id: 'b', kind: 'unknown' },
+          // `AttentionKind.CONFLICT` — what `SYN-5a` raises for doc 03's second
+          // Accountable claimant, so a mixed queue is reachable and not
+          // hypothetical.
+          { ...WORDS_ONLY, id: 'c', kind: 'conflict' },
+        ]),
+    })
+
+    expect(await summary()).toMatch(/3 things need your attention — 2 unknowns and 1 conflict/)
+  })
+
+  it('counts what somebody postponed apart from it, never into it', async () => {
+    // `D-142`: postponing means stop recommending, not dealt with. A summary
+    // that folded a postponed item into the count would make the gesture do
+    // nothing; one that dropped it would make it clear the page.
+    harness()
+
+    await userEvent.click((await screen.findAllByRole('button', { name: /postpone/i }))[0])
+    await waitFor(async () =>
+      expect(await screen.findAllByRole('button', { name: /postpone/i })).toHaveLength(1),
+    )
+
+    expect(await summary()).toMatch(/1 thing needs your attention, and 1 you postponed\./)
+  })
+
+  it('claims nothing about urgency or about what an item blocks', async () => {
+    // `D-166` refuses doc 01's other two summary forms. The areas a question
+    // blocks reach Studio only inside `explanation`, and *can wait* is the one
+    // ranking dimension `D-165` closed without. Both would be the interface
+    // asserting what nothing computed.
+    harness()
+
+    expect(await summary()).not.toMatch(/blocks|can wait|urgent/i)
+  })
+})
+
 /** An item that names no gesture Studio can perform, for the negative cases. */
 const WORDS_ONLY: AttentionItem = {
   id: 'attn-words',
-  kind: 'material_unknown',
+  kind: 'unknown',
   title: 'Whether a directorate may publish early',
   explanation: 'Nothing in the record says.',
   recommendation: 'Say who may.',

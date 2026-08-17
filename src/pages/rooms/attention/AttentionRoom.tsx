@@ -68,10 +68,11 @@ import {
   useSynthesizedModel,
   useSynthesizedObject,
 } from '@/hooks/useProject'
+import { attentionCounts, partitionAttention } from '@/lib/counts'
 import { plural } from '@/lib/plural'
 import type { AttentionItem, SynthesizedObject, UnknownSynthesisReport } from '@/domain/types'
 
-/** `material_unknown` → `material unknown`. Memory's word, made readable. */
+/** `material_change` → `material change`. Memory's word, made readable. */
 function readable(value: string): string {
   return value.replace(/_/g, ' ')
 }
@@ -125,10 +126,16 @@ export function AttentionRoom() {
               }
             >
               {(items) => {
-                const waiting = items.filter((item) => item.status !== 'deferred')
-                const postponed = items.filter((item) => item.status === 'deferred')
+                const { waiting, postponed } = partitionAttention(items)
                 return (
                   <>
+                    {/* Doc 01's page-level summary, counted by the one rule
+                        (`SYN-4b`, `D-166`). Rendered only where something is
+                        waiting: the nothing-waiting case is answered below in a
+                        sentence that also accounts for the postponed
+                        compartment, and two sentences claiming the same zero
+                        is how one of them ends up wrong. */}
+                    {waiting.length > 0 && <QueueSummary items={items} />}
                     {waiting.length > 0 && (
                       <ul className="space-y-2.5">
                         {waiting.map((item) => (
@@ -208,6 +215,52 @@ export function AttentionRoom() {
       </div>
     </PageLayout>
   )
+}
+
+/**
+ * Doc 01's page-level summary — *"4 things need your attention"* (`SYN-4b`,
+ * `D-166`).
+ *
+ * The one sentence of the three doc 01 asks for that this page can say
+ * truthfully. **`1 decision blocks architecture` is refused**: the areas a
+ * question blocks are structured in Memory and reach Studio only inside
+ * `explanation`, already composed into prose, so counting items per area would
+ * mean parsing a sentence written for a reader — and three qualifiers have been
+ * added to that sentence in the last four increments. **`2 questions can wait
+ * until implementation` is refused too**: *can wait* is urgency, the one
+ * dimension `D-165` closed the ranking without, and a page claiming it would be
+ * the interface asserting what the engine declines to compute.
+ *
+ * The kinds are named **only when the queue holds more than one**. Every item
+ * the live system has produced comes from unknown synthesis and carries the same
+ * kind, so *"4 things need your attention — 4 unknowns"* would be a clause that
+ * repeats its own subject. Other producers exist, so it is real when it appears.
+ */
+function QueueSummary({ items }: { items: AttentionItem[] }) {
+  const counts = attentionCounts(items)
+  const kinds = Object.entries(counts.waitingByKind)
+  // Memory's word, pluralised and not translated: `unknown` does not become
+  // *question* here, for the reason an area is named by the template's own word
+  // rather than its key (`D-151`).
+  const breakdown = kinds.map(([kind, count]) => plural(count, readable(kind)))
+  return (
+    <p className="text-[13px] leading-relaxed text-ink">
+      <span className="font-medium">
+        {plural(counts.waiting, 'thing')} need{counts.waiting === 1 ? 's' : ''} your attention
+      </span>
+      {breakdown.length > 1 && <> — {sentenceList(breakdown)}</>}
+      {/* Said here as well as below, because the summary is the number
+          somebody quotes and one that silently omitted what they postponed
+          would make Postpone a gesture that clears the page (`D-158`). */}
+      {counts.postponed > 0 && <>, and {counts.postponed} you postponed</>}.
+    </p>
+  )
+}
+
+/** `a`, `b` and `c`. Two items take no comma. */
+function sentenceList(parts: string[]): string {
+  if (parts.length <= 1) return parts.join('')
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
 }
 
 /**

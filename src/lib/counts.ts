@@ -31,7 +31,7 @@
  * let three counts share one word.
  */
 
-import type { ProjectProjection } from '@/domain/types'
+import type { AttentionItem, ProjectProjection } from '@/domain/types'
 
 export interface ProjectCounts {
   /** Statements KAE proposed that no person has accepted or refused. */
@@ -87,4 +87,62 @@ export function projectCounts(projection: ProjectProjection): ProjectCounts {
     openQuestions: questions.length,
     statements: statements.length,
   }
+}
+
+/**
+ * The attention queue, counted once (`SYN-4b`, `D-166`).
+ *
+ * A second function rather than a field on `ProjectCounts`, because the queue is
+ * **not on the projection** — it is its own query, and a caller holding no
+ * answer yet must be able to tell that from a queue of zero (`D-158`). So this
+ * takes the items and every caller decides for itself what to render while it
+ * has none.
+ *
+ * It exists because the Dashboard and the Attention Room were each filtering
+ * `status !== 'deferred'` at their own call site. That is one rule with two
+ * copies, free to disagree the day a third status means *not waiting* — which is
+ * the shape of `D-96`, one layer over.
+ */
+export interface AttentionCounts {
+  /** Items asking for a person now. Postponed ones are **not** among them. */
+  waiting: number
+  /**
+   * Items somebody postponed. Still owed, no longer suggested (`D-142`).
+   *
+   * Counted rather than dropped: a queue that shrinks only by hiding is the
+   * queue `/attention` was opened to replace, so the number stays sayable.
+   */
+  postponed: number
+  /**
+   * How many waiting items of each kind, in Memory's own words.
+   *
+   * Keyed by the raw kind — `material_change`, not *material change* — because
+   * this is a count and not a sentence. Whoever renders it makes it readable.
+   */
+  waitingByKind: Record<string, number>
+}
+
+/**
+ * The queue split into the two compartments a person sees.
+ *
+ * Exported beside the counts and built from the same predicate on purpose: the
+ * Room needs the **items** to render and the summary above them needs the
+ * **numbers**, and a page whose heading and list disagree about what is waiting
+ * is the defect this file exists to prevent. One predicate, both answers.
+ */
+export function partitionAttention(items: AttentionItem[]): {
+  waiting: AttentionItem[]
+  postponed: AttentionItem[]
+} {
+  return {
+    waiting: items.filter((item) => item.status !== 'deferred'),
+    postponed: items.filter((item) => item.status === 'deferred'),
+  }
+}
+
+export function attentionCounts(items: AttentionItem[]): AttentionCounts {
+  const { waiting, postponed } = partitionAttention(items)
+  const waitingByKind: Record<string, number> = {}
+  for (const item of waiting) waitingByKind[item.kind] = (waitingByKind[item.kind] ?? 0) + 1
+  return { waiting: waiting.length, postponed: postponed.length, waitingByKind }
 }
