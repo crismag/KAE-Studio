@@ -1196,60 +1196,73 @@ export const health: ProjectHealth = {
   stage: 'requirements',
   summary:
     'The submission and approval workflow is well understood. Approval authority and the correction path are unresolved, and both block work that depends on them.',
+  // The weights are on KAE-Memory's own scale — 1.0, 1.5 and 2.0 — because a
+  // weight is a number Memory emits and this project's areas are the fictional
+  // ones the rest of the fixture invents. Not all equal, deliberately: an even
+  // spread would demonstrate the case where the share says nothing (`D-195`).
   coverage: [
     {
       key: 'problem_and_value',
       name: 'Problem and value',
       state: 'strong',
       detail: 'Problem, objectives, and value are confirmed.',
+      weight: 1.5,
     },
     {
       key: 'users_and_stakeholders',
       name: 'Users and roles',
       state: 'strong',
       detail: 'Submitters and readers confirmed; the approver role is contested.',
+      weight: 1,
     },
     {
       key: 'workflows',
       name: 'Business workflows',
       state: 'strong',
       detail: 'Submission and approval flows are confirmed end to end.',
+      weight: 1.5,
     },
     {
       key: 'functional_requirements',
       name: 'Functional requirements',
       state: 'forming',
       detail: '8 confirmed, 1 contested.',
+      weight: 2,
     },
     {
       key: 'interfaces',
       name: 'Interfaces and integrations',
       state: 'thin',
       detail: 'Two contracts undefined; the integration interview has not been run.',
+      weight: 1,
     },
     {
       key: 'security',
       name: 'Security and permissions',
       state: 'thin',
       detail: 'Blocked on approval authority.',
+      weight: 1.5,
     },
     {
       key: 'data',
       name: 'Domain model and data',
       state: 'forming',
       detail: 'Ownership assigned for reports and decisions; audit retention unowned.',
+      weight: 1.5,
     },
     {
       key: 'acceptance',
       name: 'Acceptance criteria',
       state: 'forming',
       detail: '7 tests drafted; 4 requirements unverified.',
+      weight: 1,
     },
     {
       key: 'operations',
       name: 'Delivery and operations',
       state: 'missing',
       detail: 'Not yet discussed.',
+      weight: 1,
     },
   ],
   recommendedNext: [

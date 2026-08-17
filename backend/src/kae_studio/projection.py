@@ -458,6 +458,19 @@ def _classification(readiness: Any) -> dict[str, Any]:
     }
 
 
+def _positive_weight(value: Any) -> float | None:
+    """Return a readiness area's weight, or `None` when Memory did not say.
+
+    Only a positive number is a weight — `AreaResult.__post_init__` refuses
+    anything else — so a missing, malformed or non-positive value is *unknown*
+    and never `0`, which would read as an area that counts for nothing.
+    """
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if value > 0 else None
+
+
 def _health(readiness: Any) -> dict[str, Any]:
     """Readiness as the UI shows it — advisory, and labelled as such.
 
@@ -495,6 +508,13 @@ def _health(readiness: Any) -> dict[str, Any]:
         # than merely coloured: "one confirmed item, two needed" is a sentence a
         # person can act on, and dropping it left the UI able to say only that
         # something was incomplete.
+        # `weight` is what readiness is actually denominated in — `score_areas`
+        # is a weighted mean, and the shipped areas carry 1.0, 1.5 and 2.0 — so
+        # dropping it here left every surface able to count areas and unable to
+        # say that covering one moves readiness twice as far as covering
+        # another (`D-195`). Absent stays `None`: a Memory too old to send it
+        # has said nothing, and `0` is a weight `AreaResult`'s own invariant
+        # forbids.
         "areas": [
             {
                 "key": a.get("key", ""),
@@ -505,6 +525,7 @@ def _health(readiness: Any) -> dict[str, Any]:
                 "state": a.get("state", ""),
                 "mandatory": a.get("mandatory", False),
                 "contradicted": a.get("contradicted", False),
+                "weight": _positive_weight(a.get("weight")),
             }
             for a in areas
             if isinstance(a, dict)

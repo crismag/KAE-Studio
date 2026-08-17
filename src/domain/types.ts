@@ -765,6 +765,16 @@ export interface CoverageTopic {
    */
   state: 'strong' | 'forming' | 'thin' | 'missing' | 'notApplicable'
   detail: string
+  /**
+   * How much of readiness this area accounts for, relative to the others.
+   *
+   * Readiness is a **weighted** mean over the applicable areas, and the shipped
+   * set weighs them 1.0, 1.5 and 2.0 — so an area count treats as equal what
+   * the score does not (`D-195`). `null` is *KAE-Memory did not say*, which is
+   * not the same as an area that counts for nothing; a weight is positive by
+   * invariant, so zero is never a real value here.
+   */
+  weight: number | null
 }
 
 export interface ProjectHealth {

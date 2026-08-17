@@ -629,6 +629,9 @@ interface BackendProjection {
       state: string
       mandatory: boolean
       contradicted: boolean
+      /** Absent on a Studio backend older than `D-195`, and `null` when
+       *  KAE-Memory did not say. Never `0`. */
+      weight?: number | null
     }[]
   }
   /** Absent on a backend older than the Definition block. */
@@ -817,11 +820,17 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       // uses: how many confirmed items it holds against how many it needs.
       // A state alone ('missing', 'partial') colours a row; the counts let a
       // person act on it.
+      // `weight` is carried because readiness is a *weighted* mean over these
+      // areas, so a list that shows only their states cannot say that covering
+      // one moves readiness further than covering another (`D-195`). Anything
+      // that is not a positive number is unknown, and unknown is not zero
+      // (`D-38`).
       coverage: (raw.health.areas ?? []).map((a) => ({
         key: a.key,
         name: a.name,
         state: coverageState(a),
         detail: coverageDetail(a),
+        weight: typeof a.weight === 'number' && a.weight > 0 ? a.weight : null,
       })),
       // Warnings only. The capability gaps that used to be flattened into this
       // list now travel as `unavailable` and `modulesGap` on the projection,

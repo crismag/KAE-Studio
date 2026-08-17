@@ -53,6 +53,7 @@ import {
 } from '@/hooks/useProject'
 import { ActionFailed } from '@/components/project/ActionFailed'
 import { blockedBy } from './blockedBy'
+import { readinessShares } from './readinessShares'
 import type {
   ConversationMessage,
   CoverageTopic,
@@ -434,6 +435,8 @@ export function CoverageSection({
   const notRead = sectionsNotRead(projection.unavailable).find((e) => e.section === 'readiness')
   if (notRead) return <CapabilityNote reason={notRead.reason} />
 
+  const shares = readinessShares(projection.health.coverage)
+
   return (
     <ul className="space-y-2">
       {projection.health.coverage.map((topic) => (
@@ -450,6 +453,15 @@ export function CoverageSection({
               </span>
             </p>
             <p className="text-[11.5px] leading-snug text-ink-subtle">{topic.detail}</p>
+            {/* Which gap is worth closing next, which the states alone cannot
+                say (`D-195`). Said once, on the row it belongs to, and never
+                as a project-level figure — the Dashboard's coverage stays a
+                count with a denominator (`ADR-0003`, `§3`). */}
+            {shares?.has(topic.key) && (
+              <p className="text-[11.5px] leading-snug text-ink-subtle">
+                {Math.round(shares.get(topic.key) as number)}% of readiness
+              </p>
+            )}
             {/* `PLANNING_MODEL`'s `blocked`: *"another decision is required
                 first — dimmed, states the blocker"*. Beside the state rather
                 than as a sixth state, because Memory's `AreaState` cannot
