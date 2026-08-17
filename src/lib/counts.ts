@@ -56,6 +56,17 @@ export interface ProjectCounts {
   confirmedRequirements: number
   requirementsAwaitingReview: number
   /**
+   * Those same requirements keyed by the status each is in (`D-201`).
+   *
+   * The two fields above are the two largest parts and they are not all of
+   * them: `rejected` and `superseded` reach the projection (`D-34`) and a
+   * fixture can hold `contested`, so *"120 requirements · 5 confirmed · 100
+   * awaiting review"* left fifteen rows in neither part, above a tab strip
+   * showing exactly those fifteen. Keyed rather than named one field at a time
+   * so a status nobody anticipated is counted somewhere instead of nowhere.
+   */
+  requirementsByStatus: Record<string, number>
+  /**
    * Things KAE could not determine, counted apart from requirements.
    *
    * Folding them in overstates what the project has established: *"6
@@ -73,6 +84,10 @@ export function projectCounts(projection: ProjectProjection): ProjectCounts {
   const requirements = statements.filter((item) => item.category !== 'open_question')
   const proposed = projection.findings
   const review = projection.review?.findings ?? []
+  const requirementsByStatus: Record<string, number> = {}
+  for (const item of requirements) {
+    requirementsByStatus[item.status] = (requirementsByStatus[item.status] ?? 0) + 1
+  }
 
   return {
     awaitingDecision: proposed.length,
@@ -82,8 +97,9 @@ export function projectCounts(projection: ProjectProjection): ProjectCounts {
     openDecisions: projection.openDecisions.filter((decision) => !decision.deferred).length,
     unresolvedContradictions: projection.contradictions.count,
     requirements: requirements.length,
-    confirmedRequirements: requirements.filter((item) => item.status === 'confirmed').length,
-    requirementsAwaitingReview: requirements.filter((item) => item.status === 'proposed').length,
+    confirmedRequirements: requirementsByStatus.confirmed ?? 0,
+    requirementsAwaitingReview: requirementsByStatus.proposed ?? 0,
+    requirementsByStatus,
     openQuestions: questions.length,
     statements: statements.length,
   }

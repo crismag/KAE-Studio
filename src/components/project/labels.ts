@@ -1,6 +1,24 @@
-import type { ReadinessValue } from '@/domain/types'
+import type { NodeStatus, ReadinessValue } from '@/domain/types'
 
 /** Shared label vocabulary. Kept apart from components so fast refresh works. */
+
+/**
+ * The six statuses as they read inside a counted sentence (`D-201`).
+ *
+ * *"120 requirements · 5 confirmed · 10 rejected"* — lower case, and worded to
+ * survive both *1 needing clarification* and *3 needing clarification*, which
+ * the badge label *Needs clarification* does not. Typed over `NodeStatus` so a
+ * seventh state is a compile error here rather than a row that quietly leaves
+ * the sentence.
+ */
+export const STATUS_COUNT_WORD: Record<NodeStatus, string> = {
+  proposed: 'awaiting review',
+  confirmed: 'confirmed',
+  contested: 'needing clarification',
+  superseded: 'superseded',
+  rejected: 'rejected',
+  deferred: 'deferred',
+}
 
 const READINESS_LABEL: Record<ReadinessValue, string> = {
   complete: 'Complete',

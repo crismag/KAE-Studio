@@ -57,6 +57,39 @@ describe('what the counts mean', () => {
     expect(counts.statements).toBe(3)
   })
 
+  it('counts every requirement under some status, not only the two named ones', () => {
+    /**
+     * `D-201`. `requirements` was split two ways — confirmed and proposed —
+     * while `rejected` and `superseded` reach the projection (`D-34`) and a
+     * fixture can hold `contested`. The summary read *"5 requirements · 1
+     * confirmed · 1 awaiting review"* with three rows in neither number.
+     */
+    const counts = projectCounts(
+      projection({
+        requirements: [
+          statement({ status: 'confirmed' }),
+          statement({ status: 'proposed' }),
+          statement({ status: 'rejected' }),
+          statement({ status: 'superseded' }),
+          statement({ status: 'contested' }),
+          statement({ category: 'open_question', status: 'proposed' }),
+        ],
+      }),
+    )
+
+    const parts = Object.values(counts.requirementsByStatus).reduce((a, b) => a + b, 0)
+    expect(parts).toBe(counts.requirements)
+    expect(counts.requirementsByStatus).toEqual({
+      confirmed: 1,
+      proposed: 1,
+      rejected: 1,
+      superseded: 1,
+      contested: 1,
+    })
+    // The open question is not among them, on either axis.
+    expect(counts.requirements).toBe(5)
+  })
+
   it('keeps proposed statements and review findings apart', () => {
     /**
      * The root of the drift. `projection.findings` is *statements KAE proposed*;

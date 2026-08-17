@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn'
 import { formatDateTime } from '@/lib/format'
 import { PageLayout } from '@/components/project/PageLayout'
 import { StatusBadge } from '@/components/project/statusVocabulary'
-import { CATEGORY_LABEL } from '@/components/project/labels'
+import { CATEGORY_LABEL, STATUS_COUNT_WORD } from '@/components/project/labels'
 import { CapabilityNote } from '@/components/project/CapabilityNote'
 import { useKnowledgeTrace } from '@/hooks/useProject'
 import {
@@ -21,7 +21,7 @@ import {
 import { useConfirmFinding, useProjection, useRejectFinding } from '@/hooks/useProject'
 import { projectCounts } from '@/lib/counts'
 import { plural } from '@/lib/plural'
-import type { AcceptanceTest, ProjectModule, Requirement } from '@/domain/types'
+import type { AcceptanceTest, NodeStatus, ProjectModule, Requirement } from '@/domain/types'
 
 //: Above this, a group arrives closed.
 //
@@ -29,6 +29,28 @@ import type { AcceptanceTest, ProjectModule, Requirement } from '@/domain/types'
 // scroll past. The number is a judgement rather than a measurement, and it is
 // named here so changing it is one edit rather than a hunt.
 const LARGE_GROUP = 8
+
+/**
+ * The states the summary names after confirmed and awaiting review (`D-201`).
+ *
+ * A fixed order, so the sentence does not reshuffle itself when the projection
+ * happens to return its rows in a different sequence.
+ */
+const REMAINING_STATUS_ORDER: NodeStatus[] = ['contested', 'rejected', 'superseded', 'deferred']
+
+/** The rest of the requirements, counted by state, in words, none dropped. */
+function remainingByStatus(byStatus: Record<string, number>): string[] {
+  const named = new Set<string>(['confirmed', 'proposed', ...REMAINING_STATUS_ORDER])
+  const parts = REMAINING_STATUS_ORDER.filter((status) => (byStatus[status] ?? 0) > 0).map(
+    (status) => `${byStatus[status]} ${STATUS_COUNT_WORD[status]}`,
+  )
+  // A state nobody anticipated is counted under its own name rather than left
+  // out of the sentence. The uncounted row is the defect; a bare word is not.
+  const unanticipated = Object.entries(byStatus)
+    .filter(([status, count]) => count > 0 && !named.has(status))
+    .map(([status, count]) => `${count} ${status}`)
+  return [...parts, ...unanticipated]
+}
 
 const CATEGORY_ORDER: Requirement['category'][] = [
   'functional',
@@ -487,10 +509,18 @@ export function Requirements() {
   // **120 requirements**, because the tabs counted questions and the summary
   // did not. Both were defensible and together they read as a broken product.
   const counts = projectCounts(projection)
+  // **Every part named, so the parts add up to the total** (`D-201`). This read
+  // the total, the confirmed and the awaiting-review and stopped, while
+  // `rejected` and `superseded` reached the list (`D-34`) and the tab strip
+  // beside it counted them — so the line said *120 requirements · 5 confirmed ·
+  // 100 awaiting review* with fifteen rows in neither number. Confirmed and
+  // awaiting review show at zero because they are the two states this page is
+  // about; the rest appear only when they hold a row.
   const summary = [
     plural(counts.requirements, 'requirement'),
     `${counts.confirmedRequirements} confirmed`,
     `${counts.requirementsAwaitingReview} awaiting review`,
+    ...remainingByStatus(counts.requirementsByStatus),
     ...(counts.openQuestions > 0 ? [plural(counts.openQuestions, 'open question')] : []),
     // "N without verification" is structurally always the total, because KAE
     // records no tests. A count that cannot vary is not information.
