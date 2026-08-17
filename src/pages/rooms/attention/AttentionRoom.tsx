@@ -402,13 +402,24 @@ function Item({
  * carries no area of its own — what a run ranked by is reported once, on the run
  * panel, rather than restated per card as a consequence it does not hold.
  */
-function Evidence({ objectId, count }: { objectId: string; count?: number }) {
+function Evidence({
+  objectId,
+  count,
+  summaryLabel,
+}: {
+  objectId: string
+  count?: number
+  summaryLabel?: string
+}) {
   const [asked, setAsked] = useState(false)
   const object = useSynthesizedObject(objectId, asked)
   return (
     <details className="mt-2" onToggle={(event) => setAsked(event.currentTarget.open)}>
       <summary className="cursor-pointer list-none text-[11.5px] text-ink-subtle">
-        {count === undefined ? 'What this rests on' : `Drawn from ${plural(count, 'observation')}`}
+        {summaryLabel ??
+          (count === undefined
+            ? 'What this rests on'
+            : `Drawn from ${plural(count, 'observation')}`)}
       </summary>
       {/* Rendered only once opened, not merely fetched then. A closed
           `<details>` keeps its children in the DOM, so an object drawn twice on
@@ -444,12 +455,29 @@ function Evidence({ objectId, count }: { objectId: string; count?: number }) {
                     {plural(detail.evidence.length, 'observation')} KAE read
                   </p>
                 )}
+                {/* Why the list can be longer than the number above it
+                    (`D-187`). Memory counts `supports` alone, because the count
+                    is read under the words *drawn from*, and a row bound to
+                    deny this object is not one of them — it is still evidence
+                    about it, so it is listed and named rather than dropped. */}
+                {count !== undefined && detail.evidence.length > count && (
+                  <p className="mt-1.5 text-[11.5px] text-ink-subtle">
+                    {plural(detail.evidence.length - count, 'observation')} here{' '}
+                    {detail.evidence.length - count === 1 ? 'stands' : 'stand'} to this as something
+                    other than support, and the count above leaves{' '}
+                    {detail.evidence.length - count === 1 ? 'it' : 'them'} out.
+                  </p>
+                )}
                 <ul className="mt-1 space-y-1">
                   {detail.evidence.map((row) => (
                     <li key={row.id} className="text-[12px] leading-relaxed text-ink-muted">
                       {row.statement}{' '}
                       <span className="text-ink-subtle">
-                        · {readable(row.knowledgeKind)} · {readable(row.lifecycle)}
+                        {/* Memory's own relation word, and only when it is not
+                            support: labelling every row `supports` would make
+                            the ordinary case noisy and the exception quiet. */}
+                        {row.kind !== 'supports' && <>· {readable(row.kind)} </>}·{' '}
+                        {readable(row.knowledgeKind)} · {readable(row.lifecycle)}
                       </span>
                     </li>
                   ))}
@@ -493,11 +521,20 @@ function ModelObject({ object }: { object: SynthesizedObject }) {
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{object.statement}</p>
       {/* Zero is said rather than left blank: an object KAE minted with nothing
           bound to it is a different fact from one whose evidence nobody has
-          asked for, and the disclosure below only exists for the second. */}
+          asked for.
+
+          The disclosure is offered at zero as well (`D-187`). The count is
+          `supports` alone, so zero no longer means nothing is bound — an object
+          with two contradicting rows and no supporting one reads zero here, and
+          suppressing the way in would make the evidence against it the only
+          evidence a person cannot reach. */}
       {object.supportingEvidence === 0 ? (
-        <p className="mt-1.5 text-[11.5px] text-ink-subtle">
-          Nothing is recorded as supporting this
-        </p>
+        <>
+          <p className="mt-1.5 text-[11.5px] text-ink-subtle">
+            Nothing is recorded as supporting this
+          </p>
+          <Evidence objectId={object.id} summaryLabel="What is bound to this" />
+        </>
       ) : (
         <Evidence objectId={object.id} count={object.supportingEvidence} />
       )}

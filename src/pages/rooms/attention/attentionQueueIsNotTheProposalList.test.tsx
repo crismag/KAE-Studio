@@ -330,6 +330,18 @@ describe('an item can say what it rests on', () => {
   })
 })
 
+const UNBOUND = {
+  id: 'syn-goal-unbound',
+  domain: 'goal',
+  identityKey: 'goal:unbound',
+  title: 'A guess with nothing behind it',
+  statement: 'KAE minted this and bound nothing to it.',
+  lifecycle: 'proposed',
+  authority: 'synthesized',
+  revision: 1,
+  supportingEvidence: 0,
+}
+
 describe('the model says how much of the project stands behind each object', () => {
   /* `SYN-4b`, `D-167`. Doc 01's aggregation is a count and a disclosure
      together. The attention card gets its count from Memory's own sentence;
@@ -376,26 +388,88 @@ describe('the model says how much of the project stands behind each object', () 
     expect(screen.queryByText(/2 observations KAE read/)).toBeNull()
   })
 
-  it('says nothing supports an object rather than offering an empty disclosure', async () => {
-    harness({
-      listSynthesizedModel: () =>
-        Promise.resolve([
-          {
-            id: 'syn-goal-unbound',
-            domain: 'goal',
-            identityKey: 'goal:unbound',
-            title: 'A guess with nothing behind it',
-            statement: 'KAE minted this and bound nothing to it.',
-            lifecycle: 'proposed',
-            authority: 'synthesized',
-            revision: 1,
-            supportingEvidence: 0,
-          },
-        ]),
-    })
+  it('says nothing supports an object without claiming it was drawn from anything', async () => {
+    harness({ listSynthesizedModel: () => Promise.resolve([UNBOUND]) })
 
     expect(await screen.findByText('Nothing is recorded as supporting this')).toBeTruthy()
     expect(screen.queryByText(/Drawn from/)).toBeNull()
+  })
+
+  it('still offers the way in at zero, because zero means nothing supports it', async () => {
+    // `D-187`. The count is `supports` alone, so an object with two
+    // contradicting rows and no supporting one reads zero — and suppressing the
+    // disclosure here would make the evidence against it the only evidence on
+    // this page a person cannot reach.
+    harness({
+      listSynthesizedModel: () => Promise.resolve([UNBOUND]),
+      getSynthesizedObject: () =>
+        Promise.resolve({
+          ...UNBOUND,
+          evidence: [
+            {
+              id: 'bind-against',
+              knowledgeItemId: 'FR-RPT-100',
+              kind: 'contradicts',
+              statement: 'Directorates were told to stop submitting figures monthly.',
+              knowledgeKind: 'requirement',
+              lifecycle: 'validated',
+            },
+          ],
+        }),
+    })
+
+    await userEvent.click(await screen.findByText('What is bound to this'))
+
+    expect(
+      await screen.findByText(/Directorates were told to stop submitting figures monthly/),
+    ).toBeTruthy()
+  })
+
+  it('names a row that stands against the object, and leaves it out of the count', async () => {
+    // `D-187`. `supporting_evidence` counts `supports` and the detail lists
+    // every binding, so the list is legitimately longer than the number on the
+    // line somebody clicked — which has to be said, not left to be noticed.
+    harness({
+      listSynthesizedModel: () => Promise.resolve([{ ...UNBOUND, supportingEvidence: 1 }]),
+      getSynthesizedObject: () =>
+        Promise.resolve({
+          ...UNBOUND,
+          supportingEvidence: 1,
+          evidence: [
+            {
+              id: 'bind-for',
+              knowledgeItemId: 'FR-RPT-101',
+              kind: 'supports',
+              statement: 'The monthly return is assembled from what directorates submit.',
+              knowledgeKind: 'requirement',
+              lifecycle: 'validated',
+            },
+            {
+              id: 'bind-against',
+              knowledgeItemId: 'FR-RPT-100',
+              kind: 'contradicts',
+              statement: 'Directorates were told to stop submitting figures monthly.',
+              knowledgeKind: 'requirement',
+              lifecycle: 'validated',
+            },
+          ],
+        }),
+    })
+
+    await userEvent.click(await screen.findByText('Drawn from 1 observation'))
+
+    const against = await screen.findByText(
+      /Directorates were told to stop submitting figures monthly/,
+    )
+    expect(against.textContent).toMatch(/contradicts/)
+    // The supporting row is not labelled: naming every relation would make the
+    // ordinary case noisy and the exception quiet.
+    expect(
+      screen.getByText(/The monthly return is assembled from what directorates submit/).textContent,
+    ).not.toMatch(/supports/)
+    expect(
+      screen.getByText(/1 observation here stands to this as something other than support/),
+    ).toBeTruthy()
   })
 })
 

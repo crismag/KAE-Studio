@@ -1471,11 +1471,18 @@ const ANALYSIS_GAP: CapabilityGap = {
  * (`D-167`). Memory computes it from the bindings it holds, so a fixture
  * carrying its own number could claim three observations over a list of two —
  * which is the mock/live divergence `D-142` and `D-166` each found once.
+ *
+ * `supports` only, as Memory counts it (`D-187`). A fixture row bound to
+ * contradict an object is listed on the detail and not counted here.
  */
 function withSupportCount(
   object: Omit<SynthesizedObject, 'supportingEvidence'>,
 ): SynthesizedObject {
-  return { ...object, supportingEvidence: (fixture.synthesizedEvidence[object.id] ?? []).length }
+  const bound = fixture.synthesizedEvidence[object.id] ?? []
+  return {
+    ...object,
+    supportingEvidence: bound.filter((row) => row.kind === 'supports').length,
+  }
 }
 
 function attentionItemAs(itemId: string, status: string): AttentionItem {
