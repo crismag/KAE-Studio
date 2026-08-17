@@ -420,17 +420,23 @@ function SourceList({
  *
  * Shown only when it is non-zero. A project with nothing unattributed does not
  * need telling, and a permanent zero is a sentence people stop reading.
+ *
+ * Both counts, as on every governed source (`D-186`). Saying one number here
+ * and two on the rows above invites the reading that unattributed material is
+ * the smaller of the two.
  */
 function Ungoverned() {
   const material = useSourceMaterial()
   const documents = material.data?.unattributedDocuments ?? 0
+  const bodies = material.data?.unattributedBodies ?? 0
   if (documents === 0) return null
 
   return (
     <p className="px-1 text-[11.5px] leading-snug text-ink-subtle">
       {plural(documents, 'document')} in this project {documents === 1 ? 'names' : 'name'} no
-      source, so nothing you decide here reaches {documents === 1 ? 'it' : 'them'} — pasted text,
-      and anything read before KAE recorded which source a document came from.
+      source, held as {plural(bodies, 'stored copy', 'stored copies')} of their text, so nothing you
+      decide here reaches {documents === 1 ? 'it' : 'them'} — pasted text, and anything read before
+      KAE recorded which source a document came from.
     </p>
   )
 }

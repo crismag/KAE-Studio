@@ -498,9 +498,12 @@ describe('what the recorded word would apply to', () => {
       }),
     )
 
-    expect(
-      await screen.findByText(/2 documents in this project name no source/i),
-    ).toBeInTheDocument()
+    const ungoverned = await screen.findByText(/2 documents in this project name no source/i)
+    expect(ungoverned).toBeInTheDocument()
+    // Both counts, as on every governed source (`D-186`). A document is what
+    // somebody chose to read and a stored copy is what that choice produced;
+    // one number here beside two on the rows above reads as the smaller total.
+    expect(ungoverned).toHaveTextContent(/6 stored copies of their text/i)
     // Not folded into the selected source's own number.
     expect(screen.getByText(/4 documents read from this source/i)).toBeInTheDocument()
   })
