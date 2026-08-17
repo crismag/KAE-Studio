@@ -771,7 +771,11 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       severity: q.severity,
       blocks: [],
       suggestedOwner: 'you',
-      deferred: q.disposition !== 'open',
+      // Exactly `deferred`, never "not open" (`D-198`). A question KAE
+      // answered for itself — `delegated`, `assumed_for_generation` — is
+      // unsettled without anybody having set it aside, and a badge saying
+      // otherwise credits a person with a decision they did not make.
+      deferred: q.disposition === 'deferred',
       // Absent on a backend older than the candidates listing, where every
       // question in a projection had been materialised to get there — so the
       // safe reading of a missing field is that it *was* asked.
@@ -1350,8 +1354,15 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       // counter was a hardcoded `0` beside a "Decide later" button that writes
       // a durable `deferred` disposition. So the count never moved no matter
       // how many times somebody used the control next to it.
+      //
+      // It still did not move after that fix, because the payload arrived
+      // filtered to `open` (`D-198`). The backend now asks for the deferred
+      // ones; a settled one cannot arrive under any parameter, so there is no
+      // answered count here and rendering a permanent `0` would be a claim.
       const deferred = raw.openQuestions.filter((q) => q.disposition === 'deferred').length
-      const answered = raw.openQuestions.filter(
+      // KAE-Memory's own reading: these record that the conversation moved on
+      // without the question being settled.
+      const unsettled = raw.openQuestions.filter(
         (q) => q.disposition !== 'open' && q.disposition !== 'deferred',
       ).length
       // The remainder, and the number the header could not show (`D-189`).
@@ -1362,7 +1373,7 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         interviewType: 'Clarification queue',
         objective: 'Resolve the gaps this project actually has.',
         questionsUnanswered: unanswered,
-        questionsAnswered: answered,
+        questionsRespondedUnsettled: unsettled,
         questionsDeferred: deferred,
       } as InterviewSession
     },

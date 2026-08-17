@@ -520,13 +520,21 @@ export function CoverageSection({
  *
  * Nothing renders until the counts arrive. Zeros while loading would say *no
  * questions* about a project that has them (`D-38`).
+ *
+ * **Answered is not among them, and its absence is deliberate** (`D-198`). A
+ * settled question never reaches this room — KAE-Memory derives the queue from
+ * pending findings, and a settled question no longer has one — so the number
+ * was a permanent zero saying nobody had answered anything. What stands in its
+ * place is the response that settled nothing, which is a state this queue does
+ * hold and a person does need: KAE was told *"I don't know, pick something"*
+ * and the question is still open.
  */
 export function SessionProgress({ session }: { session?: InterviewSession }) {
   if (!session) return null
   return (
     <p className="text-[11.5px] text-ink-subtle">
-      {session.questionsUnanswered} unanswered · {session.questionsAnswered} answered ·{' '}
-      {session.questionsDeferred} deferred
+      {session.questionsUnanswered} unanswered · {session.questionsRespondedUnsettled} answered
+      without deciding · {session.questionsDeferred} deferred
     </p>
   )
 }
@@ -595,13 +603,25 @@ function OpenDecisionRow({
             the control for one would either fail or ask the question in order
             to defer it, which is the defect that put ten machine-generated
             questions in a transcript wearing a different hat. */}
-        {decision.asked ? (
+        {/* **No way back, and it says so** (`D-198`). This read `Bring back`
+            for a deferred row, which KAE-Memory refuses twice over:
+            `ensure_disposition` rejects `open` by name — *"`open` is where a
+            question starts, not somewhere it is put"* — and `answer` raises on
+            a second response to one question. There is no reopen route for a
+            clarification; `reopen_attention` exists for attention items and has
+            no counterpart here. The control was unreachable until deferred rows
+            arrived, so it shipped with this change or it left with it. */}
+        {decision.deferred ? (
+          <span className="text-[11.5px] text-ink-subtle">
+            Set aside · nothing here takes it back up
+          </span>
+        ) : decision.asked ? (
           <button
             type="button"
-            onClick={() => defer.mutate({ decisionId: decision.id, deferred: !decision.deferred })}
+            onClick={() => defer.mutate({ decisionId: decision.id, deferred: true })}
             className="text-[11.5px] text-accent-ink underline-offset-2 hover:underline"
           >
-            {decision.deferred ? 'Bring back' : 'Decide later'}
+            Decide later
           </button>
         ) : (
           <span className="text-[11.5px] text-ink-subtle">Not asked yet</span>

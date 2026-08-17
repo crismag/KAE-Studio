@@ -120,7 +120,17 @@ export interface InterviewSession {
    * claim rather than a recovered one (`D-189`).
    */
   questionsUnanswered: number
-  questionsAnswered: number
+  /**
+   * Questions somebody responded to without settling — `unknown_by_user`,
+   * `delegated`, `assumed_for_generation` in KAE-Memory's vocabulary.
+   *
+   * Replaces `questionsAnswered`, which was structurally `0` in both adapters
+   * (`D-198`): a settled question is dropped by `ClarificationService.candidates`
+   * before the projection is built, so no parameter makes one arrive, and `0
+   * answered` on a project where questions were answered is a claim rather than
+   * a count.
+   */
+  questionsRespondedUnsettled: number
   questionsDeferred: number
 }
 

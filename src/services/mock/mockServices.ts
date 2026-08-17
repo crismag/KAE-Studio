@@ -185,16 +185,19 @@ class MockProjectMemoryClient implements ProjectMemoryClient {
    * incremented *answered* while the queue stood still — and the remainder the
    * header now shows would have gone negative (`D-189`). The prototype has no
    * write that answers a question; `deferDecision` is the only decision write
-   * there is. So answered is 0 and stays 0, for the reason `confirmReading`
-   * records nothing: a mock that showed progress it has no evidence for is the
-   * fiction the fixture sweep removed from the routes.
+   * there is. So the third count is 0 and stays 0, for the reason
+   * `confirmReading` records nothing: a mock that showed progress it has no
+   * evidence for is the fiction the fixture sweep removed from the routes.
+   *
+   * That third count is now *answered without deciding* rather than *answered*
+   * (`D-198`), and the prototype has no write for that either.
    */
   getInterviewSession(): Promise<InterviewSession> {
     const deferred = fixture.openDecisions.filter((d) => state.deferredDecisionIds.has(d.id)).length
     return delay({
       ...fixture.interviewSession,
       questionsUnanswered: fixture.openDecisions.length - deferred,
-      questionsAnswered: 0,
+      questionsRespondedUnsettled: 0,
       questionsDeferred: deferred,
     })
   }

@@ -101,6 +101,19 @@ describe('an open decision offers a path toward resolution', () => {
     expect(respondTo.mock.calls[0][1]).toContain(DECISION.question)
   })
 
+  it('offers no way back on a deferred one, because KAE-Memory has none', async () => {
+    // `Bring back` posted `disposition: open`, which `ensure_disposition`
+    // rejects by name, on a question `answer` would refuse a second response
+    // for anyway. It was unreachable until deferred questions started arriving
+    // (`D-198`), which is what made it worth removing rather than repairing.
+    renderRoom({ ...DECISION, deferred: true })
+    const row = await decisionRow(DECISION.question)
+
+    expect(row.queryByRole('button', { name: 'Bring back' })).toBeNull()
+    expect(row.getByText(/nothing here takes it back up/i)).toBeInTheDocument()
+    expect(row.getByRole('button', { name: 'Discuss this' })).toBeInTheDocument()
+  })
+
   it('offers it on a question nobody has been asked', async () => {
     // The worst row in the panel. Deferring needs a message id and a candidate
     // has none, so an unasked decision showed a question and no control of any

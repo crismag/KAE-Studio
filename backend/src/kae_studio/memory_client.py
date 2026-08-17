@@ -209,10 +209,20 @@ class MemoryClient:
         A candidate carries `candidate_key` always and `asked_id` only once
         somebody has actually been shown it, so a consumer can tell "this could
         be asked" from "this was asked" without causing the second.
+
+        `include_deferred` is asked for rather than left at its default (`D-198`).
+        Without it KAE-Memory returns questions whose disposition is `open` and
+        nothing else, so a question set aside with *Decide later* disappeared
+        from the room that set it aside, and the deferred counter beside that
+        control could never move. Settled questions are dropped by KAE-Memory
+        regardless of this flag, which is why the room reports what is left
+        rather than what is done.
         """
 
         return await self._request(
-            "GET", f"/v1/projects/{project_id}/clarifications/candidates", params={"limit": limit}
+            "GET",
+            f"/v1/projects/{project_id}/clarifications/candidates",
+            params={"limit": limit, "include_deferred": "true"},
         )
 
     async def ingest_document(
