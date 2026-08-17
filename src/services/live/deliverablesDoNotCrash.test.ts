@@ -220,6 +220,76 @@ describe('deliverables arrive in a shape the page can render', () => {
     expect(mapped.unreproducibleReason).toBe('')
   })
 
+  /**
+   * `D-254`. `ProvisionalContext` exists so a package reproduces the same
+   * *claim* and not only the same bytes: one assembled with open questions
+   * said something weaker than the same words say after they were answered.
+   * Memory sends the structure and its own derived `rested_on_uncertainty`;
+   * `WireDeliverable` named neither.
+   */
+  it('carries what was unsettled when the package was assembled', async () => {
+    respond({
+      deliverables: [
+        {
+          ...RECORDED,
+          rested_on_uncertainty: true,
+          provisional_context: {
+            mode: 'provisional',
+            confirmed: 12,
+            proposed: 3,
+            contested: 1,
+            assumption_pins: [{ assumption_id: 'a1' }, { assumption_id: 'a2' }],
+            question_pins: [{ clarification_id: 'q1' }],
+          },
+        },
+      ],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.assembledUnderUncertainty).toEqual({
+      proposed: 3,
+      contested: 1,
+      openAssumptions: 2,
+      openQuestions: 1,
+    })
+  })
+
+  it('follows Memory when it says a package rested on nothing unsettled', async () => {
+    respond({
+      deliverables: [
+        {
+          ...RECORDED,
+          rested_on_uncertainty: false,
+          provisional_context: {
+            mode: 'confirmed',
+            confirmed: 12,
+            proposed: 0,
+            contested: 0,
+            assumption_pins: [],
+            question_pins: [],
+          },
+        },
+      ],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.assembledUnderUncertainty).toBeUndefined()
+  })
+
+  it('claims no settled ground for a package whose uncertainty was never captured', async () => {
+    // `RECORDED` carries no `provisional_context`, which Memory documents as a
+    // different claim from carrying an empty one: not recorded is not none, and
+    // only none would reassure. Neither is rendered, so the absence says
+    // nothing rather than saying the comfortable thing.
+    respond({ deliverables: [RECORDED] })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.assembledUnderUncertainty).toBeUndefined()
+  })
+
   it('returns nothing, and says nothing, when the envelope is the sibling one', async () => {
     // The failure mode itself rather than a description of it. `results` is
     // KAE-Memory's connection envelope and never its deliverable envelope; an

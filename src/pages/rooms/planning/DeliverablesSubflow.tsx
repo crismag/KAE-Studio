@@ -34,6 +34,20 @@ const STATE_META: Record<
 function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const meta = STATE_META[deliverable.state]
+  const u = deliverable.assembledUnderUncertainty
+  // Memory can rest a package on an unresolved gap area alone, in which case
+  // all four counts are zero and the sentence has to stand without a list.
+  const unsettled = u
+    ? [
+        [u.proposed, 'proposed statement'],
+        [u.contested, 'contested statement'],
+        [u.openAssumptions, 'open assumption'],
+        [u.openQuestions, 'open question'],
+      ]
+        .filter(([n]) => (n as number) > 0)
+        .map(([n, noun]) => plural(n as number, noun as string))
+        .join(', ')
+    : ''
 
   return (
     <Panel>
@@ -138,6 +152,16 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
               ))}
             </ul>
           </div>
+        )}
+
+        {deliverable.assembledUnderUncertainty && (
+          <p className="flex items-start gap-2 rounded-md border border-attention-line bg-attention-soft/40 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-attention" aria-hidden="true" />
+            <span>
+              Assembled while things were unsettled{unsettled ? ` — ${unsettled}` : ''}. These words
+              say something weaker than the same words will once those are settled.
+            </span>
+          </p>
         )}
 
         {deliverable.unreproducibleReason && (

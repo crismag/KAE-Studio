@@ -1312,6 +1312,13 @@ interface WireDeliverable {
   superseded_by: string | null
   publication_eligible?: boolean
   ineligibility_reason?: string | null
+  provisional_context?: {
+    proposed?: number
+    contested?: number
+    assumption_pins?: unknown[]
+    question_pins?: unknown[]
+  } | null
+  rested_on_uncertainty?: boolean | null
 }
 
 /**
@@ -1367,6 +1374,19 @@ function deliverable(wire: WireDeliverable): Deliverable {
     // deployment is too old to send either, since a refusal nobody made is a
     // worse claim than none.
     unreproducibleReason: wire.publication_eligible ? '' : (wire.ineligibility_reason ?? ''),
+    // Memory's own derived answer, not a re-derivation: `rested_on_uncertainty`
+    // is a property over five fields, and a stored copy of it drifted from the
+    // derivation within a day of shipping. Absent where the uncertainty was
+    // never captured, which is not the same claim as none and must not read
+    // like it.
+    assembledUnderUncertainty: wire.rested_on_uncertainty
+      ? {
+          proposed: wire.provisional_context?.proposed ?? 0,
+          contested: wire.provisional_context?.contested ?? 0,
+          openAssumptions: wire.provisional_context?.assumption_pins?.length ?? 0,
+          openQuestions: wire.provisional_context?.question_pins?.length ?? 0,
+        }
+      : undefined,
     generatedAt: undefined,
   }
 }

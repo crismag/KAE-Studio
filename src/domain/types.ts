@@ -505,6 +505,19 @@ export interface Deliverable {
    * anything, so this is a refusal that exists rather than a caution.
    */
   unreproducibleReason?: string
+  /**
+   * What was unsettled when this package was assembled (N20.2).
+   *
+   * Absent both when nothing was and when nobody recorded it — different
+   * claims, of which only the first reassures, so neither is drawn as
+   * reassurance.
+   */
+  assembledUnderUncertainty?: {
+    proposed: number
+    contested: number
+    openAssumptions: number
+    openQuestions: number
+  }
   publishedTo?: { target: PublishTargetKind; reference: string; at: string }
   blockedReason?: string
 }

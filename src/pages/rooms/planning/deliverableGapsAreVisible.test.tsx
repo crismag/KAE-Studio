@@ -79,6 +79,33 @@ describe('a package says what it was assembled around', () => {
     ).toBeInTheDocument()
   })
 
+  /**
+   * `D-254`. The counts are what change what a reader does with the package;
+   * the pin identifiers behind them are as unreadable as an area key.
+   */
+  it('says what was unsettled, in counts a reader can act on', async () => {
+    renderPage([
+      {
+        ...WITH_GAPS,
+        unresolvedGaps: [],
+        assembledUnderUncertainty: {
+          proposed: 3,
+          contested: 1,
+          openAssumptions: 0,
+          openQuestions: 2,
+        },
+      },
+    ])
+
+    const said = await screen.findByText(/Assembled while things were unsettled/i)
+    expect(said).toHaveTextContent('3 proposed statements')
+    expect(said).toHaveTextContent('1 contested statement')
+    expect(said).toHaveTextContent('2 open questions')
+    // A count of zero is not news, and listing it pads the one sentence a
+    // reader has to get through.
+    expect(said).not.toHaveTextContent('0 open assumptions')
+  })
+
   it('says nothing when there is nothing to say', async () => {
     // The control. A complete package must not carry a warning shaped like one,
     // which is the failure mode of announcing an empty list.
@@ -87,5 +114,6 @@ describe('a package says what it was assembled around', () => {
     expect(await screen.findByText('Project context package')).toBeInTheDocument()
     expect(screen.queryByText(/critical gap/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/cannot be re-rendered/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/unsettled/i)).not.toBeInTheDocument()
   })
 })
