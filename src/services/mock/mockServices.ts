@@ -684,7 +684,17 @@ class MockIngestion implements IngestionPort {
     },
   ]
 
-  private read = { succeeded: 6, abandoned: 1, complete: false }
+  // Both ways of losing content, because they are different failures and the
+  // surfaces that report them are the ones worth developing against. A fixture
+  // with `notIngested: 0` would leave the truncation clause unexercised, which
+  // is how the defect survived to `D-232` in the first place.
+  private read: ExtractionCoverage = {
+    succeeded: 6,
+    abandoned: 1,
+    notIngested: 2,
+    total: 9,
+    complete: false,
+  }
 
   ingestText(
     _projectId: string,
@@ -706,7 +716,13 @@ class MockIngestion implements IngestionPort {
       })),
       ...this.history,
     ]
-    this.read = { ...this.read, succeeded: this.read.succeeded + chunks }
+    // The denominator moves with what was submitted, or the fixture would
+    // report more sections read than were ever given to KAE.
+    this.read = {
+      ...this.read,
+      succeeded: this.read.succeeded + chunks,
+      total: (this.read.total ?? 0) + chunks,
+    }
     return delay({
       document: document.title,
       chunks,

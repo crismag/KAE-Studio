@@ -35,6 +35,7 @@ import { useState } from 'react'
 import { AlertTriangle, FileText, FolderGit2, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { contentLossClauses } from '@/lib/coverage'
 import { plural } from '@/lib/plural'
 import { PageLayout } from '@/components/project/PageLayout'
 import { readFailure, readRole } from './runVocabulary'
@@ -484,6 +485,15 @@ export function Coverage() {
               {plural(read.succeeded, 'section')} read
               {read.abandoned > 0 && `, ${read.abandoned} abandoned after repeated failures`}.
             </p>
+            {/* What was lost, in the words for each way of losing it. The badge
+                above read "Some content unread" over a sentence naming only
+                abandonment, so a truncated document warned about nothing
+                (`D-232`). */}
+            {contentLossClauses(read).map((clause) => (
+              <p key={clause} className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+                {clause}
+              </p>
+            ))}
             {!read.complete && (
               // Beside readiness, never inside it. A project that lost content
               // is not less *ready* — it is less **read**, and one number

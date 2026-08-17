@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { contentLossClauses } from '@/lib/coverage'
 import { formatDateTime } from '@/lib/format'
 import { plural } from '@/lib/plural'
 import { SKILL_SENTENCES } from './skillSentences'
@@ -827,18 +828,22 @@ function WhatTheseMean() {
  * **Silent when there is nothing to say.** A banner on every project warning
  * that something might be missing is a banner nobody reads, and the point of
  * the previous slice was not handing people more to sort out. It appears only
- * when a run was actually abandoned.
+ * when content was actually lost.
+ *
+ * It used to say *"{abandoned} of {abandoned + succeeded} submissions could not
+ * be fully read"* and read **"0 of 3"** in the case it exists for, because a
+ * truncated document leaves `abandoned` at zero (`D-232`).
  */
 export function ContentLoss({ coverage }: { coverage?: ProjectProjection['extractionCoverage'] }) {
-  if (!coverage || coverage.complete) return null
+  if (!coverage) return null
+  const clauses = contentLossClauses(coverage)
+  if (clauses.length === 0) return null
 
-  const { abandoned, succeeded } = coverage
   return (
     <p className="mt-3 flex gap-2 border-t border-attention-line pt-2.5 text-[11.5px] leading-relaxed text-ink-muted">
       <TriangleAlert className="mt-[3px] size-3 shrink-0 text-attention" aria-hidden="true" />
       <span>
-        {abandoned} of {abandoned + succeeded} submissions could not be fully read, so the figures
-        above describe less than this project actually said.
+        {clauses.join(' ')} So the figures above describe less than this project actually said.
       </span>
     </p>
   )

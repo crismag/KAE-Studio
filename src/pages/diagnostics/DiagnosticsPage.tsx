@@ -34,8 +34,12 @@ import {
 } from '@/components/ui/primitives'
 import { useProjection } from '@/hooks/useProject'
 import { projectCounts } from '@/lib/counts'
+import { contentLossClauses } from '@/lib/coverage'
 
-function Figures({ figures }: { figures: { label: string; value: number }[] }) {
+// `value` takes a string so an unreported figure can render as an em dash. On
+// this page the difference between zero and unreported is the point, and a
+// number type forces one of them to impersonate the other (`D-232`).
+function Figures({ figures }: { figures: { label: string; value: number | string }[] }) {
   return (
     <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       {figures.map((figure) => (
@@ -131,13 +135,25 @@ export function Diagnostics() {
                   figures={[
                     { label: 'Sections read', value: coverage.succeeded },
                     { label: 'Sections abandoned', value: coverage.abandoned },
+                    // The other failure, and the reason this panel could show
+                    // "Sections abandoned: 0" beside a warning that content was
+                    // lost (`AUD-024`, `D-232`).
+                    { label: 'Sections never read', value: coverage.notIngested ?? '—' },
+                    { label: 'Sections submitted', value: coverage.total ?? '—' },
                   ]}
                 />
                 <p className="mt-3 text-[12.5px] leading-relaxed text-ink-muted">
                   {coverage.complete
                     ? 'Every section KAE attempted was read.'
-                    : 'Some sections were abandoned, so what is recorded is drawn from part of the sources rather than all of them.'}
+                    : contentLossClauses(coverage).join(' ') +
+                      ' So what is recorded is drawn from part of the sources rather than all of them.'}
                 </p>
+                {(coverage.notIngested === null || coverage.total === null) && (
+                  <p className="mt-1.5 text-[12px] leading-relaxed text-ink-subtle">
+                    An em dash is a figure this backend did not report, which is not the same as
+                    zero.
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-[12.5px] leading-relaxed text-ink-muted">

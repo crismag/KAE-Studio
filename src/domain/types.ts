@@ -198,6 +198,19 @@ export interface DefinitionStatement {
 export interface ExtractionCoverage {
   succeeded: number
   abandoned: number
+  /**
+   * Sections truncated away at ingest, before any run existed.
+   *
+   * A different failure from `abandoned` and kept apart for that reason:
+   * extraction failed on this content, versus it never saw it (`AUD-024`).
+   * Dropping it made the disclosure read *"0 of 3 …"* in the one case it exists
+   * for, because truncation leaves `abandoned` at zero (`D-232`).
+   *
+   * `null` when the backend did not report it, which is not zero.
+   */
+  notIngested: number | null
+  /** Everything submitted, including what was never attempted. `null` when unreported. */
+  total: number | null
   complete: boolean
 }
 

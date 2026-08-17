@@ -667,7 +667,7 @@ interface BackendProjection {
     constraints: { id: string; text: string; status: string }[]
     mappingVersion: number
   }
-  extractionCoverage?: { succeeded: number; abandoned: number; complete: boolean }
+  extractionCoverage?: ExtractionCoverage
   openQuestions: {
     id: string
     question: string

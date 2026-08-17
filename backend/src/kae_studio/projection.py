@@ -35,6 +35,35 @@ async def _safe(coro: Any) -> tuple[Any, str | None]:
         return None, str(error)[:160]
 
 
+def extraction_coverage_view(payload: Any) -> dict[str, Any]:
+    """Memory's coverage figures in the shape Studio's surfaces read.
+
+    Studio reaches this number two ways — inside the projection, and through
+    `GET /api/projects/{id}/extraction-coverage`. They emitted different shapes
+    for one TypeScript interface, which is how a field can be present on one
+    path and absent on the other while `tsc` reports the type satisfied. Both
+    doors call this, so they cannot disagree (`D-232`).
+
+    `notIngested` and `total` are `None` when the backend did not send them.
+    A Memory older than `AUD-024` reports neither, and reading a missing
+    `not_ingested` as *nothing was truncated* would rebuild the defect this
+    exists to fix with a new field (`D-38`).
+    """
+
+    data = payload if isinstance(payload, dict) else {}
+    not_ingested = data.get("not_ingested")
+    total = data.get("total")
+    return {
+        "succeeded": data.get("succeeded", 0),
+        "abandoned": data.get("abandoned", 0),
+        # A different failure from `abandoned`, and kept apart for that reason:
+        # extraction failed on this content, versus it never saw it (AUD-024).
+        "notIngested": not_ingested if isinstance(not_ingested, int) else None,
+        "total": total if isinstance(total, int) else None,
+        "complete": data.get("complete", True),
+    }
+
+
 async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, Any]:
     """Compose the workspace projection for one project."""
 
@@ -150,11 +179,7 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # content loss is reported separately and never folded in, because a
         # percentage computed over content that was never captured is a
         # confident lie.
-        "extractionCoverage": {
-            "succeeded": coverage_data.get("succeeded", 0),
-            "abandoned": coverage_data.get("abandoned", 0),
-            "complete": coverage_data.get("complete", True),
-        },
+        "extractionCoverage": extraction_coverage_view(coverage_data),
         "openQuestions": _questions(clarification_data),
         "blockers": _listing(blocker_data),
         # A count, not a list: Memory exposes recording and resolving a

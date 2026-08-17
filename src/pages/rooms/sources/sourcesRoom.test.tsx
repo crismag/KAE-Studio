@@ -805,3 +805,60 @@ describe('no page sends a person to another page to do its own job', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('the source list is a table, because these rows are compared', () => {
+  /**
+   * `D-231`. They were stacked cards, each repeating its own labels, so telling
+   * two folders apart meant reading two paragraphs. What a person does on this
+   * page is scan — which kinds are configured, which are pinned, which failed —
+   * and columns make that one glance.
+   *
+   * What must survive the change is every fact the cards carried. A tidier
+   * layout that quietly drops the reason a source is unreachable would be a
+   * worse page that looks better.
+   */
+  it('keeps the reason a source could not be read', async () => {
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({
+          sources: [{ ...PINNED, lastError: 'GitHub refused this deployment’s credential.' }],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    // **Scoped to the row**, because the detail panel shows the same sentence.
+    // An earlier version asserted it appeared anywhere on the page and passed a
+    // mutation that removed it from the table entirely — the tidier layout that
+    // says less, which is the exact failure this test exists to prevent.
+    const rows = await screen.findAllByRole('row')
+    const row = rows.find((r) => /reporting-platform/i.test(r.textContent ?? ''))
+    expect(row?.textContent).toMatch(/refused this deployment/i)
+    expect(row?.textContent).toMatch(/unreachable/i)
+  })
+
+  it('says nothing rather than zero for a source nobody has pinned', async () => {
+    // A source with no snapshot holds nothing KAE can count yet. "0 files"
+    // would be a measurement; the absence of one is the truth.
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({
+          sources: [{ ...PINNED, state: 'configured', snapshot: null }],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    const row = (await screen.findAllByRole('row')).find((r) =>
+      /reporting-platform/i.test(r.textContent ?? ''),
+    )
+    expect(row?.textContent).not.toMatch(/0 files/)
+  })
+
+  it('renders one row per source under real column headers', async () => {
+    renderSources((services) => withPinnedSource(services))
+
+    expect(await screen.findByRole('columnheader', { name: /source/i })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: /state/i })).toBeInTheDocument()
+  })
+})

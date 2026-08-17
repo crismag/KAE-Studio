@@ -183,7 +183,7 @@ describe('what needs you', () => {
         findings: [],
         openDecisions: [],
         contradictions: { count: 0, listable: true, reason: '' },
-        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        extractionCoverage: { succeeded: 3, abandoned: 0, notIngested: 0, total: 3, complete: true },
         blockers: [],
         review: { available: true, reason: '', findings: [] },
       }),
@@ -222,7 +222,7 @@ describe('what needs you', () => {
         findings: [],
         openDecisions: [],
         contradictions: { count: 0, listable: true, reason: '' },
-        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        extractionCoverage: { succeeded: 3, abandoned: 0, notIngested: 0, total: 3, complete: true },
         // Cleared as well, since `D-38`. The prototype project has a critical
         // blocker, so leaving these would make "nothing is waiting" false — and
         // this test asserted that sentence against exactly that project.
@@ -247,7 +247,7 @@ describe('what needs you', () => {
         findings: [],
         openDecisions: [],
         contradictions: { count: 0, listable: true, reason: '' },
-        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        extractionCoverage: { succeeded: 3, abandoned: 0, notIngested: 0, total: 3, complete: true },
         blockers: [],
         review: { available: true, reason: '', findings: [] },
       }),
@@ -261,7 +261,7 @@ describe('what needs you', () => {
   it('surfaces content loss as something needing a person', async () => {
     renderDashboard((base) => ({
       ...base,
-      extractionCoverage: { succeeded: 3, abandoned: 2, complete: false },
+      extractionCoverage: { succeeded: 3, abandoned: 2, notIngested: 0, total: 5, complete: false },
     }))
 
     const row = await screen.findByText(/part of what you gave KAE was never read/i)
@@ -490,7 +490,7 @@ describe('nothing is waiting only when nothing is', () => {
         findings: [],
         openDecisions: [],
         contradictions: { count: 0, listable: true, reason: '' },
-        extractionCoverage: { succeeded: 3, abandoned: 0, complete: true },
+        extractionCoverage: { succeeded: 3, abandoned: 0, notIngested: 0, total: 3, complete: true },
         blockers: [],
         review: { available: true, reason: '', findings: [] },
         ...over,

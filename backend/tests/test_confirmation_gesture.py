@@ -372,6 +372,11 @@ def test_the_disclosure_a_user_sees_matches_the_runs_behind_it() -> None:
     assert projection["extractionCoverage"] == {
         "succeeded": 45,
         "abandoned": 12,
+        # This fixture predates `AUD-024` and sends no `not_ingested`, so the
+        # projection reports it unknown rather than zero — which is the honest
+        # answer for a backend that does not count truncation (`D-232`).
+        "notIngested": None,
+        "total": 57,
         "complete": False,
     }
     # And it stays out of the health figure, which is the whole rule:

@@ -365,45 +365,90 @@ function SourceList({
         <PanelTitle>What this project reads from</PanelTitle>
         <Badge tone="neutral">{sources.length}</Badge>
       </PanelHeader>
-      <PanelBody className="space-y-1.5">
-        {sources.map((source) => {
-          const state = STATE[source.state]
-          // The fourth state. A source that exists and could not be reached is
-          // neither absent nor a failed page — and the reason is the only part
-          // a person can act on.
-          const inaccessible = Boolean(source.lastError)
-          const active = source.sourceId === selectedId
-          return (
-            <button
-              key={source.sourceId}
-              type="button"
-              onClick={() => onSelect(source.sourceId)}
-              aria-current={active ? 'true' : undefined}
-              className={`w-full rounded-md border px-3 py-2.5 text-left transition-colors ${
-                active
-                  ? 'border-accent-line bg-accent-soft'
-                  : 'border-line bg-surface hover:bg-surface-sunken'
-              }`}
-            >
-              <p className="flex items-center gap-1.5">
-                <Badge tone="neutral">{KIND[source.kind] ?? source.kind}</Badge>
-                <span className="truncate text-[12.5px] font-medium text-ink">{label(source)}</span>
-              </p>
-              <p className="mt-1 flex items-center gap-1.5">
-                <Badge tone={inaccessible ? 'attention' : state.tone}>
-                  {inaccessible ? 'Unreachable' : state.label}
-                </Badge>
-                <Mono>{source.reference}</Mono>
-              </p>
-              {/* The sentence, not just the word. A badge reading "Pinned" and
-                  one reading "Unreachable" call for opposite responses and are
-                  the same shape at a glance. */}
-              <p className="mt-1 text-[11px] leading-snug text-ink-subtle">
-                {inaccessible ? source.lastError : state.means}
-              </p>
-            </button>
-          )
-        })}
+      <PanelBody className="px-0 py-0">
+        {/* **A table, because these rows are compared** (`D-231`).
+            They were stacked cards, each repeating its own labels, so telling
+            two folders apart meant reading two paragraphs. What a person does
+            here is scan: which kinds are configured, which are pinned, which
+            failed, which holds the most. Columns make that one glance; cards
+            made it N readings.
+
+            Horizontally scrollable in its own container, so a narrow window
+            scrolls the table rather than the page. */}
+        <div className="kae-scrollbar overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-line text-[11px] uppercase tracking-wider text-ink-subtle">
+                <th scope="col" className="px-4 py-2.5 font-semibold">
+                  Source
+                </th>
+                <th scope="col" className="px-4 py-2.5 font-semibold">
+                  State
+                </th>
+                <th scope="col" className="hidden px-4 py-2.5 font-semibold sm:table-cell">
+                  Holds
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {sources.map((source) => {
+                const state = STATE[source.state]
+                // The fourth state. A source that exists and could not be
+                // reached is neither absent nor a failed page — and the reason
+                // is the only part a person can act on.
+                const inaccessible = Boolean(source.lastError)
+                const active = source.sourceId === selectedId
+                return (
+                  <tr
+                    key={source.sourceId}
+                    aria-current={active ? 'true' : undefined}
+                    className={active ? 'bg-accent-soft' : 'hover:bg-surface-sunken'}
+                  >
+                    <td className="px-4 py-2.5">
+                      {/* The whole row is the control, and the name carries it.
+                          A row of icon buttons with no obvious way to *open* a
+                          source is the clunkiness this replaces. */}
+                      <button
+                        type="button"
+                        onClick={() => onSelect(source.sourceId)}
+                        className="flex w-full min-w-0 items-center gap-1.5 text-left"
+                      >
+                        <Badge tone="neutral">{KIND[source.kind] ?? source.kind}</Badge>
+                        <span className="truncate text-[12.5px] font-medium text-ink">
+                          {label(source)}
+                        </span>
+                      </button>
+                      <p className="mt-0.5 flex items-center gap-1.5">
+                        <Mono>{source.reference}</Mono>
+                      </p>
+                    </td>
+                    <td className="px-4 py-2.5 align-top">
+                      <Badge tone={inaccessible ? 'attention' : state.tone}>
+                        {inaccessible ? 'Unreachable' : state.label}
+                      </Badge>
+                      {/* The sentence, not just the word. A badge reading
+                          "Pinned" and one reading "Unreachable" call for
+                          opposite responses and are the same shape at a
+                          glance. */}
+                      <p className="mt-1 max-w-xs text-[11px] leading-snug text-ink-subtle">
+                        {inaccessible ? source.lastError : state.means}
+                      </p>
+                    </td>
+                    <td className="hidden px-4 py-2.5 align-top text-[11.5px] text-ink-muted sm:table-cell">
+                      {/* What it holds, where that is known. A source nobody has
+                          pinned holds nothing KAE can count yet, and saying "0
+                          files" would be a measurement rather than the absence
+                          of one. */}
+                      {source.snapshot
+                        ? `${plural(source.snapshot.fileCount, 'file')} in scope`
+                        : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </PanelBody>
     </Panel>
   )

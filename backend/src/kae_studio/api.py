@@ -727,9 +727,14 @@ def create_app(settings: Settings) -> FastAPI:
         Read beside readiness and never mixed into it. A project is not *less
         ready* for having lost content — it is less **read**, and one number
         cannot say both.
+
+        Shaped by the same function the projection uses, because one TypeScript
+        interface described two different payloads until it did (`D-232`).
         """
 
-        return await memory(request).extraction_coverage(project_id)
+        from .projection import extraction_coverage_view
+
+        return extraction_coverage_view(await memory(request).extraction_coverage(project_id))
 
     @app.get("/api/projects/{project_id}/runs")
     async def runs(
