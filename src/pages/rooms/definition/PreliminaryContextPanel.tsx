@@ -32,6 +32,7 @@ import { Panel, PanelBody, PanelHeader, PanelTitle, Badge } from '@/components/u
 import { SeverityBadge } from '@/components/project/SeverityBadge'
 import type { AssumedEntry, PreliminaryContext, UnknownEntry } from '@/domain/types'
 import { readableFindingKind } from './findingKinds'
+import { readableDisposition } from './questionDispositions'
 
 /**
  * Whether there is anything at all to render.
@@ -199,6 +200,7 @@ function UnknownRow({ unknown }: { unknown: UnknownEntry }) {
   // available on hover and to a screen reader, not occupying the line a person
   // reads.
   const kind = readableFindingKind(unknown.findingKind)
+  const disposition = readableDisposition(unknown.disposition)
   return (
     <li className="flex flex-wrap items-baseline gap-x-2 gap-y-1" title={unknown.clarificationId}>
       <span className="sr-only">Reference {unknown.clarificationId}</span>
@@ -208,9 +210,13 @@ function UnknownRow({ unknown }: { unknown: UnknownEntry }) {
           and did not decide — a different situation, and one Memory requires to
           stay visible (N36). Rendering both as "open" loses the distinction
           between a project that has not looked and one that looked and moved
-          on. */}
+          on.
+          The word itself is Memory's key, and this rendered it raw — *"Asked ·
+          assumed_for_generation"* on the line a person reads (`D-199`). */}
       <span className="text-[11.5px] text-ink-subtle">
-        {unknown.disposition === 'open' ? 'Not yet asked' : `Asked · ${unknown.disposition}`}
+        {unknown.disposition === 'open'
+          ? 'Not yet asked'
+          : `Asked${disposition ? ` · ${disposition}` : ''}`}
       </span>
       {/* Why the question exists, which the row could not say (`D-190`). The
           grade beside it says how much it matters and the kind says what sort

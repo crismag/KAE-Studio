@@ -190,7 +190,10 @@ describe('a person can read it', () => {
     expect(screen.getByText(/nobody has decided/i)).toBeInTheDocument()
     expect(screen.getByText(/safe to leave for now/i)).toBeInTheDocument()
     expect(screen.getByText(/not yet asked/i)).toBeInTheDocument()
-    expect(screen.getByText(/asked · deferred/i)).toBeInTheDocument()
+    // `D-199`: this asserted `asked · deferred`, which is Memory's key on the
+    // line a person reads. The distinction the test is about survives the
+    // rewording; the key does not.
+    expect(screen.getByText(/asked · set aside for now/i)).toBeInTheDocument()
   })
 
   it('states that the section could not be read rather than rendering nothing', () => {
