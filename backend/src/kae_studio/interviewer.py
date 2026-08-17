@@ -28,9 +28,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import TypeVar
 
 from cie_slim.kae.conversation import InterviewUnavailable, Move, converse
 from cie_slim.kae.memory_client import MemoryClient as CieMemoryClient
+
+from . import runtime_profile
 
 #: Reachable in ca-central-1 and adequate for interview reasoning. Overridable
 #: because a deployment may have access to different models than this one.
@@ -39,6 +42,8 @@ DEFAULT_MODEL = "global.anthropic.claude-sonnet-4-6"
 #: §13 names this the general model, and it runs on the workstation.
 DEFAULT_LOCAL_MODEL = "qwen2.5:14b"
 OLLAMA_URL = "http://127.0.0.1:11434"
+
+_R = TypeVar("_R", bound="BedrockReasoner | OllamaReasoner")
 
 
 class BedrockReasoner:
@@ -130,10 +135,32 @@ def describe_interviewer(provider: str = "", model: str = "") -> str:
     function that chooses the provider.
     """
 
-    reasoner = reasoner_for(provider, model)
+    try:
+        reasoner = reasoner_for(provider, model)
+    except InterviewUnavailable as error:
+        # `/api/status` is unauthenticated and exists to say whether this
+        # deployment is up. Letting a configuration refusal out of here made it
+        # a 500 — the one response that cannot say what is wrong.
+        return f"CIE unavailable — {error}"
     if isinstance(reasoner, OllamaReasoner):
         return f"CIE via Ollama ({reasoner.model})"
     return f"CIE via Bedrock ({reasoner.model})"
+
+
+def _permitted(reasoner: _R, reach: runtime_profile.Reach, provider: str) -> _R:
+    """Return the reasoner, or refuse it in this deployment's own words.
+
+    A `ProfileViolation` is re-raised as `InterviewUnavailable` because the turn
+    route catches that and only that: a second exception type through the same
+    door would be a 500 where the contract is *raised rather than substituted*,
+    and said in words a person can act on.
+    """
+
+    try:
+        runtime_profile.require(reach, variable="KAE_CIE_PROVIDER", value=provider)
+    except runtime_profile.ProfileViolation as violation:
+        raise InterviewUnavailable(str(violation)) from violation
+    return reasoner
 
 
 def reasoner_for(provider: str, model: str = "") -> BedrockReasoner | OllamaReasoner:
@@ -143,13 +170,21 @@ def reasoner_for(provider: str, model: str = "") -> BedrockReasoner | OllamaReas
     require positive opt-in*, not *use cloud unless unavailable*. A deployment
     that wants Bedrock says so; one that forgets gets a visible failure naming
     Ollama rather than a silent charge (`D-77`).
+
+    **The declared runtime profile refuses what it may not reach** (`D-174`).
+    The profile never picks — the variable above stays the only thing that does
+    — and the checks sit inside the recognised branches, because a name nobody
+    recognises is not a reach to rule on. Ollama is classified from the URL it
+    is actually given, so pointing `OLLAMA_URL` at another machine cannot pass
+    as local.
     """
 
     chosen = (provider or os.environ.get("KAE_CIE_PROVIDER", "") or "ollama").strip().lower()
     if chosen == "bedrock":
-        return BedrockReasoner(model)
+        return _permitted(BedrockReasoner(model), runtime_profile.Reach.HOSTED, chosen)
     if chosen == "ollama":
-        return OllamaReasoner(model)
+        local = OllamaReasoner(model)
+        return _permitted(local, runtime_profile.reach_of_url(local.base_url), chosen)
     raise InterviewUnavailable(
         f"unknown interviewer provider {chosen!r}. Set KAE_CIE_PROVIDER to 'ollama' or 'bedrock'."
     )

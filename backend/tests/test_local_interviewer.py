@@ -26,8 +26,21 @@ from kae_studio.interviewer import (
     BedrockReasoner,
     InterviewUnavailable,
     OllamaReasoner,
+    describe_interviewer,
     reasoner_for,
 )
+from kae_studio.runtime_profile import VARIABLE as PROFILE
+
+
+@pytest.fixture(autouse=True)
+def _no_declared_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every test below chooses its own posture, or none.
+
+    Inheriting one from the shell — `deployment/local/up.sh` exports `offline`
+    — would make a suite that passes or fails by where it was run.
+    """
+
+    monkeypatch.delenv(PROFILE, raising=False)
 
 
 class TestWhichProviderAnswers:
@@ -68,6 +81,79 @@ class TestWhichProviderAnswers:
             reasoner_for("bedrok")
 
         assert "bedrok" in str(raised.value)
+
+    def test_a_profile_that_forbids_the_reach_refuses_the_provider(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`OFF-POLICY`, at the one door Studio has: offline enforced rather
+        than inferred from whether an AWS credential happens to be present."""
+
+        monkeypatch.setenv(PROFILE, "offline")
+
+        with pytest.raises(InterviewUnavailable) as raised:
+            reasoner_for("bedrock")
+
+        assert "KAE_RUNTIME_PROFILE=offline" in str(raised.value)
+
+    def test_the_profile_never_selects_the_other_provider(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """It constrains; it does not choose (`D-172`). Falling back to Ollama
+        here would be a deployment that asked for a hosted model, was refused,
+        and was answered by a different one without being told."""
+
+        monkeypatch.setenv(PROFILE, "offline")
+
+        with pytest.raises(InterviewUnavailable):
+            reasoner_for("bedrock")
+
+    def test_offline_permits_the_local_model_on_this_machine(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(PROFILE, "offline")
+        monkeypatch.delenv("OLLAMA_URL", raising=False)
+
+        assert isinstance(reasoner_for("ollama"), OllamaReasoner)
+
+    def test_offline_refuses_the_local_adapter_pointed_at_another_machine(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The reach is read from the URL the adapter is actually given, so a
+        network call cannot pass by wearing the local provider's name."""
+
+        monkeypatch.setenv(PROFILE, "offline")
+        monkeypatch.setenv("OLLAMA_URL", "http://gpu-box:11434")
+
+        with pytest.raises(InterviewUnavailable) as raised:
+            reasoner_for("ollama")
+
+        assert "network" in str(raised.value)
+        monkeypatch.setenv(PROFILE, "local")
+        assert isinstance(reasoner_for("ollama"), OllamaReasoner)
+
+    def test_an_undeclared_profile_constrains_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Both deployments today. The AWS host runs Bedrock and declares no
+        profile, and it must keep working (`D-172`)."""
+
+        monkeypatch.delenv(PROFILE, raising=False)
+
+        assert isinstance(reasoner_for("bedrock"), BedrockReasoner)
+
+    def test_a_refused_provider_is_described_rather_than_raised_at_status(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`/api/status` is unauthenticated and says whether the deployment is
+        up. A refusal escaping `describe_interviewer` made it a 500 — the one
+        answer that cannot say what is wrong."""
+
+        monkeypatch.setenv(PROFILE, "offline")
+
+        described = describe_interviewer("bedrock")
+
+        assert "unavailable" in described
+        assert "KAE_RUNTIME_PROFILE=offline" in described
 
     def test_the_local_model_is_the_one_section_13_names(
         self, monkeypatch: pytest.MonkeyPatch
