@@ -2097,8 +2097,18 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       const raw = await call<{
         files: { path: string; size: number }[]
         truncated: boolean
+        omitted_too_large?: number
+        max_file_bytes?: number
       }>(`/api/sources/${sourceId}/files?limit=${limit}`)
-      return { files: raw.files ?? [], truncated: Boolean(raw.truncated) }
+      return {
+        files: raw.files ?? [],
+        truncated: Boolean(raw.truncated),
+        // A backend too old to answer has omitted nothing as far as anyone can
+        // tell, and a zero renders no sentence. Defaulting the other way would
+        // put a claim about a ceiling on a page that cannot support it.
+        omittedTooLarge: raw.omitted_too_large ?? 0,
+        maxFileBytes: raw.max_file_bytes ?? 0,
+      }
     },
 
     sample: async (sourceId, path) =>

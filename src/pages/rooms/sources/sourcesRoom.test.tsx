@@ -104,7 +104,12 @@ function withPinnedSource(services: StudioServices, over: Partial<AcquisitionPor
   ]
   return withAcquisition(services, {
     listSources: async () => ({ sources: [PINNED], unavailable: '' }),
-    listFiles: async () => ({ files, truncated: false }),
+    listFiles: async () => ({
+      files,
+      truncated: false,
+      omittedTooLarge: 0,
+      maxFileBytes: 1_000_000,
+    }),
     sample: async (_sourceId, path) => ({
       path,
       bytes: 120,
@@ -952,5 +957,88 @@ describe('pinning is reachable', () => {
     await user.click(await screen.findByRole('button', { name: /pin to a commit/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/cannot read ministry/i)
+  })
+})
+
+/**
+ * `D-242` — the count above this list and the list itself are built by
+ * different rules, and only one of them was ever on the page.
+ *
+ * `pin` counts every path the scope admits; the listing also needs a file small
+ * enough to read. Without a sentence, the difference reads as files that failed
+ * to arrive.
+ */
+describe('the files a rule left out', () => {
+  it('says how many the ceiling removed, and what the ceiling is', async () => {
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listFiles: async () => ({
+          files: [{ path: 'README.md', size: 4_812 }],
+          truncated: false,
+          omittedTooLarge: 3,
+          maxFileBytes: 1_000_000,
+        }),
+      }),
+    )
+
+    const note = await screen.findByText(/larger than/i)
+
+    expect(note).toHaveTextContent('3 files in scope are larger than 976.6 KB')
+    expect(note).toHaveTextContent(/count above includes them/i)
+  })
+
+  it('says nothing when the ceiling removed nothing', async () => {
+    // Otherwise the line is on every source and stops being read.
+    renderSources((services) => withPinnedSource(services))
+
+    await screen.findByText('README.md')
+
+    expect(screen.queryByText(/larger than/i)).not.toBeInTheDocument()
+  })
+
+  it('agrees with itself about one file', async () => {
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listFiles: async () => ({
+          files: [{ path: 'README.md', size: 4_812 }],
+          truncated: false,
+          omittedTooLarge: 1,
+          maxFileBytes: 1_000_000,
+        }),
+      }),
+    )
+
+    expect(await screen.findByText(/1 file in scope is larger than/)).toBeInTheDocument()
+  })
+})
+
+describe('when a pin was taken', () => {
+  it('dates the revision the page offers to replace', async () => {
+    // `Pin again` sits directly below this line, and the only thing a person
+    // needs in order to press it is how old the current pin is.
+    renderSources((services) => withPinnedSource(services))
+
+    expect(await screen.findByText(/Pinned 10 Aug/)).toBeInTheDocument()
+  })
+
+  it('renders no date rather than a dash when the timestamp is unreadable', async () => {
+    // `formatDateTime` answers an em dash for an absent value, which is right
+    // in a column and wrong in a sentence: *Pinned —* invites somebody to go
+    // looking for what broke (`D-241`).
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({
+          sources: [{ ...PINNED, snapshot: { ...PINNED.snapshot!, resolvedAt: '' } }],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    await screen.findByText('README.md')
+
+    // Not `/Pinned/`, which the state badge on the row also says. The claim is
+    // about the dated sentence.
+    expect(screen.queryByText(/Pinned \d/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Pinned —/)).not.toBeInTheDocument()
   })
 })

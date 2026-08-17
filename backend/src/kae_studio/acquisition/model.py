@@ -234,6 +234,25 @@ class SourceSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ReadableFiles:
+    """What a pinned source offers a person to read, and what it withheld.
+
+    `omitted_too_large` is the whole reason this is a type rather than a list.
+    A snapshot's `file_count` is every entry the path rules admit; this listing
+    additionally requires a file small enough to read, so the two numbers
+    disagree on any repository with a lock file in it. Returning the difference
+    keeps the stricter rule visible where it applies (`D-242`).
+    """
+
+    files: list[dict[str, Any]]
+    #: The repository was larger than one listing, or the limit cut it.
+    truncated: bool
+    #: In scope by path, left out by the byte ceiling.
+    omitted_too_large: int
+    max_file_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
 class Source:
     """A provider location KAE may read from."""
 

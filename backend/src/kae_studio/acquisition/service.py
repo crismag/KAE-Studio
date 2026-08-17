@@ -26,6 +26,7 @@ from .model import (
     Connection,
     ConnectionState,
     ConnectivityCheck,
+    ReadableFiles,
     Source,
     SourceKind,
     SourceScope,
@@ -373,14 +374,23 @@ class AcquisitionService:
         return content
 
 
-    def readable_files(self, source_id: str, limit: int = 50) -> tuple[list[dict[str, Any]], bool]:
+    def readable_files(self, source_id: str, limit: int = 50) -> ReadableFiles:
         """The in-scope files of a pinned source, largest first.
 
-        Reads the tree the pin already resolved rather than re-listing, so what
-        this returns is exactly what that revision contained. `truncated` says
-        the repository was larger than one listing — surfaced rather than
-        swallowed, because a partial set presented as a total is what a snapshot
-        digest is supposed to make impossible.
+        Lists the tree again at the revision the pin fixed, which is what makes
+        the answer reproducible: the pin is a commit, so the same call returns
+        the same entries however long ago it was resolved. `truncated` says the
+        repository was larger than one listing — surfaced rather than swallowed,
+        because a partial set presented as a total is what a snapshot digest is
+        supposed to make impossible.
+
+        **This rule is stricter than the one the pin counted with** (`D-242`).
+        `pin` admits every entry the path rules allow; a file KAE could read has
+        to be small enough to read as well, so anything over
+        `scope.max_file_bytes` is left out here and was counted there. The
+        difference is returned rather than left as an absence: a person choosing
+        files for ingest cannot otherwise tell a deliberate ceiling from a file
+        that failed to arrive.
         """
 
         source = self.source(source_id)
@@ -389,14 +399,17 @@ class AcquisitionService:
             raise SourceReadError(409, "this source has not been pinned to a revision")
 
         entries, truncated = client.tree(source.location, source.snapshot.revision)
+        admitted = [entry for entry in entries if not source.scope.excludes(entry["path"])]
         in_scope = [
-            entry
-            for entry in entries
-            if not source.scope.excludes(entry["path"])
-            and entry["size"] <= source.scope.max_file_bytes
+            entry for entry in admitted if entry["size"] <= source.scope.max_file_bytes
         ]
         in_scope.sort(key=lambda entry: entry["size"], reverse=True)
-        return in_scope[:limit], truncated or len(in_scope) > limit
+        return ReadableFiles(
+            files=in_scope[:limit],
+            truncated=truncated or len(in_scope) > limit,
+            omitted_too_large=len(admitted) - len(in_scope),
+            max_file_bytes=source.scope.max_file_bytes,
+        )
 
     def read_for_ingest(self, source_id: str, paths: Sequence[str]) -> list[tuple[str, str, str]]:
         """Read several in-scope files, each with the coordinate it was read at.

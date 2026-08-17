@@ -1454,7 +1454,18 @@ class MockAcquisition implements AcquisitionPort {
       { path: 'docs/REQUIREMENTS.md', size: 9_133 },
       { path: 'CONTRIBUTING.md', size: 2_204 },
     ]
-    return delay({ files: files.slice(0, limit), truncated: files.length > limit }, 400)
+    return delay(
+      {
+        files: files.slice(0, limit),
+        truncated: files.length > limit,
+        // Nothing in this fixture is near a megabyte, so the ceiling omits
+        // nothing. A mock inventing an omission would put a sentence about a
+        // real rule on a page backed by fixture content.
+        omittedTooLarge: 0,
+        maxFileBytes: 1_000_000,
+      },
+      400,
+    )
   }
 
   sample(sourceId: string, path: string): Promise<FileExcerpt> {

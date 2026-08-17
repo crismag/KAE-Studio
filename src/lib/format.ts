@@ -50,3 +50,15 @@ export function formatDate(iso: string): string {
     timeZone: 'UTC',
   }).format(date)
 }
+
+/**
+ * A byte count in kilobytes, to one decimal.
+ *
+ * Kilobytes at every size on purpose. The only place this is read is a file
+ * list beside a ceiling those files are measured against, and *2.3 MB* over
+ * *976.6 KB* asks a reader to convert units to answer *which is bigger* — the
+ * one question the number is there for.
+ */
+export function kilobytes(bytes: number): string {
+  return `${Math.round(bytes / 102.4) / 10} KB`
+}

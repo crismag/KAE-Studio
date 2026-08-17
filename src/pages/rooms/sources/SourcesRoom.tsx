@@ -74,6 +74,7 @@ import { QueryState } from '@/components/ui/QueryState'
 import { Activity as RunActivity, Coverage, PasteDocument, UploadDocument } from './intake'
 import { AddSource, type Branch } from './AddSource'
 import { plural } from '@/lib/plural'
+import { formatDateTime, isKnownTimestamp, kilobytes } from '@/lib/format'
 import { CloneRepository } from './CloneRepository'
 import { PickRepository } from './PickRepository'
 import {
@@ -558,6 +559,13 @@ function SourceDetail({ source }: { source: ProjectSource }) {
               {source.snapshot.excludedCount > 0 &&
                 `, ${source.snapshot.excludedCount.toLocaleString()} excluded by this source’s rules`}
               .
+              {/* When the pin was taken, because *Pin again* is the control
+                  directly below and a revision from three weeks ago and one
+                  from this morning were the same line. Nothing rather than a
+                  placeholder when the timestamp is unreadable — a dash where a
+                  date belongs invites somebody to wonder what broke (`D-241`). */}
+              {isKnownTimestamp(source.snapshot.resolvedAt) &&
+                ` Pinned ${formatDateTime(source.snapshot.resolvedAt)}.`}
             </p>
           ) : PINNABLE.includes(source.kind) ? (
             <p className="text-[12.5px] text-ink-muted">
@@ -783,6 +791,22 @@ function FileBrowser({ source }: { source: ProjectSource }) {
                   </p>
                 )}
 
+                {listing.omittedTooLarge > 0 && (
+                  // `D-242`. The count in the panel above is the pin's, which
+                  // admits every path the scope rules allow; this list also
+                  // requires a file small enough to read, so the two disagree
+                  // on any repository with a lock file in it. Without this
+                  // line the difference is an absence, and an absence beside a
+                  // list of files reads as a failed read rather than a rule.
+                  <p className="text-[11.5px] text-ink-muted">
+                    {plural(listing.omittedTooLarge, 'file')} in scope{' '}
+                    {listing.omittedTooLarge === 1 ? 'is' : 'are'} larger than{' '}
+                    {kilobytes(listing.maxFileBytes)} and{' '}
+                    {listing.omittedTooLarge === 1 ? 'is' : 'are'} not listed. The count above
+                    includes them; KAE reads a file whole or not at all.
+                  </p>
+                )}
+
                 {visible.length === 0 ? (
                   <p className="text-[12.5px] italic text-ink-subtle">
                     {filter ? `No file path contains “${filter}”.` : 'No files in scope.'}
@@ -808,7 +832,7 @@ function FileBrowser({ source }: { source: ProjectSource }) {
                           {file.path}
                         </label>
                         <span className="shrink-0 text-[11px] text-ink-subtle">
-                          {Math.round(file.size / 102.4) / 10} KB
+                          {kilobytes(file.size)}
                         </span>
                         <Button
                           size="sm"

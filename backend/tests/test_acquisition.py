@@ -256,6 +256,146 @@ class TestPinningIsNotAnalysis:
         assert snapshot_digest(forward) == snapshot_digest(backward)
 
 
+class TestTheListingSaysWhatItsCeilingLeftOut:
+    """`D-242` — two rules for *in scope*, and only one of them is on the page.
+
+    `pin` counts what the path rules admit; `readable_files` additionally needs
+    a file small enough to read. A repository with a lock file in it makes the
+    two disagree, and the panel renders the first number above the second list.
+    """
+
+    LOCK_BYTES = 2_400_000
+
+    def github(self) -> GitHubSourceClient:
+        return source_client(
+            {
+                ("GET", f"/repos/{REPO}"): httpx.Response(
+                    200, json={"owner": {"login": "crismag"}, "permissions": {"pull": True}}
+                ),
+                ("GET", f"/repos/{REPO}/commits/main"): httpx.Response(
+                    200, json={"sha": "c0ffee1234567890"}
+                ),
+                ("GET", f"/repos/{REPO}/git/trees/c0ffee1234567890"): httpx.Response(
+                    200,
+                    json={
+                        "truncated": False,
+                        "tree": [
+                            {"path": "README.md", "type": "blob", "sha": "b1", "size": 100},
+                            {
+                                "path": "package-lock.json",
+                                "type": "blob",
+                                "sha": "b2",
+                                "size": self.LOCK_BYTES,
+                            },
+                        ],
+                    },
+                ),
+            }
+        )
+
+    def pinned(self) -> tuple[AcquisitionService, str]:
+        service = AcquisitionService(self.github())
+        connection = service.add_connection("github", "personal", "env:TOKEN")
+        source = service.add_source(
+            "p1", SourceKind.GITHUB, connection.connection_id, REPO, "main"
+        )
+        service.pin(source.source_id)
+        return service, source.source_id
+
+    def test_the_pin_counts_a_file_the_listing_will_not_offer(self) -> None:
+        """The disagreement itself, asserted so it cannot be closed by accident."""
+
+        service, source_id = self.pinned()
+
+        source = service.source(source_id)
+        assert source.snapshot is not None
+        assert source.snapshot.file_count == 2
+        assert [file["path"] for file in service.readable_files(source_id).files] == ["README.md"]
+
+    def test_the_listing_reports_how_many_the_ceiling_removed(self) -> None:
+        service, source_id = self.pinned()
+
+        listing = service.readable_files(source_id)
+
+        assert listing.omitted_too_large == 1
+        assert listing.max_file_bytes == SourceScope().max_file_bytes
+
+    def test_a_repository_under_the_ceiling_reports_nothing_omitted(self) -> None:
+        """Otherwise the sentence appears on every source and means nothing."""
+
+        service = AcquisitionService(
+            source_client(
+                {
+                    ("GET", f"/repos/{REPO}/commits/main"): httpx.Response(
+                        200, json={"sha": "c0ffee1234567890"}
+                    ),
+                    ("GET", f"/repos/{REPO}/git/trees/c0ffee1234567890"): httpx.Response(
+                        200,
+                        json={
+                            "truncated": False,
+                            "tree": [
+                                {"path": "README.md", "type": "blob", "sha": "b1", "size": 100}
+                            ],
+                        },
+                    ),
+                }
+            )
+        )
+        connection = service.add_connection("github", "personal", "env:TOKEN")
+        source = service.add_source(
+            "p1", SourceKind.GITHUB, connection.connection_id, REPO, "main"
+        )
+        service.pin(source.source_id)
+
+        assert service.readable_files(source.source_id).omitted_too_large == 0
+
+    def test_an_excluded_path_is_not_counted_as_too_large(self) -> None:
+        """The two reasons a file is absent are different and stay separate.
+
+        `.env` is refused by the path rules and never reaches the ceiling; a
+        count that merged them would tell a person their secrets were skipped
+        for being big.
+        """
+
+        service = AcquisitionService(
+            source_client(
+                {
+                    ("GET", f"/repos/{REPO}/commits/main"): httpx.Response(
+                        200, json={"sha": "c0ffee1234567890"}
+                    ),
+                    ("GET", f"/repos/{REPO}/git/trees/c0ffee1234567890"): httpx.Response(
+                        200,
+                        json={
+                            "truncated": False,
+                            "tree": [
+                                {"path": "README.md", "type": "blob", "sha": "b1", "size": 100},
+                                {"path": ".env", "type": "blob", "sha": "b2", "size": 50},
+                            ],
+                        },
+                    ),
+                }
+            )
+        )
+        connection = service.add_connection("github", "personal", "env:TOKEN")
+        source = service.add_source(
+            "p1", SourceKind.GITHUB, connection.connection_id, REPO, "main"
+        )
+        service.pin(source.source_id)
+
+        assert service.readable_files(source.source_id).omitted_too_large == 0
+
+    def test_the_route_carries_the_ceiling_to_the_browser(self) -> None:
+        service, source_id = self.pinned()
+        app = create_app(Settings.from_environment(BASE))
+
+        with TestClient(app) as client:
+            app.state.acquisition = service
+            body = client.get(f"/api/sources/{source_id}/files").json()
+
+        assert body["omitted_too_large"] == 1
+        assert body["max_file_bytes"] == SourceScope().max_file_bytes
+
+
 class TestTheApiIsHonestAboutAnalysis:
     def client(self) -> TestClient:
         app = create_app(Settings.from_environment(BASE))

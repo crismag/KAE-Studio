@@ -2170,15 +2170,19 @@ def create_app(settings: Settings) -> FastAPI:
         bytes — and it was never returned, so a user could see *412 files* and
         not one of their names. Read-only, and at the pinned revision, so what
         this lists is exactly what an ingest would read.
+
+        `omitted_too_large` is the count `pin` included and this excludes, with
+        the ceiling that excluded it (`D-242`). It travels with the list because
+        the number rendered above the list comes from the other rule.
         """
 
-        files, truncated = await run_in_threadpool(
-            acquisition(request).readable_files, source_id, limit
-        )
+        listing = await run_in_threadpool(acquisition(request).readable_files, source_id, limit)
         return {
             "source_id": source_id,
-            "files": files,
-            "truncated": truncated,
+            "files": listing.files,
+            "truncated": listing.truncated,
+            "omitted_too_large": listing.omitted_too_large,
+            "max_file_bytes": listing.max_file_bytes,
             "proves": "these paths exist in scope at the pinned revision.",
         }
 

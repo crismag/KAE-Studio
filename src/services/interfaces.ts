@@ -516,6 +516,15 @@ export interface SourceFileListing {
   files: { path: string; size: number }[]
   /** The repository was larger than one listing, or the limit cut it. */
   truncated: boolean
+  /**
+   * In scope by path, left out of this list for being too big to read
+   * (`D-242`). The pin counted them and this rule does not, so the number a
+   * person reads above the list is larger than the list — deliberately, and
+   * only this field can say so.
+   */
+  omittedTooLarge: number
+  /** The ceiling that omitted them, so the sentence can name it. */
+  maxFileBytes: number
 }
 
 export interface IngestOutcome {
