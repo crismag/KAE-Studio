@@ -47,6 +47,7 @@ import type {
   SourceDisposition,
   StakeholderEntry,
   SynthesizedObject,
+  ValidationFinding,
   ValidationResult,
 } from '@/domain/types'
 import type {
@@ -306,6 +307,17 @@ interface WirePreview {
   }[]
 }
 
+interface WireValidation {
+  publishable: boolean
+  findings: {
+    check: string
+    severity: ValidationFinding['severity']
+    message: string
+    remedy: string
+    artifact_id: string
+  }[]
+}
+
 interface WireApproval {
   approval_id: string
   package_id: string
@@ -479,6 +491,24 @@ function preview(wire: WirePreview): ArtifactPreview {
       newChecksum: c.new_checksum,
       sizeBytes: c.size_bytes,
       detail: c.detail,
+    })),
+  }
+}
+
+/*
+ * An empty `artifact_id` is KAE-Artifacts saying the finding is about the
+ * package rather than a file in it, so it is carried rather than defaulted:
+ * the panel's *"across the whole package"* arm depends on the difference.
+ */
+function validation(wire: WireValidation): ValidationResult {
+  return {
+    publishable: wire.publishable,
+    findings: wire.findings.map((f) => ({
+      check: f.check,
+      severity: f.severity,
+      message: f.message,
+      remedy: f.remedy,
+      artifactId: f.artifact_id,
     })),
   }
 }
@@ -1717,9 +1747,11 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     },
 
     validate: async (packageId) =>
-      callArtifacts<ValidationResult>(`/api/artifact-packages/${packageId}/validation`, {
-        method: 'POST',
-      }),
+      validation(
+        await callArtifacts<WireValidation>(`/api/artifact-packages/${packageId}/validation`, {
+          method: 'POST',
+        }),
+      ),
 
     preview: async (packageId, destination) =>
       preview(
