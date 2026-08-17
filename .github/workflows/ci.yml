@@ -78,5 +78,11 @@ jobs:
       # to `pyproject.toml` reaches the host and **not** here, so the first sign
       # of forgetting this line is a green pipeline over code that cannot
       # import (`D-57`).
-      - run: pip install -e . --no-deps && pip install fastapi itsdangerous pytest httpx "githubkit[auth-app]" cryptography
+      #
+      # `pymupdf`, `python-docx` and `openpyxl` are the local decoders. They are
+      # imported inside the functions that need them, so `src/` collects without
+      # them and only `test_decode.py`'s fixtures fail — which is how their
+      # absence hid behind a class-body `importorskip` naming the private
+      # sibling instead (`D-233`, `D-234`).
+      - run: pip install -e . --no-deps && pip install fastapi itsdangerous pytest httpx "githubkit[auth-app]" cryptography pymupdf python-docx openpyxl
       - run: python -m pytest tests -q

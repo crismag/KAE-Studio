@@ -7,6 +7,7 @@ success. This is not analysis.
 
 from __future__ import annotations
 
+import importlib.util
 from io import BytesIO
 from typing import Any
 
@@ -140,10 +141,19 @@ class TestRefusals:
         assert decoded.text == "notes"
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("cie_slim") is None,
+    reason="cris-cie-slim is a private sibling repository",
+)
 class TestTheDecodeRoute:
-    """Multipart in, preview out. Nothing is written to Memory."""
+    """Multipart in, preview out. Nothing is written to Memory.
 
-    pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+    The skip is a decorator and not an `importorskip` in the class body, which
+    is what this was. `importorskip` raises, and a raise in a class body leaves
+    the module import — so the four route tests took the thirteen decode tests
+    above them out of CI's reach too, and the runner reported one skip for the
+    file (`D-233`).
+    """
 
     def test_returns_text_and_does_not_ingest(self) -> None:
         from fastapi.testclient import TestClient
