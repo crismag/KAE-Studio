@@ -449,6 +449,9 @@ class MockProjectProjectionService implements ProjectProjectionService {
       // against "no gaps" too.
       unavailable: [],
       modulesGap: null,
+      // The fixture holds real acceptance criteria, so claiming the gap here
+      // would make the panel that renders them undemonstrable (`D-218`).
+      acceptanceTestsGap: null,
       contradictions: { count: 0, listable: true, reason: '' },
       preliminary: fixture.preliminary,
       architecture: fixture.architecture,

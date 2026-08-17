@@ -916,6 +916,18 @@ export interface ProjectProjection {
    */
   modulesGap: CapabilityGap | null
   /**
+   * Present when nothing in the estate records acceptance criteria (`D-218`).
+   *
+   * Unlike `modulesGap` this is **not** derived from a flag KAE-Memory sends,
+   * because there is no acceptance-criterion kind for it to have an opinion
+   * about — each adapter declares its own beside the collection it explains.
+   *
+   * `null` when criteria are genuinely readable, at which point an empty
+   * `acceptanceTests` means the project has none. That is a different statement
+   * from the one this field exists to stop being made.
+   */
+  acceptanceTestsGap: CapabilityGap | null
+  /**
    * Contradictions Memory has counted but will not enumerate.
    *
    * The count is real and the list is not available, which is a combination

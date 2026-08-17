@@ -772,6 +772,10 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       updatedAt: s.updatedAt,
       trace: [],
     })),
+    // Structurally empty, and the reason travels with it (`D-218`). Nothing
+    // upstream was dropped: Studio's backend computes no acceptance criteria and
+    // KAE-Memory has no kind for one, so a panel counting these would be
+    // reporting a product limit as a quantity about the user's project.
     acceptanceTests: [],
     modules: [],
     // Carried through untouched. What was lost is a fact about the project, and
@@ -885,6 +889,13 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
           state: 'planned',
           provedInstead: [],
         },
+    acceptanceTestsGap: {
+      capability: 'Acceptance criteria',
+      reason:
+        'KAE does not record acceptance criteria yet, so none can be listed for any project. That is a gap in the product, not in this project.',
+      state: 'planned',
+      provedInstead: [],
+    },
     preliminary: toPreliminary(raw.preliminary),
     architecture: toArchitecture(raw.architecture),
     blockers: toBlockers(raw.blockers),

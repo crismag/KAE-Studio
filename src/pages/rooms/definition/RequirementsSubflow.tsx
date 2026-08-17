@@ -638,9 +638,21 @@ export function Requirements() {
         <Panel>
           <PanelHeader>
             <PanelTitle>Acceptance criteria</PanelTitle>
-            <Badge tone="neutral">{projection.acceptanceTests.length}</Badge>
+            {/* `0` here is a count that cannot vary — the same thing the summary
+                line above refuses to state — because no acceptance criterion can
+                be read for any project. A neutral badge reading zero says the
+                project has none, which is a claim about the user's work rather
+                than about the product (`D-38`, `D-184`). */}
+            <Badge tone="neutral">
+              {projection.acceptanceTestsGap ? 'not recorded' : projection.acceptanceTests.length}
+            </Badge>
           </PanelHeader>
           <PanelBody className="px-0 py-0">
+            {projection.acceptanceTestsGap && (
+              <p className="px-5 py-3.5 text-[12px] text-ink-subtle">
+                {projection.acceptanceTestsGap.reason}
+              </p>
+            )}
             <ul className="divide-y divide-line">
               {projection.acceptanceTests.map((t) => (
                 <li key={t.id} className="flex items-start justify-between gap-4 px-5 py-3">
