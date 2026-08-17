@@ -518,6 +518,14 @@ export interface Deliverable {
     openAssumptions: number
     openQuestions: number
   }
+  /**
+   * What this package says about its own evidence, in the producer's words.
+   *
+   * `DeliverableQualification` refuses to exist without these where the package
+   * rests on unconfirmed statements — silence there is the package claiming
+   * more than its evidence. Empty where the deliverable predates qualification.
+   */
+  qualifications?: string[]
   publishedTo?: { target: PublishTargetKind; reference: string; at: string }
   blockedReason?: string
 }

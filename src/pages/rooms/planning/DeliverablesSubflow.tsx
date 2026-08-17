@@ -154,6 +154,20 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           </div>
         )}
 
+        {deliverable.qualifications && deliverable.qualifications.length > 0 && (
+          <ul className="space-y-1 text-[12.5px] leading-relaxed text-ink-muted">
+            {deliverable.qualifications.map((sentence) => (
+              <li key={sentence} className="flex items-start gap-2">
+                <TriangleAlert
+                  className="mt-0.5 size-3.5 shrink-0 text-attention"
+                  aria-hidden="true"
+                />
+                {sentence}
+              </li>
+            ))}
+          </ul>
+        )}
+
         {deliverable.assembledUnderUncertainty && (
           <p className="flex items-start gap-2 rounded-md border border-attention-line bg-attention-soft/40 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-attention" aria-hidden="true" />

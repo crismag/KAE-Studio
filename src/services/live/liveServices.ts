@@ -1319,6 +1319,7 @@ interface WireDeliverable {
     question_pins?: unknown[]
   } | null
   rested_on_uncertainty?: boolean | null
+  qualification?: { qualifications?: string[] } | null
 }
 
 /**
@@ -1387,6 +1388,10 @@ function deliverable(wire: WireDeliverable): Deliverable {
           openQuestions: wire.provisional_context?.question_pins?.length ?? 0,
         }
       : undefined,
+    // The sentences a package resting on unconfirmed statements is forbidden to
+    // omit, in the producer's own words. Absent where the deliverable predates
+    // qualification, which the column's nullability records as a real state.
+    qualifications: wire.qualification?.qualifications ?? [],
     generatedAt: undefined,
   }
 }

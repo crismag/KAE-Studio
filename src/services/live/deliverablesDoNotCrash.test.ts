@@ -290,6 +290,47 @@ describe('deliverables arrive in a shape the page can render', () => {
     expect(mapped.assembledUnderUncertainty).toBeUndefined()
   })
 
+  /**
+   * `D-255`. `DeliverableQualification` refuses to be constructed without these
+   * where the package rests on unconfirmed statements — *"silence here is the
+   * package claiming more than its evidence."* Studio dropped them one layer
+   * before the reader they were written for.
+   */
+  it('carries the sentences the package is forbidden to omit about its evidence', async () => {
+    respond({
+      deliverables: [
+        {
+          ...RECORDED,
+          qualification: {
+            maturity: 'provisional',
+            unconfirmed_statements: 4,
+            qualifications: [
+              'This package rests on 4 statements nobody has confirmed.',
+              'Two material assumptions were accepted rather than verified.',
+            ],
+          },
+        },
+      ],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.qualifications).toEqual([
+      'This package rests on 4 statements nobody has confirmed.',
+      'Two material assumptions were accepted rather than verified.',
+    ])
+  })
+
+  it('reads no qualification from a deliverable recorded before there was one', async () => {
+    // The column is nullable for exactly this row, so absence is a state rather
+    // than a gap, and an empty list claims nothing either way.
+    respond({ deliverables: [RECORDED] })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.qualifications).toEqual([])
+  })
+
   it('returns nothing, and says nothing, when the envelope is the sibling one', async () => {
     // The failure mode itself rather than a description of it. `results` is
     // KAE-Memory's connection envelope and never its deliverable envelope; an

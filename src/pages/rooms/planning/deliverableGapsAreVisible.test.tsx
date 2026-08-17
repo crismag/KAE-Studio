@@ -106,6 +106,24 @@ describe('a package says what it was assembled around', () => {
     expect(said).not.toHaveTextContent('0 open assumptions')
   })
 
+  /**
+   * `D-255`. The producer wrote these as prose for a reader, so the page says
+   * them as written rather than summarising them into a count.
+   */
+  it('says the qualification in the words the producer wrote it in', async () => {
+    renderPage([
+      {
+        ...WITH_GAPS,
+        unresolvedGaps: [],
+        qualifications: ['This package rests on 4 statements nobody has confirmed.'],
+      },
+    ])
+
+    expect(
+      await screen.findByText('This package rests on 4 statements nobody has confirmed.'),
+    ).toBeInTheDocument()
+  })
+
   it('says nothing when there is nothing to say', async () => {
     // The control. A complete package must not carry a warning shaped like one,
     // which is the failure mode of announcing an empty list.
@@ -115,5 +133,6 @@ describe('a package says what it was assembled around', () => {
     expect(screen.queryByText(/critical gap/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/cannot be re-rendered/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/unsettled/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/rests on/i)).not.toBeInTheDocument()
   })
 })
