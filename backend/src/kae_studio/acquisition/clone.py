@@ -17,12 +17,26 @@ them.
 to writing at least as much as to reading: a clone target assembled from a
 repository name is an attacker-supplied path, and `../../` in a repository name
 would otherwise put a checkout anywhere this process can write.
+
+## And nothing is fetched a declared posture forbids (`D-180`)
+
+This is egress with no HTTP client in it, which is why the two passes that gated
+the other GitHub doors (`D-177`, `D-179`) walked past it: they looked for a
+constructed client and found a subprocess. The refusal lives here rather than at
+the route for `D-179`'s reason — this is the only module that knows the address.
 """
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+
+from .. import runtime_profile
+from .github_source import reach_of_api
+
+#: Where a clone is fetched from. The one place in the estate that spells it,
+#: which is what makes this the place the profile rules on it.
+REMOTE = "https://github.com"
 
 
 class CloneError(RuntimeError):
@@ -41,7 +55,15 @@ def clone(
     Refuses rather than overwrites: a directory that already exists is somebody
     else's checkout, possibly with uncommitted work in it, and *clone* is not a
     word that should ever destroy one.
+
+    Raises :class:`runtime_profile.ProfileViolation` before anything is run when
+    the declared profile does not permit reaching the remote (`D-180`).
     """
+
+    # Before the path checks as well as before the command: an `offline`
+    # deployment should be told its posture refuses this, not that the target
+    # directory already exists.
+    runtime_profile.require(reach_of_api(REMOTE), variable="git clone", value=REMOTE)
 
     owner, _, name = full_name.partition("/")
     if not owner or not name or "/" in name:
@@ -71,7 +93,7 @@ def clone(
         # statements from a file, and a shallow clone of a large repository is
         # the difference between seconds and minutes.
         "1",
-        f"https://github.com/{full_name}.git",
+        f"{REMOTE}/{full_name}.git",
         str(target),
     ]
 

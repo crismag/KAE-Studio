@@ -2010,6 +2010,11 @@ def create_app(settings: Settings) -> FastAPI:
             target = await run_in_threadpool(
                 clone, body.full_name, roots[0], settings.github_source_token
             )
+        except runtime_profile.ProfileViolation as violation:
+            # 501, beside the other two sentences above: a declared posture is
+            # this deployment not being set up to fetch, and nothing about the
+            # request would change the answer (`D-180`).
+            raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, str(violation)) from None
         except CloneError as error:
             # 409, not 500. Every one of these is a condition a person can act
             # on — a name that does not resolve, a directory already there, a

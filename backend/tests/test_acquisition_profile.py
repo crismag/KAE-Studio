@@ -12,9 +12,12 @@ that shows up in CI as a skip with a reason is not a guard.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx
 import pytest
 
+from kae_studio.acquisition.clone import REMOTE, clone
 from kae_studio.acquisition.github_app import GitHubApp
 from kae_studio.acquisition.github_source import GitHubSourceClient, reach_of_api
 from kae_studio.runtime_profile import (
@@ -173,3 +176,77 @@ class TestTheAppIsRefusedBeforeItAsksWhereItIsInstalled:
 
     def test_an_undeclared_profile_constrains_nothing(self) -> None:
         assert GitHubApp("4590065", "-----BEGIN PRIVATE KEY-----")
+
+
+class TestCloningIsEgressWithNoClientInIt:
+    """`D-180`. Two passes looked for a constructed HTTP client and this is a
+    subprocess, so `git clone https://github.com/…` was reachable from a
+    deployment declaring `offline`."""
+
+    def test_the_remote_is_somebody_elses_however_it_is_reached(self) -> None:
+        assert reach_of_api(REMOTE) == Reach.HOSTED
+
+    @pytest.mark.parametrize("profile", [OFFLINE, LOCAL])
+    def test_a_profile_that_may_not_reach_it_refuses(
+        self, profile: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(VARIABLE, profile)
+
+        with pytest.raises(ProfileViolation) as raised:
+            clone("crismag/kae", tmp_path)
+
+        assert "git clone" in str(raised.value)
+
+    def test_git_is_never_run(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The refusal has to precede the command, not report on its failure —
+        which is exactly what `D-179` found wrong one doorway over."""
+
+        monkeypatch.setenv(VARIABLE, OFFLINE)
+        run: list[object] = []
+        monkeypatch.setattr("kae_studio.acquisition.clone.subprocess.run", run.append)
+
+        with pytest.raises(ProfileViolation):
+            clone("crismag/kae", tmp_path)
+
+        assert run == []
+
+    def test_the_posture_is_answered_before_the_request_is_even_valid(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An `offline` deployment is told its posture refuses this, rather than
+        that the repository name is malformed — the profile is the larger fact
+        and neither answer would change with the other."""
+
+        monkeypatch.setenv(VARIABLE, OFFLINE)
+
+        with pytest.raises(ProfileViolation):
+            clone("not-an-owner-name", tmp_path)
+
+    @pytest.mark.parametrize("profile", [HYBRID, PRODUCTION])
+    def test_the_profiles_that_permit_it_reach_the_command(
+        self, profile: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(VARIABLE, profile)
+        monkeypatch.setattr(
+            "kae_studio.acquisition.clone.subprocess.run",
+            lambda *_, **__: _Finished(),
+        )
+
+        assert clone("crismag/kae", tmp_path) == tmp_path / "kae"
+
+    def test_an_undeclared_profile_constrains_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "kae_studio.acquisition.clone.subprocess.run",
+            lambda *_, **__: _Finished(),
+        )
+
+        assert clone("crismag/kae", tmp_path) == tmp_path / "kae"
+
+
+class _Finished:
+    """What `subprocess.run` returns when git succeeded, and nothing more."""
+
+    returncode = 0
+    stderr = ""

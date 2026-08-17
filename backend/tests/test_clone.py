@@ -172,3 +172,42 @@ class TestWhenGitFails:
 
         with pytest.raises(CloneError, match="could not be reached"):
             clone("crismag/KAE-Studio", root)
+
+
+class TestThePostureIsAnAnswerTheRouteCanGive:
+    """`D-180`. The refusal happens in `clone()`; this is the route reporting it
+    as *this deployment is not set up to do this* rather than as a 500.
+
+    501 beside the other two, not 409: the route's conflicts are conditions in
+    the request, and nothing about ``full_name`` would change a posture.
+    """
+
+    def test_offline_answers_501_and_names_the_variable(
+        self, root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pytest.importorskip("cie_slim", reason="cris-cie-slim is a private sibling repository")
+
+        from fastapi.testclient import TestClient
+
+        from kae_studio.api import create_app
+        from kae_studio.config import Settings
+        from kae_studio.runtime_profile import VARIABLE
+
+        monkeypatch.setenv(VARIABLE, "offline")
+        seen = recording(monkeypatch)
+        environment = {
+            "KAE_MEMORY_TOKEN": "token",
+            "STUDIO_SESSION_SECRET": "x" * 40,
+            "STUDIO_NO_AUTH": "1",
+            "STUDIO_GITHUB_SOURCE_TOKEN": "ghp_token",
+            "KAE_LOCAL_SOURCE_ROOTS": str(root),
+        }
+        settings = Settings.from_environment(environment)
+        with TestClient(create_app(settings)) as client:
+            response = client.post("/api/repositories/clone", json={"full_name": "crismag/kae"})
+
+        assert response.status_code == 501
+        assert VARIABLE in response.json()["detail"]
+        # The credential was present and the root configured, so nothing but the
+        # posture stopped this — and it stopped it before git ran.
+        assert seen == []
