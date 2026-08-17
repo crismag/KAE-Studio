@@ -1266,6 +1266,7 @@ export interface SynthesizedObject {
   identityKey: string
   title: string
   statement: string
+  /** `SynthesizedLifecycle` — not `BoundEvidence.lifecycle` (`D-197`). */
   lifecycle: string
   authority: string
   revision: number
@@ -1293,6 +1294,12 @@ export interface BoundEvidence {
   kind: string
   statement: string
   knowledgeKind: string
+  /**
+   * `LifecycleState` — `proposed`, `validated`, `rejected`, `superseded`.
+   *
+   * Not `SynthesizedObject.lifecycle`, which is a different enum under the same
+   * field name, rendered on the same screen (`D-197`).
+   */
   lifecycle: string
 }
 

@@ -32,7 +32,16 @@ const KNOWLEDGE_KINDS = [
   'assumption',
 ]
 
-/** `SynthesizedLifecycle`, `domain/synthesis.py:64`. */
+/**
+ * `LifecycleState`, `domain/lifecycle.py:8` — where a *knowledge item* is.
+ *
+ * Not the enum below. Two vocabularies are called `lifecycle`, they are
+ * rendered thirty-eight lines apart in `AttentionRoom.tsx`, and they share one
+ * member and one near-homograph (`D-197`).
+ */
+const LIFECYCLE_STATES = ['proposed', 'validated', 'rejected', 'superseded']
+
+/** `SynthesizedLifecycle`, `domain/synthesis.py:64` — where an *object* is. */
 const SYNTHESIZED_LIFECYCLES = [
   'working',
   'proposed_change',
@@ -101,6 +110,28 @@ describe('the synthesized model fixture speaks Memory’s vocabulary', () => {
     const bindings = Object.values(fixture.synthesizedEvidence).flat()
     expect(bindings.length).toBeGreaterThan(0)
     for (const binding of bindings) expect(BINDING_KINDS).toContain(binding.kind)
+  })
+
+  it('describes each bound observation in words Memory holds', () => {
+    // The rows hang off `SynthesizedObjectDetail`, reached by a different query
+    // from the objects above, which is why the guard written first walked past
+    // them. A vocabulary check that enumerates types rather than fields that
+    // reach a screen keeps missing whichever type nobody was looking at.
+    const bindings = Object.values(fixture.synthesizedEvidence).flat()
+    for (const binding of bindings) {
+      expect(KNOWLEDGE_KINDS).toContain(binding.knowledgeKind)
+      expect(LIFECYCLE_STATES).toContain(binding.lifecycle)
+    }
+  })
+
+  it('keeps the two lifecycles apart, since one field name carries both', () => {
+    // `superseded` is in both and `proposed` is one underscore from
+    // `proposed_change`, so a value from the wrong enum reads as plausible on
+    // either row. Asserting the sets are not interchangeable is what makes the
+    // two guards above mean different things.
+    expect(LIFECYCLE_STATES).not.toEqual(SYNTHESIZED_LIFECYCLES)
+    expect(SYNTHESIZED_LIFECYCLES).not.toContain('validated')
+    expect(LIFECYCLE_STATES).not.toContain('working')
   })
 })
 

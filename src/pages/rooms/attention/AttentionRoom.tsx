@@ -547,9 +547,13 @@ function ModelObject({ object }: { object: SynthesizedObject }) {
         <Badge tone="neutral">{readable(object.domain)}</Badge>
         <span className="text-[13px] text-ink">{object.title}</span>
         {/* Memory's own words for how settled this is and who settled it.
-            Rendered rather than translated: `synthesized` and `human` are
+            Rendered rather than translated: `working_model` and `human` are
             different facts about the same object and collapsing them would
-            make KAE's reading indistinguishable from a person's. */}
+            make KAE's reading indistinguishable from a person's.
+
+            This `lifecycle` is `SynthesizedLifecycle`. The one on the evidence
+            rows above is `LifecycleState`, a different enum under the same
+            field name (`D-197`). */}
         <span className="text-[11.5px] text-ink-subtle">
           · {readable(object.lifecycle)} · {readable(object.authority)}
         </span>
