@@ -607,3 +607,65 @@ describe('the queue says which items the last run still stands behind', () => {
     expect(screen.queryByText(/did not raise this again/)).toBeNull()
   })
 })
+
+describe('the model says when an object has been reworded since KAE first wrote it', () => {
+  /**
+   * `D-194`. `revision` reached `domain/types.ts` and no component read it.
+   * `put_object` returns an unchanged object without bumping, so `revision - 1`
+   * is the number of times the wording changed and not a count of runs. The
+   * statement on the card is what the object says now; nothing else said
+   * whether it is the first thing KAE wrote about that identity.
+   */
+  function objectAt(revision: number) {
+    return [{ ...UNBOUND, revision }]
+  }
+
+  it('says nothing about an object KAE has never reworded', async () => {
+    // Revision 1 is the ordinary case. A sentence on every card is noise
+    // attached to the majority, and its absence asserts nothing false.
+    harness({ listSynthesizedModel: () => Promise.resolve(objectAt(1)) })
+
+    expect(await screen.findByText('A guess with nothing behind it')).toBeTruthy()
+    expect(screen.queryByText(/Reworded/)).toBeNull()
+  })
+
+  it('counts the rewordings, not the revisions', async () => {
+    // Revision 3 is two changes after the first writing. Saying "3" here would
+    // count the original as a rewording of itself.
+    harness({ listSynthesizedModel: () => Promise.resolve(objectAt(3)) })
+
+    expect(await screen.findByText('Reworded 2 times since KAE first wrote it')).toBeTruthy()
+  })
+
+  it('says it at the boundary, where the first change is', async () => {
+    harness({ listSynthesizedModel: () => Promise.resolve(objectAt(2)) })
+
+    expect(await screen.findByText('Reworded 1 time since KAE first wrote it')).toBeTruthy()
+  })
+
+  it('does not claim who reworded it', async () => {
+    // Both bump paths land in the same number: `with_working_update` when KAE
+    // restates its own reading, `with_human_correction` when a person rewrites
+    // it. The `authority` word beside it already says who may change it now,
+    // and a sentence attributing a person's correction to KAE would be false.
+    harness({
+      listSynthesizedModel: () =>
+        Promise.resolve([{ ...UNBOUND, authority: 'human', revision: 2 }]),
+    })
+
+    const line = await screen.findByText(/Reworded/)
+
+    expect(line.textContent).toBe('Reworded 1 time since KAE first wrote it')
+    expect(line.textContent).not.toMatch(/by a person|by you|corrected/i)
+  })
+
+  it('reads the field for each object rather than one for all of them', async () => {
+    // The fixture's three objects carry revisions 3, 1 and 2, so the prototype
+    // already exercises the reworded case, the silent case and the boundary.
+    harness()
+
+    await screen.findByText('Reworded 2 times since KAE first wrote it')
+
+    expect(screen.getAllByText(/Reworded/)).toHaveLength(2)
+  })
+})

@@ -555,6 +555,18 @@ function ModelObject({ object }: { object: SynthesizedObject }) {
         </span>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{object.statement}</p>
+      {/* `D-194`. The statement above is what the object says now, and nothing
+          else on the card says whether it is the first thing KAE wrote about
+          this identity. `put_object` returns an unchanged object without
+          bumping, so `revision - 1` is the number of times the wording actually
+          changed — not a run count. Said only above 1, because never-reworded is
+          the ordinary case, and attributing nothing, because a person's
+          correction bumps it too. */}
+      {object.revision > 1 && (
+        <p className="mt-1 text-[11.5px] text-ink-subtle">
+          Reworded {plural(object.revision - 1, 'time')} since KAE first wrote it
+        </p>
+      )}
       {/* Zero is said rather than left blank: an object KAE minted with nothing
           bound to it is a different fact from one whose evidence nobody has
           asked for.
