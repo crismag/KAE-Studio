@@ -533,3 +533,77 @@ describe('postponing is not the same as hiding', () => {
     expect(await screen.findByText(/What can be done with this: discuss$/)).toBeTruthy()
   })
 })
+
+describe('the queue says which items the last run still stands behind', () => {
+  /**
+   * `D-193`. `raised` carried an id and a question per item and the page read
+   * only `raised.length`. The identifiers are the join nothing else can make:
+   * `put_attention` upserts on the theme's identity key, so the queue
+   * accumulates across runs and an item an earlier run raised is drawn exactly
+   * like one this run raised again.
+   */
+  // The recommendation rather than the title: a theme in the model beside the
+  // queue legitimately shares an item's title, and only an item has one of
+  // these.
+  const NOT_RAISED = 'Describe one correction that has actually happened.'
+  const RAISED = 'Say who signs a return off, and whether that differs by directorate.'
+
+  it('says nothing at all until a run has happened', async () => {
+    // No report is not an empty report. An unmarked queue on arrival means
+    // nobody has looked, and a badge absent by default would say the opposite.
+    harness()
+
+    expect(await screen.findByText(RAISED)).toBeTruthy()
+    expect(screen.queryByText(/did not raise this again/)).toBeNull()
+  })
+
+  it('marks the item the run left out, and only that one', async () => {
+    // REPORT raises attn-001 alone; the queue holds attn-002 as well.
+    harness({ runUnknownSynthesis: () => Promise.resolve(REPORT) })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+
+    const marks = await screen.findAllByText(/did not raise this again/)
+    expect(marks).toHaveLength(1)
+    expect(marks[0].closest('li')?.textContent).toContain(NOT_RAISED)
+  })
+
+  it('never marks an item the run raised', async () => {
+    harness({ runUnknownSynthesis: () => Promise.resolve(REPORT) })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+    const raisedRow = (await screen.findByText(RAISED)).closest('li')
+
+    expect(raisedRow?.textContent).not.toContain('did not raise this again')
+  })
+
+  it('claims nothing about why, because the run does not say', async () => {
+    // Below the bar and answered elsewhere are different fates, and the report
+    // distinguishes neither. The sentence states the absence and stops.
+    harness({ runUnknownSynthesis: () => Promise.resolve(REPORT) })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+    const mark = (await screen.findAllByText(/did not raise this again/))[0].textContent ?? ''
+
+    expect(mark).toBe('The last run did not raise this again.')
+    expect(mark).not.toMatch(/below|answered|resolved|new/i)
+  })
+
+  it('marks nothing when the run raised everything it found', async () => {
+    harness({
+      runUnknownSynthesis: () =>
+        Promise.resolve({
+          ...REPORT,
+          raised: [
+            { attentionItemId: 'attn-001', question: 'Who approves a return' },
+            { attentionItemId: 'attn-002', question: 'What happens to a figure' },
+          ],
+        }),
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: /look again/i }))
+    await screen.findByText(/36 themes/)
+
+    expect(screen.queryByText(/did not raise this again/)).toBeNull()
+  })
+})

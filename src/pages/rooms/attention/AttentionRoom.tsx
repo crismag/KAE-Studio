@@ -20,6 +20,15 @@
  * 28 were. Rendering only the 8 would make that unanswerable from the interface,
  * which is the conservation defect this estate has closed twice already.
  *
+ * ## Which items the last run still stands behind (`D-193`)
+ *
+ * The queue accumulates: attention items are upserted on the theme's identity
+ * key, so one an earlier run raised stays here whether or not the latest run
+ * raised it again. Once a report is in hand, the ones it did **not** raise say
+ * so. Only the negative is marked — the report already counts what was raised —
+ * and only while a report exists, because an unmarked queue on arrival means
+ * nobody has looked rather than everything being current.
+ *
  * ## Which gestures are controls, and which are still words (`SYN-4`, `D-142`)
  *
  * The item names its own gestures and Studio may draw only the ones the backend
@@ -127,6 +136,12 @@ export function AttentionRoom() {
             >
               {(items) => {
                 const { waiting, postponed } = partitionAttention(items)
+                // The join the report's identifiers exist for (`D-193`). `null`
+                // until a run has happened on this page, because the report is
+                // not stored and cannot be reconstructed later.
+                const lastRunRaised = run.data
+                  ? new Set(run.data.raised.map((raised) => raised.attentionItemId))
+                  : null
                 return (
                   <>
                     {/* Doc 01's page-level summary, counted by the one rule
@@ -144,6 +159,7 @@ export function AttentionRoom() {
                             item={item}
                             onDefer={() => defer.mutate(item.id)}
                             deferring={defer.isPending}
+                            lastRunRaised={lastRunRaised}
                           />
                         ))}
                       </ul>
@@ -170,6 +186,7 @@ export function AttentionRoom() {
                               item={item}
                               onReopen={() => reopen.mutate(item.id)}
                               reopening={reopen.isPending}
+                              lastRunRaised={lastRunRaised}
                             />
                           ))}
                         </ul>
@@ -338,12 +355,22 @@ function Item({
   onReopen,
   deferring,
   reopening,
+  lastRunRaised,
 }: {
   item: AttentionItem
   onDefer?: () => void
   onReopen?: () => void
   deferring?: boolean
   reopening?: boolean
+  /**
+   * The ids the run in hand raised, or `null` when no run has happened here.
+   *
+   * `null` and *empty* are different facts and the difference is the whole of
+   * `D-193`: with no report, an unmarked item means nobody has looked, not that
+   * everything is current. An absent badge must not become an assertion
+   * (`D-38`).
+   */
+  lastRunRaised?: ReadonlySet<string> | null
 }) {
   // Named as words only where no control exists for them. Listing a gesture
   // under "what can be done" *and* offering it as a button says it twice.
@@ -355,6 +382,15 @@ function Item({
         <span className="text-[13px] text-ink">{item.title}</span>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{item.explanation}</p>
+      {/* `D-193`. `put_attention` upserts on the theme's identity key, so the
+          queue accumulates across runs and an item an earlier run raised stays
+          here whether or not the latest one raised it again. Stated as the
+          absence it is, and nothing about the cause: the report does not say
+          whether the theme fell below the bar or was answered elsewhere. Not
+          a *new* badge either — a re-raised item is in `raised` too. */}
+      {lastRunRaised && !lastRunRaised.has(item.id) && (
+        <p className="mt-1 text-[11.5px] text-ink-subtle">The last run did not raise this again.</p>
+      )}
       {/* KAE's own sentence. A paraphrase of an instruction is advice nobody
           can follow, which is `D-37`'s finding on the neighbouring page. */}
       {item.recommendation && (
