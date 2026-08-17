@@ -849,6 +849,39 @@ export function GeneratePackage() {
                 <Mono>{outcome.externalReference}</Mono>
               </p>
             )}
+            {/* What the publication actually wrote, which is not what step 4
+                previewed (`D-207`). GitHub drops every `unchanged` file before
+                committing, the download archive carries a `manifest.json` that
+                appears in no change row, and both publishers succeed with an
+                empty list when everything already matched. The publisher's own
+                paths — for S3 these are object keys with the destination prefix
+                applied, and shortening them here would name a path that does
+                not exist.
+
+                Only on a succeeded publication: a failure raises before
+                returning, so the field is absent rather than empty, and a
+                heading with nothing under it would suggest the partial write
+                §11 forbids reporting. */}
+            {outcome.status === 'succeeded' && (
+              <div className="mt-2">
+                {outcome.filesWritten.length === 0 ? (
+                  <p className="text-[12px] text-ink-subtle">No files were written.</p>
+                ) : (
+                  <>
+                    <p className="text-[12px] text-ink-subtle">
+                      {plural(outcome.filesWritten.length, 'file')} written
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {outcome.filesWritten.map((path) => (
+                        <li key={path} className="text-[12px]">
+                          <Mono>{path}</Mono>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
             {outcome.reviewUrl && (
               <a
                 href={outcome.reviewUrl}

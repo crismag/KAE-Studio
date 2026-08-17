@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices, resetPrototypeState } from '@/services/mock/mockServices'
 import { GeneratePackage } from './GeneratePackage'
-import type { GenerationRun } from '@/domain/types'
+import type { ArtifactPublication, GenerationRun } from '@/domain/types'
 
 function renderPanel(services = createMockServices()) {
   const queryClient = new QueryClient({
@@ -50,6 +50,31 @@ function servicesReturningRun(status: GenerationRun['status']) {
     status,
   })
   return services
+}
+
+/**
+ * The prototype's publication, returned with the fields under test patched.
+ *
+ * `filesWritten` is what the *publisher* wrote, and the mock cannot produce the
+ * three cases that make it worth rendering — GitHub omitting an unchanged file,
+ * the download archive's generated `manifest.json`, and a success that wrote
+ * nothing. Patched here rather than in `mockServices`, for the reason the run
+ * helper above gives.
+ */
+function servicesPublishing(patch: Partial<ArtifactPublication>) {
+  const services = createMockServices()
+  const publish = services.pipeline.publish.bind(services.pipeline)
+  services.pipeline.publish = async (input) => ({ ...(await publish(input)), ...patch })
+  return services
+}
+
+async function publishADownload(user: ReturnType<typeof userEvent.setup>) {
+  await proposePlan(user, 'minimal-agent-context')
+  await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+  await screen.findByText(/validated and publishable/i)
+  await user.click(await screen.findByRole('button', { name: /see what would change/i }))
+  await user.click(await screen.findByRole('button', { name: /approve these/i }))
+  await user.click(await screen.findByRole('button', { name: /^publish$/i }))
 }
 
 async function proposePlan(user: ReturnType<typeof userEvent.setup>, profile: string) {
@@ -280,5 +305,64 @@ describe('a run that neither succeeded nor failed', () => {
     expect(await screen.findByText(sentence)).toBeInTheDocument()
     // And does not claim files that a run in this state has not produced.
     expect(screen.queryByText(/^3 · Package$/)).not.toBeInTheDocument()
+  })
+})
+
+describe('a publication says which files it wrote', () => {
+  /**
+   * `D-207`. All three publishers compute `files_written`, it survives every hop
+   * into `ArtifactPublication`, and no component read it — the panel said a
+   * count instead (*"4 files plus a manifest, 18211 bytes"*). The preview cannot
+   * substitute: GitHub drops every `unchanged` file before committing, the
+   * download archive adds a `manifest.json` that appears in no change row, and
+   * both publishers succeed with an empty list when everything already matched.
+   */
+
+  it('names the paths, not just how many there were', async () => {
+    const user = userEvent.setup()
+    renderPanel(servicesPublishing({ filesWritten: ['docs/one.md', 'docs/two.md'] }))
+
+    await publishADownload(user)
+
+    expect(await screen.findByText('docs/one.md')).toBeInTheDocument()
+    expect(screen.getByText('docs/two.md')).toBeInTheDocument()
+    expect(screen.getByText('2 files written')).toBeInTheDocument()
+  })
+
+  it('names the file the preview could not have named', async () => {
+    // `manifest.json` is generated into the archive by `DownloadPublisher` and
+    // is in no change row, so this is the path a person would otherwise find
+    // only by unzipping.
+    const user = userEvent.setup()
+    renderPanel(servicesPublishing({ filesWritten: ['docs/one.md', 'manifest.json'] }))
+
+    await publishADownload(user)
+
+    expect(await screen.findByText('manifest.json')).toBeInTheDocument()
+  })
+
+  it('says nothing was written when nothing was, rather than an empty heading', async () => {
+    // Both `github.py` and `s3.py` succeed with an empty tuple when every file
+    // already matches. That is the one case where the absence is the fact.
+    const user = userEvent.setup()
+    renderPanel(servicesPublishing({ filesWritten: [] }))
+
+    await publishADownload(user)
+
+    expect(await screen.findByText(/no files were written/i)).toBeInTheDocument()
+    expect(screen.queryByText(/files written$/)).not.toBeInTheDocument()
+  })
+
+  it('claims nothing about files on a publication that failed', async () => {
+    // A publisher raises before returning, so the field is absent rather than
+    // empty; a heading with nothing under it would suggest a partial write.
+    const user = userEvent.setup()
+    renderPanel(servicesPublishing({ status: 'failed', filesWritten: [] }))
+
+    await publishADownload(user)
+
+    expect(await screen.findByText(/not published/i)).toBeInTheDocument()
+    expect(screen.queryByText(/no files were written/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/files written$/)).not.toBeInTheDocument()
   })
 })
