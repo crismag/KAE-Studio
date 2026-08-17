@@ -131,6 +131,51 @@ describe('deliverables arrive in a shape the page can render', () => {
     expect(mapped[0].id).toBe('dlv_1')
   })
 
+  /**
+   * `D-252`. `assembly_service.py` calls this rule non-negotiable — an assembly
+   * may be incomplete, it may never be silent about being incomplete — and
+   * `DeliverableService.record` honours it by putting every gap in the manifest
+   * it persists. The adapter typed that manifest `Record<string, unknown>` and
+   * read nothing out of it, so a package assembled around an open question was
+   * drawn exactly like one assembled around none.
+   *
+   * `RECORDED` above says `manifest: {}`, which is the silence written into a
+   * fixture: every test in this file passed while the field was unread.
+   */
+  it('carries the gaps the manifest says the package is incomplete about', async () => {
+    respond({
+      deliverables: [
+        {
+          ...RECORDED,
+          manifest: {
+            unresolved_critical_gaps: [
+              { area_key: 'authority_model', summary: 'Who may approve is undecided.' },
+              { area_key: 'retention', summary: 'How long reports are kept is undecided.' },
+            ],
+          },
+        },
+      ],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unresolvedGaps).toEqual([
+      { areaKey: 'authority_model', summary: 'Who may approve is undecided.' },
+      { areaKey: 'retention', summary: 'How long reports are kept is undecided.' },
+    ])
+  })
+
+  it('reads no gaps from a deliverable recorded before the rule existed', async () => {
+    // The control. An absent key is not an empty package and not a crash: it is
+    // no gaps as far as anyone can now tell, which is what the manifest of an
+    // older row honestly supports.
+    respond({ deliverables: [{ ...RECORDED, manifest: {} }] })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unresolvedGaps).toEqual([])
+  })
+
   it('returns nothing, and says nothing, when the envelope is the sibling one', async () => {
     // The failure mode itself rather than a description of it. `results` is
     // KAE-Memory's connection envelope and never its deliverable envelope; an

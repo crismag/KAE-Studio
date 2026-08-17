@@ -1304,7 +1304,10 @@ interface WireDeliverable {
   stale: boolean
   artifacts: { logical_path?: string; path?: string }[]
   source_knowledge: string[]
-  manifest: Record<string, unknown>
+  manifest: {
+    unresolved_critical_gaps?: { area_key: string; summary: string }[]
+    [key: string]: unknown
+  }
   recorded_by: string | null
   superseded_by: string | null
 }
@@ -1350,6 +1353,13 @@ function deliverable(wire: WireDeliverable): Deliverable {
     files: [],
     // Memory returns the ids it pinned; the questions themselves live elsewhere.
     unresolvedDecisionIds: [],
+    // The manifest rule KAE-Memory enforces on the way in, read on the way out.
+    // Absent on a deliverable recorded before the rule existed, which is no
+    // gaps as far as anyone can now tell.
+    unresolvedGaps: (wire.manifest?.unresolved_critical_gaps ?? []).map((gap) => ({
+      areaKey: gap.area_key,
+      summary: gap.summary,
+    })),
     generatedAt: undefined,
   }
 }

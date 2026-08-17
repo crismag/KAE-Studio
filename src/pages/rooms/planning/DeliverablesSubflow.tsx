@@ -122,6 +122,24 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           </p>
         )}
 
+        {deliverable.unresolvedGaps.length > 0 && (
+          <div className="rounded-md border border-attention-line bg-attention-soft/40 px-3.5 py-2.5">
+            <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-muted">
+              <TriangleAlert
+                className="mt-0.5 size-3.5 shrink-0 text-attention"
+                aria-hidden="true"
+              />
+              Assembled with {plural(deliverable.unresolvedGaps.length, 'critical gap')} still open.
+              Whoever implements this inherits the question, not an answer.
+            </p>
+            <ul className="mt-1.5 space-y-1 pl-[22px] text-[12.5px] leading-relaxed text-ink-muted">
+              {deliverable.unresolvedGaps.map((gap) => (
+                <li key={gap.areaKey}>{gap.summary}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {deliverable.blockedReason && (
           <p className="flex items-start gap-2 rounded-md border border-line bg-surface-sunken/60 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
             <Lock className="mt-0.5 size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />

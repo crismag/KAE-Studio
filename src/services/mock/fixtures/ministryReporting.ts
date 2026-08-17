@@ -1342,6 +1342,12 @@ export const deliverables: Deliverable[] = [
       },
     ],
     unresolvedDecisionIds: ['OD-011', 'OD-012', 'OD-013'],
+    unresolvedGaps: [
+      {
+        areaKey: 'authority_model',
+        summary: 'Who may approve a report on behalf of a ministry is undecided.',
+      },
+    ],
   },
   {
     id: 'DLV-MOD-APR',
@@ -1390,6 +1396,7 @@ export const deliverables: Deliverable[] = [
       },
     ],
     unresolvedDecisionIds: ['OD-011', 'OD-012', 'OD-014'],
+    unresolvedGaps: [],
   },
   {
     id: 'DLV-MOD-RPT',
@@ -1416,6 +1423,7 @@ export const deliverables: Deliverable[] = [
       },
     ],
     unresolvedDecisionIds: [],
+    unresolvedGaps: [],
     publishedTo: {
       target: 'github',
       reference: 'crismag/ministry-reporting #14',
@@ -1431,6 +1439,7 @@ export const deliverables: Deliverable[] = [
     includes: ['System context', 'Component design', 'Data model', 'Architecture decisions'],
     files: [],
     unresolvedDecisionIds: [],
+    unresolvedGaps: [],
     blockedReason:
       'The architecture interview has not been run. Generating this now would produce a design nobody has discussed.',
   },
@@ -1443,6 +1452,7 @@ export const deliverables: Deliverable[] = [
     includes: ['Delivery phases', 'Work packages', 'Dependency order', 'Risk register'],
     files: [],
     unresolvedDecisionIds: [],
+    unresolvedGaps: [],
     blockedReason:
       'Dependency order cannot be derived while MOD-APR has a blocking dependency on an undecided authority model (OD-011).',
   },

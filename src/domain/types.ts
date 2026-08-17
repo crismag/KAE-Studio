@@ -490,6 +490,14 @@ export interface Deliverable {
   files: PackageFile[]
   /** Open decisions that remain unresolved inside this package. */
   unresolvedDecisionIds: string[]
+  /**
+   * What the package is incomplete about, as KAE-Memory's manifest recorded it.
+   *
+   * `assembly_service.py` calls this non-negotiable: an assembly may be
+   * incomplete, it may never be silent about being incomplete. Required rather
+   * than optional so a fixture cannot be silent about it either.
+   */
+  unresolvedGaps: { areaKey: string; summary: string }[]
   publishedTo?: { target: PublishTargetKind; reference: string; at: string }
   blockedReason?: string
 }
