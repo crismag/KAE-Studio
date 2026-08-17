@@ -36,7 +36,7 @@ import {
   useMemoryConnections,
   useRecordMemoryConnection,
 } from '@/hooks/useProject'
-import { accountsFrom, ungranted, type Account } from './accounts'
+import { accountsFrom, connectionState, ungranted, type Account } from './accounts'
 import { useDeploymentStatus } from '@/app/shell/useDeploymentStatus'
 import { useInstallations } from '@/hooks/useProject'
 import { plural } from '@/lib/plural'
@@ -342,6 +342,10 @@ function AccountRow({
 }) {
   const authorize = useAuthorizeMemoryConnection()
   const pending = account.granted ? undefined : ungranted(account)
+  // Four ways of not being connected, and Memory keeps them apart because the
+  // remedies differ (`D-212`). One badge for all four said *Not connected* over
+  // an authorisation somebody had revoked.
+  const state = connectionState(account.state)
   // A recorded **token** grant, on a deployment that now authenticates as the
   // App. `env:` is what makes it a token reference: an App installation is a
   // deployment fact and never appears in this table (`D-90`).
@@ -357,9 +361,7 @@ function AccountRow({
           <p className="flex items-center gap-2 text-body font-medium text-ink">
             <Github className="size-3.5 text-ink-subtle" aria-hidden="true" />
             {accountName(account, installations)}
-            <Badge tone={account.granted ? 'confirmed' : 'attention'}>
-              {account.granted ? 'Connected' : 'Not connected'}
-            </Badge>
+            <Badge tone={account.granted ? 'confirmed' : 'attention'}>{state.label}</Badge>
           </p>
           {/* `D-79`: who and when, in one sentence. Kept exactly as it was —
               an earlier version of `D-129` replaced this line and broke three
@@ -369,6 +371,7 @@ function AccountRow({
             {account.authorizedBy && `connected by ${account.authorizedBy}`}
             {account.grantedAt && ` on ${formatDate(account.grantedAt)}`}
           </p>
+          {state.sentence && <p className="mt-1 text-[11.5px] text-attention">{state.sentence}</p>}
           {/* **Which credential is actually authenticating** (`D-129`).
               A token grant recorded before the App existed read identically to
               the App installation doing the work — two lines about one account,

@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { MemoryConnection } from '@/domain/types'
-import { accountsFrom, ungranted } from './accounts'
+import { accountsFrom, connectionState, ungranted } from './accounts'
 
 function connection(over: Partial<MemoryConnection> = {}): MemoryConnection {
   return {
@@ -177,5 +177,44 @@ describe('an account is named where KAE knows it', () => {
     const [account] = accountsFrom([connection({ credentialReference: 'env:WORK_TOKEN' })])
 
     expect(account.credentialReference).toBe('env:WORK_TOKEN')
+  })
+})
+
+/**
+ * Four ways of not being connected (`D-212`).
+ *
+ * KAE-Memory keeps `never_granted`, `expired`, `revoked` and `unverified` apart
+ * because the remedies differ — its enum says so, and `unavailable_reason`
+ * writes a sentence for each. This page drew all four as *Not connected*.
+ */
+describe('an account says which way it is not connected', () => {
+  it('reports the state of the record the Grant control acts on', () => {
+    const [account] = accountsFrom([connection({ connectionId: 'gone', state: 'revoked' })])
+
+    expect(account.granted).toBe(false)
+    expect(account.state).toBe('revoked')
+    expect(ungranted(account)?.connectionId).toBe('gone')
+  })
+
+  it('reports granted when any record in the group is', () => {
+    const [account] = accountsFrom([connection({ state: 'expired' }), connection()])
+
+    expect(account.state).toBe('granted')
+  })
+
+  it('gives each state its own words, and a remedy where the remedy differs', () => {
+    expect(connectionState('revoked').label).toBe('Revoked')
+    expect(connectionState('expired').label).toBe('Expired')
+    expect(connectionState('unverified').label).toBe('Never checked')
+    expect(connectionState('never_granted').label).toBe('Not connected')
+
+    expect(connectionState('revoked').label).not.toBe(connectionState('expired').label)
+    expect(connectionState('revoked').sentence).toMatch(/find out why/i)
+    expect(connectionState('never_granted').sentence).toBeNull()
+  })
+
+  it('shows a word it has never heard of rather than calling it not connected', () => {
+    // A state Memory adds later is not a synonym for one it already has.
+    expect(connectionState('suspended')).toEqual({ label: 'suspended', sentence: null })
   })
 })

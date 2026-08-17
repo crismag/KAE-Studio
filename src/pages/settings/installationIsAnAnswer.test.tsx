@@ -193,3 +193,15 @@ describe('what the page does with a completed install', () => {
     expect(link.getAttribute('href')).toContain('/installations/new')
   })
 })
+
+describe('a revoked authorisation does not read as one nobody asked for', () => {
+  it('names the state on the row, keeping Memory\u2019s distinction (`D-212`)', async () => {
+    const revoked = [{ ...TOKEN_GRANT[0], connectionId: 'c-2', state: 'revoked' }]
+
+    show({ installations: NONE, connections: revoked })
+
+    expect(await screen.findByText('Revoked')).toBeInTheDocument()
+    expect(screen.queryByText('Not connected')).not.toBeInTheDocument()
+    expect(screen.getByText(/find out why before renewing it/i)).toBeInTheDocument()
+  })
+})
