@@ -157,3 +157,76 @@ describe('a finding names the statements it is about', () => {
     expect(container.querySelectorAll('.font-mono')).toHaveLength(0)
   })
 })
+
+describe('a group counts what it is a group of', () => {
+  /**
+   * `D-192`. The collapsed group carried a chip reading `· N areas` for every
+   * kind, and three of the five kinds that can group are not areas: Memory
+   * emits one finding per contradicting pair, per near-duplicate pair and per
+   * blocker. An area is the unit readiness is denominated in, so a count of
+   * areas on the page reporting what a review found reads as coverage.
+   */
+  function group(kind: string, count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      kind,
+      severity: 'major',
+      summary: `Finding ${index}.`,
+      recommendedAction: `Do something about ${index}.`,
+      areaKey: null,
+      subjectKey: `${kind}-${index}`,
+      knowledgeItemIds: [],
+    }))
+  }
+
+  function summaryOf(kind: string, count: number) {
+    const { container } = render(
+      <QualityReview review={{ ...EMPTY, findings: group(kind, count) }} />,
+    )
+    return container.querySelector('summary')?.textContent ?? ''
+  }
+
+  it('never calls a contradiction an area', () => {
+    const text = summaryOf('unresolved_contradiction', 3)
+
+    expect(text).toContain('3 unresolved contradictions')
+    expect(text).not.toContain('area')
+  })
+
+  it('never calls a duplicated pair an area', () => {
+    const text = summaryOf('duplicate_knowledge', 2)
+
+    expect(text).toContain('2 duplicated pairs')
+    expect(text).not.toContain('area')
+  })
+
+  it('never calls a blocker an area', () => {
+    const text = summaryOf('open_blocker', 4)
+
+    expect(text).toContain('4 open blockers')
+    expect(text).not.toContain('area')
+  })
+
+  it('still calls an area an area', () => {
+    // The two kinds Memory does emit one finding per area for.
+    expect(summaryOf('missing_area', 3)).toContain('3 areas have no confirmed knowledge')
+    expect(summaryOf('partial_area', 2)).toContain('2 areas need more confirmed evidence')
+  })
+
+  it('calls an unrecognised kind a finding, and names the kind', () => {
+    // `finding` is a default and not an invention — it is what all nine kinds
+    // are — and the kind is carried verbatim beside it (`D-28`, `D-190`).
+    const text = summaryOf('a_kind_this_build_has_never_seen', 2)
+
+    expect(text).toContain('2 findings')
+    expect(text).toContain('a kind this build has never seen')
+    expect(text).not.toContain('area')
+  })
+
+  it('states the count once, so nothing beside it can disagree', () => {
+    // The chip and the sentence both counted, and for three kinds they
+    // disagreed about the noun in a single line.
+    const text = summaryOf('unresolved_contradiction', 3)
+
+    expect(text.match(/3/g) ?? []).toHaveLength(1)
+  })
+})

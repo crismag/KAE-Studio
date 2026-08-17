@@ -92,10 +92,11 @@ export function QualityReview({ review }: { review: ProjectReview }) {
                       <Badge tone={tone(group.items[0].severity)}>
                         {group.items[0].severity || 'ungraded'}
                       </Badge>
+                      {/* The count lives in the sentence and nowhere else
+                          (`D-192`). A chip repeating it is a second place that
+                          has to agree about both the number and the noun, and
+                          it did not: it said "areas" for every kind. */}
                       <span className="text-[13px] text-ink">{summarise(group)}</span>
-                      <span className="text-[11.5px] text-ink-subtle">
-                        · {group.items.length} areas
-                      </span>
                     </summary>
                     <ul className="space-y-2.5 px-3 pb-3">
                       {group.items.map((finding, index) => (
@@ -188,15 +189,39 @@ function byKind(findings: ProjectReview['findings']): {
 }
 
 /**
+ * The unit KAE-Memory produced one finding *per*, for the kinds where that unit
+ * is not the finding itself (`D-192`).
+ *
+ * Traced in `review_service.py` rather than guessed: one finding per area for
+ * the two area kinds, one per contradicting pair, one per near-duplicate pair,
+ * one per blocker. The other four kinds emit a single aggregate finding for the
+ * whole project and so can never group.
+ */
+const GROUPED_NOUN: Record<string, string> = {
+  unresolved_contradiction: 'unresolved contradiction',
+  duplicate_knowledge: 'duplicated pair',
+  open_blocker: 'open blocker',
+}
+
+/**
  * What a group of one kind says, in one line.
  *
- * Built from Memory's own word for the kind and the number of areas, never from
- * paraphrasing the findings — a summary that restates seven sentences as one is
- * a claim about all seven that nothing checked.
+ * Built from Memory's own word for the kind and the number of findings, never
+ * from paraphrasing them — a summary that restates seven sentences as one is a
+ * claim about all seven that nothing checked.
+ *
+ * **The noun is the whole of `D-192`.** This said `areas` for every kind, and
+ * three of the five kinds that can group are not areas — an area is the unit
+ * readiness is denominated in, so counting contradictions as areas reads as
+ * coverage. Unrecognised kinds fall back to `finding`, which is a default and
+ * not an invention: it is what all nine of them are, and the sentence names the
+ * kind verbatim beside it.
  */
 function summarise(group: { kind: string; items: ProjectReview['findings'] }): string {
-  const areas = group.items.length
-  if (group.kind === 'partial_area') return `${areas} areas need more confirmed evidence`
-  if (group.kind === 'missing_area') return `${areas} areas have no confirmed knowledge`
-  return `${areas} findings of kind ${readable(group.kind)}`
+  const count = group.items.length
+  if (group.kind === 'partial_area') return `${count} areas need more confirmed evidence`
+  if (group.kind === 'missing_area') return `${count} areas have no confirmed knowledge`
+  const noun = GROUPED_NOUN[group.kind]
+  if (noun) return plural(count, noun)
+  return `${plural(count, 'finding')} of kind ${readable(group.kind)}`
 }
