@@ -331,6 +331,49 @@ describe('deliverables arrive in a shape the page can render', () => {
     expect(mapped.qualifications).toEqual([])
   })
 
+  /**
+   * `D-256`. The case `D-254` leaves silent, in the words Memory has for it.
+   * Deliberately not `publication_eligible`'s: such a package re-renders byte
+   * for byte, and refusing to publish it would withdraw a capability it has.
+   */
+  it('carries why the uncertainty behind a package cannot be proven', async () => {
+    respond({
+      deliverables: [
+        {
+          ...RECORDED,
+          reproduces_uncertainty: false,
+          uncertainty_gap_reason: 'recorded before provisional context was captured (N20.2)',
+        },
+      ],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unreproducibleClaimReason).toBe(
+      'recorded before provisional context was captured (N20.2)',
+    )
+    // The other refusal is a different question and this package does not fail it.
+    expect(mapped.unreproducibleReason).toBe('')
+  })
+
+  it('says nothing about the claim for a package that reproduces its uncertainty', async () => {
+    respond({
+      deliverables: [{ ...RECORDED, reproduces_uncertainty: true, uncertainty_gap_reason: null }],
+    })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unreproducibleClaimReason).toBe('')
+  })
+
+  it('claims no uncertainty gap from a deployment too old to send one', async () => {
+    respond({ deliverables: [RECORDED] })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.unreproducibleClaimReason).toBe('')
+  })
+
   it('returns nothing, and says nothing, when the envelope is the sibling one', async () => {
     // The failure mode itself rather than a description of it. `results` is
     // KAE-Memory's connection envelope and never its deliverable envelope; an

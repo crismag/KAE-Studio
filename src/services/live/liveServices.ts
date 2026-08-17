@@ -1320,6 +1320,8 @@ interface WireDeliverable {
   } | null
   rested_on_uncertainty?: boolean | null
   qualification?: { qualifications?: string[] } | null
+  reproduces_uncertainty?: boolean
+  uncertainty_gap_reason?: string | null
 }
 
 /**
@@ -1392,6 +1394,12 @@ function deliverable(wire: WireDeliverable): Deliverable {
     // omit, in the producer's own words. Absent where the deliverable predates
     // qualification, which the column's nullability records as a real state.
     qualifications: wire.qualification?.qualifications ?? [],
+    // Separate from `unreproducibleReason` on purpose: such a package can be
+    // re-rendered byte for byte and still cannot say how much of itself was
+    // guesswork. Memory's own sentence for the case `D-254` leaves silent.
+    unreproducibleClaimReason: wire.reproduces_uncertainty
+      ? ''
+      : (wire.uncertainty_gap_reason ?? ''),
     generatedAt: undefined,
   }
 }

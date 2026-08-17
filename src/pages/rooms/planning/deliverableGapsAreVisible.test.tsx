@@ -124,6 +124,30 @@ describe('a package says what it was assembled around', () => {
     ).toBeInTheDocument()
   })
 
+  /**
+   * `D-256`. Two refusals that are not the same refusal, on one card, each in
+   * its own words — a package can fail either without failing the other.
+   */
+  it('separates cannot re-render from cannot reproduce the claim', async () => {
+    renderPage([
+      {
+        ...WITH_GAPS,
+        unresolvedGaps: [],
+        unreproducibleReason: 'the statements were not pinned',
+        unreproducibleClaimReason: 'recorded before provisional context was captured (N20.2)',
+      },
+    ])
+
+    expect(
+      await screen.findByText(/cannot be re-rendered: the statements were not pinned/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /cannot be reproduced as the claim it was: recorded before provisional context was captured/i,
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('says nothing when there is nothing to say', async () => {
     // The control. A complete package must not carry a warning shaped like one,
     // which is the failure mode of announcing an empty list.
@@ -134,5 +158,6 @@ describe('a package says what it was assembled around', () => {
     expect(screen.queryByText(/cannot be re-rendered/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/unsettled/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/rests on/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/cannot be reproduced/i)).not.toBeInTheDocument()
   })
 })

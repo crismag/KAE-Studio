@@ -526,6 +526,14 @@ export interface Deliverable {
    * more than its evidence. Empty where the deliverable predates qualification.
    */
   qualifications?: string[]
+  /**
+   * Why the uncertainty this package rested on cannot be proven, in Memory's
+   * words. Empty when it can.
+   *
+   * Not the same as `unreproducibleReason`: such a package re-renders byte for
+   * byte and still cannot say how much of itself was guesswork.
+   */
+  unreproducibleClaimReason?: string
   publishedTo?: { target: PublishTargetKind; reference: string; at: string }
   blockedReason?: string
 }
