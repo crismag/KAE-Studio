@@ -79,6 +79,48 @@ describe('the raw counts have a home that is not a to-do list', () => {
     expect(screen.queryByText('Sections abandoned')).toBeNull()
   })
 
+  it('counts the sections nobody read, beside the ones extraction gave up on', async () => {
+    // `D-232`. This panel showed "Sections abandoned: 0" beside a warning that
+    // content was lost, because a document truncated at the ingest ceiling
+    // never becomes a run — a different failure from abandonment (`AUD-024`).
+    renderDiagnostics((base) => ({
+      ...base,
+      extractionCoverage: {
+        succeeded: 3,
+        abandoned: 0,
+        notIngested: 4,
+        total: 7,
+        complete: false,
+      },
+    }))
+
+    expect(await screen.findByText('Sections never read')).toBeTruthy()
+    expect(screen.getByText('4')).toBeTruthy()
+    expect(screen.getByText(/4 of 7 were never read at all/i)).toBeTruthy()
+  })
+
+  it('draws a figure the backend did not report as unknown, not as zero', async () => {
+    // The distinction this page exists to keep, applied to the new fields: a
+    // Memory older than `AUD-024` counts no truncation, and a zero there would
+    // claim none happened.
+    renderDiagnostics((base) => ({
+      ...base,
+      extractionCoverage: {
+        succeeded: 3,
+        abandoned: 1,
+        notIngested: null,
+        total: null,
+        complete: false,
+      },
+    }))
+
+    expect(await screen.findByText('Sections never read')).toBeTruthy()
+    expect(screen.getByText(/An em dash is a figure this backend did not report/i)).toBeTruthy()
+    // The denominator falls back to what it was, which is today's behaviour on
+    // a backend that reports no total.
+    expect(screen.getByText(/1 of 4 submissions could not be fully read/i)).toBeTruthy()
+  })
+
   it('invents no figure of its own', async () => {
     // Every number on the page has to be one the projection carried. A percent
     // sign here is a derived reading wearing a raw value's clothes.

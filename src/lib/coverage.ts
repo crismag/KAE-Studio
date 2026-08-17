@@ -33,7 +33,9 @@ export function contentLossClauses(coverage: ExtractionCoverage): string[] {
   // Loss the backend reports without naming. A count of zero here would say
   // nothing was lost, which is the one thing `complete: false` rules out.
   if (clauses.length === 0) {
-    clauses.push('Part of what was submitted never became statements, and this backend does not say how much.')
+    clauses.push(
+      'Part of what was submitted never became statements, and this backend does not say how much.',
+    )
   }
   return clauses
 }
