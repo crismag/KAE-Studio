@@ -509,7 +509,15 @@ export interface ArtifactProfile {
 
 export interface GenerationRun {
   runId: string
-  status: 'accepted' | 'running' | 'succeeded' | 'failed'
+  /**
+   * KAE-Artifacts' run lifecycle, all five words (`D-203`).
+   *
+   * `cancelled` was absent while `accepted` and `running` — equally without a
+   * producer today — were present, so this was a copy of `RunStatus` that
+   * dropped a word rather than a narrowing anybody chose. `ART-LIFECYCLE` is
+   * what a dropped word costs on a boundary nothing watches.
+   */
+  status: 'accepted' | 'running' | 'succeeded' | 'failed' | 'cancelled'
   inputRevision: string
   artifactIds: string[]
   packageId: string

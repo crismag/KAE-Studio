@@ -87,6 +87,24 @@ const OUTCOME: Record<FileOutcome, { label: string; tone: 'accent' | 'attention'
 }
 
 /**
+ * What a run that neither succeeded nor failed says for itself (`D-203`).
+ *
+ * Indexed, not defaulted: a `Record` over exactly the three remaining states of
+ * KAE-Artifacts' run lifecycle, so a sixth word arriving in that vocabulary is
+ * a compile error here rather than a page that goes quiet again. Each sentence
+ * says what happened **and** what it means for the files, because *Running* on
+ * its own leaves a reader deciding whether to press Generate a second time.
+ */
+const UNFINISHED_RUN_SENTENCE: Record<
+  Exclude<GenerationRun['status'], 'succeeded' | 'failed'>,
+  string
+> = {
+  accepted: 'Generation was accepted and has not finished. No files exist yet.',
+  running: 'Generation is still running. No files exist yet.',
+  cancelled: 'Generation was cancelled before it finished. Nothing was produced.',
+}
+
+/**
  * A fresh key per attempt.
  *
  * Generated when the user acts, not during a render: a key derived from render
@@ -549,6 +567,16 @@ export function GeneratePackage() {
 
         {run && run.status === 'failed' && (
           <Refusal error={{ code: run.errorCode, message: run.errorMessage }} />
+        )}
+
+        {/* A run that neither succeeded nor failed used to render nothing at
+            all — steps 1 and 2, a Generate button already pressed, and no
+            third step (`D-203`). One arm rather than three: the states have no
+            producer, so what is owed is a sentence, not a feature. */}
+        {run && run.status !== 'succeeded' && run.status !== 'failed' && (
+          <p className="text-[12.5px] leading-relaxed text-ink-muted">
+            {UNFINISHED_RUN_SENTENCE[run.status]}
+          </p>
         )}
 
         {/* 4 — what would change */}

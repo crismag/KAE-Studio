@@ -19,18 +19,37 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ServiceProvider } from '@/services/ServiceProvider'
 import { createMockServices, resetPrototypeState } from '@/services/mock/mockServices'
 import { GeneratePackage } from './GeneratePackage'
+import type { GenerationRun } from '@/domain/types'
 
-function renderPanel() {
+function renderPanel(services = createMockServices()) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <ServiceProvider services={createMockServices()}>
+      <ServiceProvider services={services}>
         <GeneratePackage />
       </ServiceProvider>
     </QueryClientProvider>,
   )
+}
+
+/**
+ * The prototype's run, returned in a state the prototype never reaches.
+ *
+ * Patched rather than added to `mockServices`, because nothing in the estate
+ * produces a non-terminal run and a fixture that did would be asserting the
+ * product can do something it cannot. What is under test is what the page says
+ * when one arrives, not that one arrives.
+ */
+function servicesReturningRun(status: GenerationRun['status']) {
+  const services = createMockServices()
+  const generate = services.pipeline.generate.bind(services.pipeline)
+  services.pipeline.generate = async (projectId, planId, key) => ({
+    ...(await generate(projectId, planId, key)),
+    status,
+  })
+  return services
 }
 
 async function proposePlan(user: ReturnType<typeof userEvent.setup>, profile: string) {
@@ -240,5 +259,26 @@ describe('a destination has to be named', () => {
     // The distinction that keeps the requirement honest: it is about writing to
     // somewhere somebody owns, not about ceremony before every action.
     expect(screen.getByRole('button', { name: /see what would change/i })).toBeEnabled()
+  })
+})
+
+describe('a run that neither succeeded nor failed', () => {
+  // `D-203`. The page had two arms and KAE-Artifacts' vocabulary has five
+  // words, so a run in any other state drew nothing at all: steps 1 and 2, a
+  // Generate button already pressed, and no third step to explain the silence.
+  it.each([
+    ['cancelled', /cancelled before it finished/i],
+    ['running', /still running/i],
+    ['accepted', /has not finished/i],
+  ] as const)('says what happened when a run comes back %s', async (status, sentence) => {
+    const user = userEvent.setup()
+    renderPanel(servicesReturningRun(status))
+
+    await proposePlan(user, 'minimal-agent-context')
+    await user.click(await screen.findByRole('button', { name: /generate 2 files/i }))
+
+    expect(await screen.findByText(sentence)).toBeInTheDocument()
+    // And does not claim files that a run in this state has not produced.
+    expect(screen.queryByText(/^3 · Package$/)).not.toBeInTheDocument()
   })
 })
