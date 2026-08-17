@@ -1951,6 +1951,9 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     error_message: string | null
     started_at: string | null
     completed_at: string | null
+    /** Set by `fail()` and `abandon()`, which never set `completed_at`. Absent
+     *  on a KAE-Memory older than the column (`D-249`). */
+    failed_at?: string | null
     output_summary: Record<string, unknown>
   }
 
@@ -2010,6 +2013,11 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         errorMessage: run.error_message,
         startedAt: run.started_at,
         completedAt: run.completed_at,
+        // The end of a run that failed (`D-249`). Read as well as
+        // `completed_at`, not instead: KAE-Memory sets the two on disjoint
+        // paths, so dropping this one left a failed run with no end at all —
+        // which is how the row says *still going*.
+        failedAt: run.failed_at ?? null,
         outputSummary: run.output_summary ?? {},
       }))
     },

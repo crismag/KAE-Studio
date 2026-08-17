@@ -555,6 +555,18 @@ const STATUS_TONE: Record<string, 'confirmed' | 'attention' | 'blocking' | 'pend
   }
 
 /**
+ * When the run stopped, however it stopped, or nothing while it is still going.
+ *
+ * Two fields because KAE-Memory writes two: `succeed()` sets `completedAt`,
+ * `fail()` and `abandon()` set `failedAt`, and neither path sets the other
+ * (`D-249`). Reading only the first left a failed run with no end — the same
+ * silence the row uses to mean *running*.
+ */
+function endedAt(run: AgentRunRecord): string | null {
+  return run.completedAt ?? run.failedAt
+}
+
+/**
  * How long a finished run took, or nothing.
  *
  * Nothing when either end is missing or the arithmetic comes out negative:
@@ -562,12 +574,17 @@ const STATUS_TONE: Record<string, 'confirmed' | 'attention' | 'blocking' | 'pend
  * rather than about the run, and rendering it would invite a person to explain
  * it. Seconds up to a minute and a half, because that is the range every
  * ingestion run in this product lands in and *90s* reads faster than *1.5 min*.
+ *
+ * One word for both endings. A run that failed after twelve seconds took
+ * twelve seconds, and the badge beside it already says how it ended; a second
+ * phrase for the same arithmetic is a distinction the reader has to decode.
  */
 function tookFor(run: AgentRunRecord): string | null {
-  if (!run.startedAt || !run.completedAt) return null
-  if (!isKnownTimestamp(run.startedAt) || !isKnownTimestamp(run.completedAt)) return null
+  const end = endedAt(run)
+  if (!run.startedAt || !end) return null
+  if (!isKnownTimestamp(run.startedAt) || !isKnownTimestamp(end)) return null
 
-  const seconds = (Date.parse(run.completedAt) - Date.parse(run.startedAt)) / 1000
+  const seconds = (Date.parse(end) - Date.parse(run.startedAt)) / 1000
   if (seconds < 0) return null
   if (seconds < 90) return `${Math.round(seconds)}s`
   return `${Math.round(seconds / 60)} min`
@@ -590,11 +607,11 @@ function RunRow({ run }: { run: AgentRunRecord }) {
           <span className="text-[11.5px] text-ink-subtle">· {plural(written, 'statement')}</span>
         )}
         {/* The panel said *Newest first* and dated nothing, so a run from five
-            minutes ago and one from three weeks ago were the same row. Both
-            timestamps arrive on every record and were read by nobody. A run
+            minutes ago and one from three weeks ago were the same row. A run
             still going has no end and says so by omission — the badge beside it
             already says `running`, and inventing *0s* would be worse than
-            silence. */}
+            silence. A run that *failed* also had no end here until `D-249`,
+            which is the same omission meaning the opposite thing. */}
         {run.startedAt && isKnownTimestamp(run.startedAt) && (
           <span className="text-[11.5px] text-ink-subtle">
             · {formatDateTime(run.startedAt)}

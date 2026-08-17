@@ -669,6 +669,7 @@ class MockIngestion implements IngestionPort {
       errorMessage: null,
       startedAt: '2026-08-10T09:00:00Z',
       completedAt: '2026-08-10T09:00:12Z',
+      failedAt: null,
       outputSummary: { items_written: 6, model: 'global.anthropic.claude-sonnet-4-6' },
     },
     {
@@ -680,6 +681,9 @@ class MockIngestion implements IngestionPort {
       errorMessage: 'quote not found in source after 3 attempts',
       startedAt: '2026-08-10T09:00:12Z',
       completedAt: null,
+      // Where an abandoned run's end lives, so the prototype exercises the arm
+      // a real deployment spends most of its failures in (`D-249`).
+      failedAt: '2026-08-10T09:00:41Z',
       outputSummary: {},
     },
   ]
@@ -712,6 +716,7 @@ class MockIngestion implements IngestionPort {
         errorMessage: null,
         startedAt: null,
         completedAt: null,
+        failedAt: null,
         outputSummary: {},
       })),
       ...this.history,

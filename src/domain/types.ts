@@ -1431,7 +1431,17 @@ export interface AgentRunRecord {
   /** Memory's technical detail, verbatim. Read beside the plain-words reading. */
   errorMessage: string | null
   startedAt: string | null
+  /** Set only where the run succeeded. A failure ends at `failedAt`. */
   completedAt: string | null
+  /**
+   * When it failed or was abandoned, which is where a failed run's end time
+   * lives — KAE-Memory's `fail()` and `abandon()` set this and never
+   * `completedAt` (`D-249`).
+   *
+   * `null` both for a run still going and for a KAE-Memory older than the
+   * column. Neither may be rendered as an end.
+   */
+  failedAt: string | null
   /** What the run produced — items written, what classified it, how much was lost. */
   outputSummary: Record<string, unknown>
 }

@@ -277,6 +277,7 @@ describe('watching what KAE did', () => {
             errorMessage: 'detail',
             startedAt: null,
             completedAt: null,
+            failedAt: null,
             outputSummary: {},
           },
         ],
@@ -302,6 +303,7 @@ describe('watching what KAE did', () => {
             errorMessage: null,
             startedAt: '2026-03-04T09:15:00Z',
             completedAt: '2026-03-04T09:15:42Z',
+            failedAt: null,
             outputSummary: {},
           },
         ],
@@ -327,6 +329,7 @@ describe('watching what KAE did', () => {
             errorMessage: null,
             startedAt: '2026-03-04T09:15:00Z',
             completedAt: null,
+            failedAt: null,
             outputSummary: {},
           },
         ],
@@ -352,6 +355,7 @@ describe('watching what KAE did', () => {
             errorMessage: null,
             startedAt: '2026-03-04T09:15:42Z',
             completedAt: '2026-03-04T09:15:00Z',
+            failedAt: null,
             outputSummary: {},
           },
         ],
@@ -378,6 +382,7 @@ describe('watching what KAE did', () => {
             errorMessage: null,
             startedAt: null,
             completedAt: null,
+            failedAt: null,
             outputSummary: {},
           },
         ],
@@ -389,6 +394,60 @@ describe('watching what KAE did', () => {
     const row = (await screen.findByText(/reading a document/i)).closest('li')
     expect(row).not.toBeNull()
     expect(row?.textContent).not.toMatch(/—|took/)
+  })
+
+  it('says how long a failed run ran before it failed', async () => {
+    // `D-249`. KAE-Memory's `fail()` sets `failed_at` and never `completed_at`,
+    // and Studio read only the second — so a run that failed rendered its start
+    // and no duration, which is the row's way of saying *still going*.
+    renderIngestion((services) =>
+      withIngestion(services, {
+        runs: async () => [
+          {
+            id: 'r1',
+            role: 'discovery',
+            status: 'failed',
+            attemptNumber: 1,
+            errorCode: null,
+            errorMessage: null,
+            startedAt: '2026-03-04T09:15:00Z',
+            completedAt: null,
+            failedAt: '2026-03-04T09:15:12Z',
+            outputSummary: {},
+          },
+        ],
+      }),
+    )
+
+    expect(await screen.findByText(/4 Mar, 09:15/)).toBeInTheDocument()
+    // One word for both endings. The badge beside it already says `failed`.
+    expect(screen.getByText(/took 12s/)).toBeInTheDocument()
+  })
+
+  it('says nothing for a failure a KAE-Memory older than the column reported', async () => {
+    // No `failed_at` is not an end of zero (`D-38`). The row shows what it
+    // showed before the field was read.
+    renderIngestion((services) =>
+      withIngestion(services, {
+        runs: async () => [
+          {
+            id: 'r1',
+            role: 'discovery',
+            status: 'failed',
+            attemptNumber: 1,
+            errorCode: null,
+            errorMessage: null,
+            startedAt: '2026-03-04T09:15:00Z',
+            completedAt: null,
+            failedAt: null,
+            outputSummary: {},
+          },
+        ],
+      }),
+    )
+
+    expect(await screen.findByText(/4 Mar, 09:15/)).toBeInTheDocument()
+    expect(screen.queryByText(/took/)).not.toBeInTheDocument()
   })
 
   it('says when nothing has run at all', async () => {
@@ -447,6 +506,7 @@ describe('the failure a person actually meets', () => {
             errorMessage: 'quote not found in source',
             startedAt: null,
             completedAt: null,
+            failedAt: null,
             outputSummary: {},
           },
         ],
