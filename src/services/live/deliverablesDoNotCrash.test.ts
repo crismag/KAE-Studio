@@ -50,7 +50,7 @@ describe('deliverables arrive in a shape the page can render', () => {
     // The assertion the crash needed. Driven off Memory's whole vocabulary
     // rather than the one state a fixture happened to carry.
     for (const state of ['recorded', 'superseded', 'withdrawn']) {
-      respond({ results: [{ ...RECORDED, state }] })
+      respond({ deliverables: [{ ...RECORDED, state }] })
 
       const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
 
@@ -60,7 +60,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   })
 
   it('does not invent a state for one it has never seen', async () => {
-    respond({ results: [{ ...RECORDED, state: 'a_state_added_next_year' }] })
+    respond({ deliverables: [{ ...RECORDED, state: 'a_state_added_next_year' }] })
 
     const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
 
@@ -71,7 +71,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   })
 
   it('carries the fields the page reads, under the names it reads them by', async () => {
-    respond({ results: [RECORDED] })
+    respond({ deliverables: [RECORDED] })
 
     const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
 
@@ -85,7 +85,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   })
 
   it('reads a module scope from the module Memory named', async () => {
-    respond({ results: [{ ...RECORDED, module: 'MOD-AUTH' }] })
+    respond({ deliverables: [{ ...RECORDED, module: 'MOD-AUTH' }] })
 
     const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
 
@@ -94,7 +94,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   })
 
   it('treats a stale deliverable as outdated whatever it was recorded as', async () => {
-    respond({ results: [{ ...RECORDED, stale: true }] })
+    respond({ deliverables: [{ ...RECORDED, stale: true }] })
 
     const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
 
@@ -109,5 +109,38 @@ describe('deliverables arrive in a shape the page can render', () => {
     const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
 
     expect(mapped).toHaveLength(1)
+  })
+
+  /**
+   * `D-247`. Every test above passed against `{ results: [...] }`, a key
+   * KAE-Memory does not send on this route — `DeliverableListResponse` names
+   * its list `deliverables`, while `ProviderConnectionListResponse` names its
+   * own `results` and this adapter read the commoner one. So it returned `[]`
+   * for every project in every deployment, and the fixtures agreed with it.
+   *
+   * The two envelope names are written out here because Studio's CI has no
+   * KAE-Memory checkout and cannot read the contract at test time. A fixture is
+   * a claim about a contract; these state the claim where a reader can check it.
+   */
+  it('reads the envelope key KAE-Memory sends on this route', async () => {
+    respond({ deliverables: [RECORDED] })
+
+    const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped).toHaveLength(1)
+    expect(mapped[0].id).toBe('dlv_1')
+  })
+
+  it('returns nothing, and says nothing, when the envelope is the sibling one', async () => {
+    // The failure mode itself rather than a description of it. `results` is
+    // KAE-Memory's connection envelope and never its deliverable envelope; an
+    // adapter reading it gets an empty list and no error, which on the page is
+    // two headings with nothing under them, indistinguishable from a project
+    // that holds no deliverables at all.
+    respond({ results: [RECORDED] })
+
+    const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped).toHaveLength(0)
   })
 })

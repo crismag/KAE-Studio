@@ -1592,10 +1592,15 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
 
   const artifacts: ArtifactService = {
     listDeliverables: async (id) => {
-      const raw = await call<{ results?: WireDeliverable[] } | WireDeliverable[]>(
+      // `deliverables`, not `results` (`D-247`). KAE-Memory has two list
+      // envelopes — `ProviderConnectionListResponse` names its list `results`
+      // and `DeliverableListResponse` names its own `deliverables` — and this
+      // adapter read the commoner one, so the list was empty for every project
+      // in every deployment while its own tests passed on `results` fixtures.
+      const raw = await call<{ deliverables?: WireDeliverable[] } | WireDeliverable[]>(
         `/api/projects/${resolve(id)}/deliverables`,
       )
-      const items = Array.isArray(raw) ? raw : (raw.results ?? [])
+      const items = Array.isArray(raw) ? raw : (raw.deliverables ?? [])
       return items.map(deliverable)
     },
   }
