@@ -8,9 +8,11 @@ destination."*
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 
 class ConnectionState(StrEnum):
@@ -167,6 +169,32 @@ class SourceScope:
     )
     max_file_bytes: int = 1_000_000
     documentation_only: bool = False
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any] | None) -> SourceScope:
+        """Rebuild a scope from KAE-Memory's durable record (`D-223`).
+
+        Here rather than in the route that reads it, because a route rebuilding
+        this by hand re-derives four defaults the dataclass already owns and got
+        one of them wrong: it fell back to no exclusions at all, so after a
+        restart `.env` and `*.pem` were in scope for every source.
+
+        **The exclusions are unioned with the defaults, not replaced by them.**
+        They are a floor rather than a setting — nothing can configure them —
+        so a record holding fewer is repaired on read instead of by a migration,
+        and anything it holds beyond them is kept. The cost is that an empty
+        exclusion list is inexpressible, which no caller has ever asked for.
+        """
+
+        scope = record or {}
+        stored = tuple(str(pattern) for pattern in scope.get("exclude_paths", ()))
+        floor = cls().exclude_paths
+        return cls(
+            include_paths=tuple(str(prefix) for prefix in scope.get("include_paths", ())),
+            exclude_paths=stored + tuple(p for p in floor if p not in stored),
+            max_file_bytes=int(scope.get("max_file_bytes", cls().max_file_bytes)),
+            documentation_only=bool(scope.get("documentation_only", False)),
+        )
 
     def excludes(self, path: str) -> bool:
         """Whether a path is out of scope. Prefix and simple-glob matching."""

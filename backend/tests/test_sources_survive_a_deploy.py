@@ -285,6 +285,61 @@ class TestItSurvivesTheDeploy:
 
         assert source["scope"]["include_paths"] == ["docs/", "src/"]
 
+    def test_the_secret_exclusions_survive_with_them(self) -> None:
+        """`D-223`. The include paths survived and the exclusions did not.
+
+        `SourceScope.exclude_paths` defaults to thirteen patterns whose
+        docstring says they are not a performance concern — `.env` and `*.pem`
+        are *"exactly what a repository reader would otherwise hoover into an
+        evidence store."* The route recorded `[]` and the reader honoured it,
+        so every source read back in a later process had no exclusions at all
+        and `read_for_ingest`'s per-file refusal passed everything.
+
+        Asserted through `excludes()` rather than on the list, because what
+        matters is whether a path is refused, not which pattern refuses it.
+        """
+
+        from kae_studio.acquisition.model import SourceScope
+
+        memory = RecordingMemory()
+        first = app_with(memory)
+        first.post(
+            "/api/projects/p1/sources", json={**CONFIGURED, "connection_id": connect(first)}
+        )
+        first.__exit__(None, None, None)
+
+        # The durable record says what was excluded, rather than nothing.
+        assert ".env" in memory.rows["p1"][0]["scope"]["exclude_paths"]
+
+        second = app_with(memory)
+        try:
+            source = second.get("/api/projects/p1/sources").json()["sources"][0]
+        finally:
+            second.__exit__(None, None, None)
+
+        restored = SourceScope.from_record(source["scope"])
+        for secret in (".env", ".env.production", "deploy/id_rsa", "certs/server.pem"):
+            assert restored.excludes(secret), secret
+        # And the decision that *was* configured is still the one in force.
+        assert restored.include_paths == ("docs/", "src/")
+
+    def test_a_record_written_before_the_fix_reads_as_the_floor(self) -> None:
+        """`D-223`. Every row already in the store holds `[]`.
+
+        Unioned rather than defaulted-when-empty, so a row that predates this
+        needs no migration to be safe, and a row carrying a project's own
+        exclusion keeps it.
+        """
+
+        from kae_studio.acquisition.model import SourceScope
+
+        stale = SourceScope.from_record({"include_paths": [], "exclude_paths": []})
+        assert stale.excludes(".env")
+
+        added = SourceScope.from_record({"exclude_paths": ["fixtures/"]})
+        assert added.excludes("fixtures/big.json")
+        assert added.excludes("secrets/id_rsa")
+
     def test_it_takes_memory_s_identity_rather_than_minting_its_own(self) -> None:
         """One source, one id.
 

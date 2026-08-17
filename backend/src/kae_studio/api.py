@@ -1781,14 +1781,7 @@ def create_app(settings: Settings) -> FastAPI:
                     connection_id=str(entry.get("connection_id") or ""),
                     location=location,
                     reference=str(scope.get("reference", "")),
-                    scope=SourceScope(
-                        include_paths=tuple(scope.get("include_paths", ())),
-                        exclude_paths=tuple(scope.get("exclude_paths", ())),
-                        max_file_bytes=int(
-                            scope.get("max_file_bytes", SourceScope().max_file_bytes)
-                        ),
-                        documentation_only=bool(scope.get("documentation_only", False)),
-                    ),
+                    scope=SourceScope.from_record(scope),
                     state=state,
                     # `""` when Memory says `null`, which means nobody has
                     # decided. Not defaulted to a word: an undecided source
@@ -1907,7 +1900,11 @@ def create_app(settings: Settings) -> FastAPI:
                 "connection_id": None,
                 "scope": {
                     "include_paths": list(body.include_paths),
-                    "exclude_paths": [],
+                    # From the scope built two lines up, not `[]`. The durable
+                    # record is what a later process reads back, and one that
+                    # says nothing is excluded is read as nothing being
+                    # excluded (`D-223`).
+                    "exclude_paths": list(scope.exclude_paths),
                     "max_file_bytes": scope.max_file_bytes,
                     "documentation_only": body.documentation_only,
                     "reference": body.reference,
