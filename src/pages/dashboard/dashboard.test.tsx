@@ -155,7 +155,9 @@ describe('what needs you', () => {
     // surface a person looks at first.
     const open: AttentionItem = {
       id: 'attn-open',
-      kind: 'material_unknown',
+      // `AttentionKind.UNKNOWN`. This said `material_unknown`, the same word
+      // `D-166` removed from the fixture and this test kept (`D-196`).
+      kind: 'unknown',
       title: 'Who approves a return',
       explanation: 'Nothing answers it.',
       recommendation: null,

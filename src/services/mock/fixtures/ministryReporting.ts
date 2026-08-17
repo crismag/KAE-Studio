@@ -1755,6 +1755,17 @@ export const review: ProjectReview = {
  * Deliberately far shorter than `requirements`. These are the two layers
  * `ADR-0007` separates: every requirement row is a sentence KAE extracted, and
  * these are what it concluded the project is about.
+ *
+ * **`domain`, `lifecycle` and `authority` are the words the service writes**,
+ * not plausible-sounding ones (`D-196`). This carried `unknown_theme`,
+ * `proposed` and `synthesized`, none of which is in any Memory enum — the first
+ * would have been refused outright by `_require_kind` — so the demo taught a
+ * vocabulary the product does not speak while the words it does speak were
+ * rendered by nobody. `D-190` and `D-166` are the same defect elsewhere in this
+ * file. An object nothing has settled is `working` / `working_model`, which is
+ * what `put_object` creates; `authoritative` is unavailable here because it
+ * requires `human` authority by invariant, and inventing that would mean
+ * inventing the person who settled it.
  */
 export const synthesizedModel: Omit<SynthesizedObject, 'supportingEvidence'>[] = [
   {
@@ -1765,8 +1776,8 @@ export const synthesizedModel: Omit<SynthesizedObject, 'supportingEvidence'>[] =
     statement:
       'Directorates submit figures once and the monthly return is assembled from them, so ' +
       'nobody rebuilds the same spreadsheet each month.',
-    lifecycle: 'proposed',
-    authority: 'synthesized',
+    lifecycle: 'working',
+    authority: 'working_model',
     revision: 3,
   },
   {
@@ -1776,20 +1787,20 @@ export const synthesizedModel: Omit<SynthesizedObject, 'supportingEvidence'>[] =
     title: 'A published figure can be corrected traceably',
     statement:
       'A published return can be amended, and the amendment records who changed what and why.',
-    lifecycle: 'proposed',
-    authority: 'synthesized',
+    lifecycle: 'working',
+    authority: 'working_model',
     revision: 1,
   },
   {
     id: 'syn-theme-001',
-    domain: 'unknown_theme',
+    domain: 'unknown',
     identityKey: 'unknown:approval-authority',
     title: 'Who approves a return before it is published',
     statement:
       'Nine unanswered questions ask some version of who signs a return off, and no source in ' +
       'the project answers it.',
-    lifecycle: 'proposed',
-    authority: 'synthesized',
+    lifecycle: 'working',
+    authority: 'working_model',
     revision: 2,
   },
 ]
