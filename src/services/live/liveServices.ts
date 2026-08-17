@@ -142,8 +142,15 @@ export class ArtifactError extends Error {
   }
 }
 
-/** Like `call`, but reads the typed error envelope KAE-Artifacts returns. */
-async function callArtifacts<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Reach the artifact routes and turn a refusal into an `ArtifactError`.
+ *
+ * Separate from the decode so the one route that answers bytes rather than JSON
+ * (`downloadArchive`) reads refusals the same way. A second fetch helper would
+ * be a second copy of the envelope reading, and a route that lost the code is
+ * exactly what the typed envelope exists to prevent.
+ */
+async function sendToArtifacts(path: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(`${API}${path}`, {
     ...init,
     credentials: 'include',
@@ -175,6 +182,12 @@ async function callArtifacts<T>(path: string, init?: RequestInit): Promise<T> {
       response.status,
     )
   }
+  return response
+}
+
+/** Like `call`, but reads the typed error envelope KAE-Artifacts returns. */
+async function callArtifacts<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await sendToArtifacts(path, init)
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
@@ -1686,6 +1699,16 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       publication(
         await callArtifacts<WirePublication>(`/api/artifact-publications/${publicationId}`),
       ),
+
+    downloadArchive: async (packageId) =>
+      (
+        await sendToArtifacts(`/api/artifact-packages/${packageId}/download`, {
+          // The response is a ZIP. Asking for JSON back would be a lie about
+          // what this route answers, and the header the browser needs is the
+          // cookie, which `sendToArtifacts` carries.
+          headers: { Accept: 'application/zip' },
+        })
+      ).blob(),
 
     getProvenance: async (publicationId) =>
       callArtifacts<Record<string, unknown>>(

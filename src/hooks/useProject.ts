@@ -372,6 +372,33 @@ export function usePublishPackage() {
 }
 
 /**
+ * Hand back the archive a `download` publication produced (`D-209`).
+ *
+ * A mutation, because it happens when somebody asks for it and must not be
+ * refetched on focus — and because the bytes are not durable: KAE-Artifacts
+ * holds them in the publisher's process, so a retry after a restart is a
+ * refusal rather than a stale answer.
+ *
+ * The save is here rather than in the component so the surface has one call and
+ * the object URL is revoked on the path that created it.
+ */
+export function useDownloadArchive() {
+  const { pipeline } = useServices()
+  return useMutation({
+    mutationFn: async (packageId: string) => {
+      const blob = await pipeline.downloadArchive(packageId)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${packageId}.zip`
+      link.click()
+      URL.revokeObjectURL(url)
+      return blob
+    },
+  })
+}
+
+/**
  * A publication's authoritative status, polled until it stops moving.
  *
  * `POST /api/artifact-publications` returns **202 Accepted**. The UI treated

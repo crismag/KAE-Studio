@@ -439,6 +439,107 @@ class TestRefusalsReachTheBrowserIntact:
         assert "secretsmanager" not in repr(preview)
 
 
+class TestTheDownloadIsObtainable:
+    """`D-209`. Publishing to `download` produced bytes nobody could fetch.
+
+    `AUD-029` added `GET /v1/packages/{id}/download` to KAE-Artifacts for
+    exactly this reason, and Studio proxied no route to it — so the canned
+    success moved one hop rather than going away.
+    """
+
+    def _published(self, client: TestClient) -> str:
+        plan = client.post(
+            "/api/projects/dabbcd54/artifact-plans",
+            json={"profile": "minimal-agent-context"},
+        ).json()
+        run = client.post(
+            "/api/projects/dabbcd54/generation-runs",
+            json={"plan_id": plan["plan_id"], "idempotency_key": "dl"},
+        ).json()
+        destination = {"type": "download", "mode": "object_write"}
+        preview = client.post(
+            "/api/artifact-previews",
+            json={"package_id": run["package_id"], "destination": destination},
+        ).json()
+        approval = client.post(
+            "/api/artifact-approvals", json={"preview_id": preview["preview_id"]}
+        ).json()
+        published = client.post(
+            "/api/artifact-publications",
+            json={
+                "package_id": run["package_id"],
+                "destination": destination,
+                "approval_id": approval["approval_id"],
+                "idempotency_key": "dl-pub",
+            },
+        ).json()
+        assert published["status"] == "succeeded"
+        return str(run["package_id"])
+
+    def test_the_bytes_come_back_as_the_archive_that_was_published(
+        self, client: TestClient
+    ) -> None:
+        """The whole point: what `files_written` named is inside what arrives."""
+
+        import io
+        import zipfile
+
+        package_id = self._published(client)
+
+        response = client.get(f"/api/artifact-packages/{package_id}/download")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/zip"
+        assert package_id in response.headers["content-disposition"]
+        with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            names = archive.namelist()
+        # The manifest is generated into the ZIP and appears in no preview
+        # change row (`D-207`), so it is the entry that proves these are the
+        # publisher's bytes rather than a re-assembly.
+        assert "manifest.json" in names
+        assert len(names) > 1
+
+    def test_a_package_never_published_to_download_refuses_with_its_reason(
+        self, client: TestClient
+    ) -> None:
+        """Not a 500, and not an empty ZIP.
+
+        The archive lives in the publisher's process, so this is also what a
+        restart looks like — which is why the surface says so before the
+        control is pressed.
+        """
+
+        plan = client.post(
+            "/api/projects/dabbcd54/artifact-plans",
+            json={"profile": "minimal-agent-context"},
+        ).json()
+        run = client.post(
+            "/api/projects/dabbcd54/generation-runs",
+            json={"plan_id": plan["plan_id"], "idempotency_key": "never"},
+        ).json()
+
+        response = client.get(f"/api/artifact-packages/{run['package_id']}/download")
+
+        assert response.status_code == 404
+        body = response.json()["error"]
+        assert body["code"] == "download_not_available"
+        assert body["remedy"]
+
+    def test_a_package_identifier_cannot_write_the_response_header(self) -> None:
+        """A path parameter interpolated into `Content-Disposition`.
+
+        A quote would end the filename early and a newline is a header-splitting
+        attempt. The name is a convenience; the bytes are the answer.
+        """
+
+        from kae_studio.api import _download_filename
+
+        assert _download_filename('pkg_1"; x="y') == "pkg_1xy.zip"
+        assert _download_filename("pkg\r\nSet-Cookie: a=b") == "pkgSet-Cookieab.zip"
+        assert _download_filename('"') == "package.zip"
+        assert _download_filename("pkg_abc-1.2") == "pkg_abc-1.2.zip"
+
+
 class TestTheMapping:
     def test_memory_lifecycle_becomes_what_a_generator_may_claim(self) -> None:
         from kae_studio.generation_input import to_generation_input

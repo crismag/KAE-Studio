@@ -77,7 +77,15 @@ class ArtifactsClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+    async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        """Reach KAE-Artifacts and map its refusals, without reading the body.
+
+        Split out of `_request` for the one route that does not answer JSON
+        (`download_archive`). A second client for it would be a second copy of
+        the refusal mapping, and a refusal that lost its code on one route is
+        exactly what the typed envelope exists to prevent.
+        """
+
         try:
             response = await self._client.request(method, path, **kwargs)
         except httpx.HTTPError as error:
@@ -87,6 +95,10 @@ class ArtifactsClient:
 
         if response.status_code >= 400:
             raise _refusal(response)
+        return response
+
+    async def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        response = await self._send(method, path, **kwargs)
         if not response.content:
             return None
         try:
@@ -153,6 +165,18 @@ class ArtifactsClient:
 
     async def package(self, package_id: str) -> Any:
         return await self._request("GET", f"/v1/packages/{package_id}")
+
+    async def download_archive(self, package_id: str) -> bytes:
+        """The bytes a `download` publication produced.
+
+        **Not durable.** KAE-Artifacts holds the archive on the publisher
+        instance for the life of its process, so this answers until a restart
+        and then refuses with `download_not_available` — a hand-back, not a
+        record. The record is the publication.
+        """
+
+        response = await self._send("GET", f"/v1/packages/{package_id}/download")
+        return response.content
 
     async def validate(self, package_id: str) -> Any:
         return await self._request("POST", "/v1/validations", json={"package_id": package_id})

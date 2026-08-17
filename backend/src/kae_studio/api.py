@@ -362,6 +362,20 @@ def _credentialed_client(settings: Settings) -> tuple[GitHubSourceClient | None,
     return None, ""
 
 
+def _download_filename(package_id: str) -> str:
+    """A `Content-Disposition` filename that cannot end the header early.
+
+    The package identifier is a caller-supplied path parameter interpolated
+    into a response header a browser acts on: a quote closes the filename, and
+    a control character is a header-splitting attempt. Only what a filename
+    needs survives, and a name left with nothing falls back — the bytes are the
+    answer here and the name is a convenience, so a generic one is never wrong.
+    """
+
+    kept = "".join(c for c in package_id if c.isascii() and (c.isalnum() or c in "._-"))
+    return f"{kept}.zip" if kept else "package.zip"
+
+
 def create_app(settings: Settings) -> FastAPI:
     """Build the Studio backend."""
 
@@ -1532,6 +1546,32 @@ def create_app(settings: Settings) -> FastAPI:
         package_id: str, request: Request, _: Operator = Depends(require_operator)
     ) -> Any:
         return await artifacts(request).package(package_id)
+
+    @app.get("/api/artifact-packages/{package_id}/download")
+    async def download_artifact_package(
+        package_id: str, request: Request, _: Operator = Depends(require_operator)
+    ) -> Response:
+        """The bytes a `download` publication produced (`D-209`).
+
+        Without this route a person could select the `download` destination,
+        approve, publish, read *Published* and the list of files written, and
+        never obtain the archive — the canned success `AUD-029` removed from
+        KAE-Artifacts, surviving one hop later.
+
+        **The archive is not durable.** KAE-Artifacts holds it in the
+        publisher's process, so this is a hand-back rather than a record and
+        refuses with `download_not_available` after a restart. The surface says
+        that before the control is pressed rather than leaving the 404 to.
+        """
+
+        payload = await artifacts(request).download_archive(package_id)
+        return Response(
+            content=payload,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{_download_filename(package_id)}"'
+            },
+        )
 
     @app.post("/api/artifact-packages/{package_id}/validation")
     async def validate_artifact_package(

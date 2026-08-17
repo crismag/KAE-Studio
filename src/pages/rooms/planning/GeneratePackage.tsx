@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Check,
   CircleDashed,
+  Download,
   FileText,
   Loader2,
   Lock,
@@ -52,6 +53,7 @@ import {
   useArtifactProfiles,
   useArtifactPublishers,
   useCreateArtifactPlan,
+  useDownloadArchive,
   useEditArtifactPlan,
   useGenerateArtifacts,
   usePreviewPublication,
@@ -272,6 +274,7 @@ export function GeneratePackage() {
   const preview = usePreviewPublication()
   const approve = useApprovePreview()
   const publish = usePublishPackage()
+  const download = useDownloadArchive()
 
   const [profile, setProfile] = useState('')
   const [plan, setPlan] = useState<ArtifactPlan | null>(null)
@@ -895,6 +898,38 @@ export function GeneratePackage() {
                       ))}
                     </ul>
                   </>
+                )}
+              </div>
+            )}
+            {/* The bytes, for the one destination that keeps them here
+                (`D-209`). Not on `github` or `s3`, where the publication wrote
+                to somewhere the person named and `Reference` points at it; not
+                on a failed or in-flight one, where there is nothing to hand
+                back.
+
+                The sentence is beside the control rather than left to the 404
+                it predicts: KAE-Artifacts holds the archive in the publisher's
+                process, so this is a hand-back and the publication is the
+                record. */}
+            {outcome.status === 'succeeded' && outcome.destination.type === 'download' && (
+              <div className="mt-2.5">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={download.isPending}
+                  onClick={() => download.mutate(outcome.packageId)}
+                >
+                  <Download className="size-3.5" aria-hidden="true" />
+                  {download.isPending ? 'Preparing the archive' : 'Download the archive'}
+                </Button>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-ink-subtle">
+                  KAE-Artifacts keeps this archive only until it restarts. The publication is the
+                  record; these bytes are a hand-back.
+                </p>
+                {download.isError && (
+                  <div className="mt-2">
+                    <Refusal error={download.error} />
+                  </div>
                 )}
               </div>
             )}

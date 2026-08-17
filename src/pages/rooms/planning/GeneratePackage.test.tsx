@@ -12,7 +12,7 @@
  *   - approval is a separate act from publication.
  */
 
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -404,5 +404,89 @@ describe('a publication says which files it wrote', () => {
     expect(await screen.findByText(/not published/i)).toBeInTheDocument()
     expect(screen.queryByText(/no files were written/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/files written$/)).not.toBeInTheDocument()
+  })
+
+  /*
+   * `D-209`. Publishing to `download` left the bytes on the publisher and gave
+   * a person no way to fetch them, which is the canned success `AUD-029`
+   * removed from KAE-Artifacts surviving one hop later.
+   */
+
+  it('offers the archive after a download publication, and says it is not kept', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await publishADownload(user)
+
+    expect(await screen.findByRole('button', { name: /download the archive/i })).toBeInTheDocument()
+    // Before the control is pressed, not after the 404 it predicts.
+    expect(screen.getByText(/only until it restarts/i)).toBeInTheDocument()
+  })
+
+  it('does not offer an archive for a destination that kept the files elsewhere', async () => {
+    // GitHub and S3 wrote to somewhere the person named, and `Reference`
+    // already points at it. There is nothing here to hand back.
+    const user = userEvent.setup()
+    renderPanel(
+      servicesPublishing({
+        destination: {
+          type: 'github',
+          mode: 'pull_request',
+          target: 'owner/repo',
+          targetPath: 'docs/',
+          baseBranch: 'main',
+        },
+      }),
+    )
+
+    await publishADownload(user)
+
+    await screen.findByText(/^published$/i)
+    expect(screen.queryByRole('button', { name: /download the archive/i })).not.toBeInTheDocument()
+  })
+
+  it('offers no archive for a publication that failed', async () => {
+    const user = userEvent.setup()
+    renderPanel(servicesPublishing({ status: 'failed' }))
+
+    await publishADownload(user)
+
+    await screen.findByText(/not published/i)
+    expect(screen.queryByRole('button', { name: /download the archive/i })).not.toBeInTheDocument()
+  })
+
+  it('asks for the published package by identifier, and saves what comes back', async () => {
+    const user = userEvent.setup()
+    const services = createMockServices()
+    const asked: string[] = []
+    services.pipeline.downloadArchive = async (packageId) => {
+      asked.push(packageId)
+      return new Blob(['PK'], { type: 'application/zip' })
+    }
+    // jsdom has neither, and navigating an anchor is not implemented there.
+    Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:zip', configurable: true })
+    Object.defineProperty(URL, 'revokeObjectURL', { value: () => {}, configurable: true })
+    const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    renderPanel(services)
+    await publishADownload(user)
+    await user.click(await screen.findByRole('button', { name: /download the archive/i }))
+
+    await waitFor(() => expect(clicked).toHaveBeenCalled())
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toMatch(/^pkg/)
+    clicked.mockRestore()
+  })
+
+  it('renders a refusal in the words it arrived in, rather than nothing', async () => {
+    // The prototype holds fixtures and not bytes, and says so — which is also
+    // what a KAE-Artifacts restart looks like on a live deployment.
+    const user = userEvent.setup()
+    renderPanel()
+
+    await publishADownload(user)
+    await user.click(await screen.findByRole('button', { name: /download the archive/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/holds no published bytes/i)
   })
 })

@@ -1084,6 +1084,23 @@ class MockArtifactPipeline implements ArtifactPipeline {
     return delay({ ...found })
   }
 
+  /**
+   * The prototype holds fixtures, not bytes (`D-209`).
+   *
+   * Refused rather than answered with a plausible ZIP: a mock that produced one
+   * would let the whole control be built and demoed against a capability only
+   * KAE-Artifacts has, which is the reason `AcquisitionPort` declares no
+   * `analyze`. The refusal reads as a refusal on screen, which is true here.
+   */
+  downloadArchive(packageId: string): Promise<Blob> {
+    return Promise.reject(
+      new Error(
+        `The prototype holds no published bytes for ${packageId}. The archive is ` +
+          'produced by KAE-Artifacts when a download publication runs.',
+      ),
+    )
+  }
+
   getProvenance(publicationId: string): Promise<Record<string, unknown>> {
     const publication = this.publications.get(publicationId)
     if (!publication) throw new Error(`Unknown publication: ${publicationId}`)

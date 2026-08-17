@@ -334,6 +334,19 @@ export interface ArtifactPipeline {
 
   getPublication(publicationId: string): Promise<ArtifactPublication>
 
+  /**
+   * The bytes a `download` publication produced (`D-209`).
+   *
+   * A method rather than a link, because the fetch carries the session cookie
+   * and a refusal here is typed like every other one — an anchor would render
+   * the 404 envelope as a page.
+   *
+   * **Not durable.** KAE-Artifacts holds the archive in the publisher's
+   * process, so this is a hand-back and not a record: after a restart it
+   * refuses. The surface says so before the control is pressed.
+   */
+  downloadArchive(packageId: string): Promise<Blob>
+
   /** Which knowledge and which bytes produced which destination state. */
   getProvenance(publicationId: string): Promise<Record<string, unknown>>
 }
