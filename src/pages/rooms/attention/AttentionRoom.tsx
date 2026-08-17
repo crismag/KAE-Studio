@@ -402,53 +402,80 @@ function Item({
  * carries no area of its own — what a run ranked by is reported once, on the run
  * panel, rather than restated per card as a consequence it does not hold.
  */
-function Evidence({ objectId }: { objectId: string }) {
+function Evidence({ objectId, count }: { objectId: string; count?: number }) {
   const [asked, setAsked] = useState(false)
   const object = useSynthesizedObject(objectId, asked)
   return (
     <details className="mt-2" onToggle={(event) => setAsked(event.currentTarget.open)}>
       <summary className="cursor-pointer list-none text-[11.5px] text-ink-subtle">
-        What this rests on
+        {count === undefined ? 'What this rests on' : `Drawn from ${plural(count, 'observation')}`}
       </summary>
-      {/* No `empty` prop: it fires on empty *arrays*, and this query answers
+      {/* Rendered only once opened, not merely fetched then. A closed
+          `<details>` keeps its children in the DOM, so an object drawn twice on
+          this page — once behind an item and once in the model — would hold the
+          same sentences twice over as soon as either was opened and the query
+          cache answered the other for free.
+
+          No `empty` prop: it fires on empty *arrays*, and this query answers
           with an object. The nothing-bound case is decided below, where the
           list it is about is in hand. */}
-      <QueryState
-        query={object}
-        of="the evidence behind this item"
-        skeleton={<Skeleton className="mt-1.5 h-12" />}
-      >
-        {(detail) =>
-          detail.evidence.length === 0 ? (
-            <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
-              Nothing is recorded as supporting this. The item was raised without evidence bound to
-              it.
-            </p>
-          ) : (
-            <>
-              {/* Counted from the list below rather than carried separately, so
-                  the sentence cannot claim more than it shows. */}
-              <p className="mt-1.5 text-[11.5px] text-ink-subtle">
-                {plural(detail.evidence.length, 'observation')} KAE read
+      {asked && (
+        <QueryState
+          query={object}
+          of="the evidence behind this item"
+          skeleton={<Skeleton className="mt-1.5 h-12" />}
+        >
+          {(detail) =>
+            detail.evidence.length === 0 ? (
+              <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
+                Nothing is recorded as supporting this. The item was raised without evidence bound
+                to it.
               </p>
-              <ul className="mt-1 space-y-1">
-                {detail.evidence.map((row) => (
-                  <li key={row.id} className="text-[12px] leading-relaxed text-ink-muted">
-                    {row.statement}{' '}
-                    <span className="text-ink-subtle">
-                      · {readable(row.knowledgeKind)} · {readable(row.lifecycle)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )
-        }
-      </QueryState>
+            ) : (
+              <>
+                {/* Counted from the list below rather than carried separately, so
+                  the sentence cannot claim more than it shows. Said only where
+                  the closed summary did not already say it: a caller passing a
+                  count has put the number on the line somebody clicked, and
+                  repeating it underneath is the say-it-once failure `D-142`
+                  named about a gesture. */}
+                {count === undefined && (
+                  <p className="mt-1.5 text-[11.5px] text-ink-subtle">
+                    {plural(detail.evidence.length, 'observation')} KAE read
+                  </p>
+                )}
+                <ul className="mt-1 space-y-1">
+                  {detail.evidence.map((row) => (
+                    <li key={row.id} className="text-[12px] leading-relaxed text-ink-muted">
+                      {row.statement}{' '}
+                      <span className="text-ink-subtle">
+                        · {readable(row.knowledgeKind)} · {readable(row.lifecycle)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )
+          }
+        </QueryState>
+      )}
     </details>
   )
 }
 
+/**
+ * One object in the model, with how much of the project stands behind it
+ * (`SYN-4b`, `D-167`).
+ *
+ * Doc 01's aggregation is a count and a disclosure together: *one item with 73
+ * expandable evidence instances*. The attention card above says its count in
+ * `explanation` because Memory composes that sentence; this panel said nothing
+ * at all, so a goal drawn from 47 observations was drawn exactly like one drawn
+ * from 1.
+ *
+ * The number comes with the list — one grouped count in Memory — and the
+ * sentences come only when somebody opens them.
+ */
 function ModelObject({ object }: { object: SynthesizedObject }) {
   return (
     <li className="rounded-md border border-line bg-surface-sunken px-3 py-2.5">
@@ -464,6 +491,16 @@ function ModelObject({ object }: { object: SynthesizedObject }) {
         </span>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-muted">{object.statement}</p>
+      {/* Zero is said rather than left blank: an object KAE minted with nothing
+          bound to it is a different fact from one whose evidence nobody has
+          asked for, and the disclosure below only exists for the second. */}
+      {object.supportingEvidence === 0 ? (
+        <p className="mt-1.5 text-[11.5px] text-ink-subtle">
+          Nothing is recorded as supporting this
+        </p>
+      ) : (
+        <Evidence objectId={object.id} count={object.supportingEvidence} />
+      )}
     </li>
   )
 }

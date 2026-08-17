@@ -1739,7 +1739,7 @@ export const review: ProjectReview = {
  * `ADR-0007` separates: every requirement row is a sentence KAE extracted, and
  * these are what it concluded the project is about.
  */
-export const synthesizedModel: SynthesizedObject[] = [
+export const synthesizedModel: Omit<SynthesizedObject, 'supportingEvidence'>[] = [
   {
     id: 'syn-goal-001',
     domain: 'goal',
@@ -1779,6 +1779,10 @@ export const synthesizedModel: SynthesizedObject[] = [
 
 /**
  * The observations each model object was drawn from (`SYN-4`, `D-145`).
+ *
+ * This record is also where each object's `supportingEvidence` count comes
+ * from (`D-167`): the fixture states the observations once, and the mock
+ * counts them, so a demo cannot show *3 observations* over a list of two.
  *
  * Every object carries some, because an object with none would render as
  * *nothing supports this* — a demo disagreeing with the product, which is the

@@ -330,6 +330,75 @@ describe('an item can say what it rests on', () => {
   })
 })
 
+describe('the model says how much of the project stands behind each object', () => {
+  /* `SYN-4b`, `D-167`. Doc 01's aggregation is a count and a disclosure
+     together. The attention card gets its count from Memory's own sentence;
+     this panel had neither, so a goal drawn from 47 observations was drawn
+     exactly like one drawn from 1. */
+
+  it('says the count before anybody opens anything', async () => {
+    harness()
+
+    // The fixture's three objects rest on two, one and three observations.
+    expect(await screen.findByText('Drawn from 2 observations')).toBeTruthy()
+    expect(screen.getByText('Drawn from 1 observation')).toBeTruthy()
+  })
+
+  it('does not read the statements to say the number', async () => {
+    const services = createMockServices()
+    const asked = vi.spyOn(services.synthesis, 'getSynthesizedObject')
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <ServiceProvider services={services}>
+          <AttentionRoom />
+        </ServiceProvider>
+      </QueryClientProvider>,
+    )
+
+    // The count travels with the list. Twenty-three objects each fetching their
+    // own evidence to print one number is the N+1 the disclosure exists to
+    // avoid, and it would arrive here silently.
+    expect(await screen.findByText('Drawn from 2 observations')).toBeTruthy()
+    expect(asked).not.toHaveBeenCalled()
+  })
+
+  it('says the count once, on the line somebody clicked', async () => {
+    harness()
+
+    await userEvent.click(await screen.findByText('Drawn from 2 observations'))
+
+    expect(
+      await screen.findByText(/Directorates submit their figures|submits its figures/),
+    ).toBeTruthy()
+    // The summary already carries it. Repeating it underneath is `D-142`'s
+    // say-it-once failure, one component over.
+    expect(screen.queryByText(/2 observations KAE read/)).toBeNull()
+  })
+
+  it('says nothing supports an object rather than offering an empty disclosure', async () => {
+    harness({
+      listSynthesizedModel: () =>
+        Promise.resolve([
+          {
+            id: 'syn-goal-unbound',
+            domain: 'goal',
+            identityKey: 'goal:unbound',
+            title: 'A guess with nothing behind it',
+            statement: 'KAE minted this and bound nothing to it.',
+            lifecycle: 'proposed',
+            authority: 'synthesized',
+            revision: 1,
+            supportingEvidence: 0,
+          },
+        ]),
+    })
+
+    expect(await screen.findByText('Nothing is recorded as supporting this')).toBeTruthy()
+    expect(screen.queryByText(/Drawn from/)).toBeNull()
+  })
+})
+
 describe('postponing is not the same as hiding', () => {
   it('moves the item out of what needs you and into what was postponed', async () => {
     harness()

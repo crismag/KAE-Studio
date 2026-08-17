@@ -382,6 +382,7 @@ interface WireSynthesizedObject {
   lifecycle: string
   authority: string
   revision: number
+  supporting_evidence: number
 }
 
 interface WireBoundEvidence {
@@ -443,6 +444,7 @@ function synthesizedObject(wire: WireSynthesizedObject): SynthesizedObject {
     lifecycle: wire.lifecycle,
     authority: wire.authority,
     revision: wire.revision,
+    supportingEvidence: wire.supporting_evidence,
   }
 }
 

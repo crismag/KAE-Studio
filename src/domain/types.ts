@@ -1213,6 +1213,15 @@ export interface SynthesizedObject {
   lifecycle: string
   authority: string
   revision: number
+  /**
+   * How many observations this object was drawn from (`SYN-4b`, `D-167`).
+   *
+   * Doc 01's aggregation — one item, N expandable instances — is the count and
+   * the disclosure together. Carried on the listing as well as the detail,
+   * because the listing carries no statements and an empty `evidence` array
+   * otherwise reads the same as an object nothing supports.
+   */
+  supportingEvidence: number
 }
 
 /**
