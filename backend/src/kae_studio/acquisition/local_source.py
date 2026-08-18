@@ -118,16 +118,61 @@ class LocalSourceClient:
         """
 
         resolved = candidate.expanduser().resolve()
-        for root in self._roots:
-            if resolved == root or root in resolved.parents:
-                return resolved
+        if self._contains(resolved):
+            return resolved
         raise SourceReadError(404, "that path is not inside a directory KAE may read")
 
+    def _contains(self, resolved: Path) -> bool:
+        """Is this already-resolved path inside a root? The only authority here."""
+
+        return any(resolved == root or root in resolved.parents for root in self._roots)
+
     def _repo(self, location: str) -> Path:
-        path = self._within(Path(location))
-        if not path.is_dir():
-            raise SourceReadError(404, f"there is no directory at {location}")
-        return path
+        """The directory a source's `location` names.
+
+        A relative name is resolved against the **roots**, never against the
+        process's working directory (`D-268`). `Path("CRIS-GVIE").resolve()`
+        means *relative to wherever uvicorn was started*, which has nothing to do
+        with what this deployment may read — so a directory that plainly exists
+        was reported absent, or refused as outside the roots, depending on where
+        somebody launched the backend. The picker emits absolute paths, so the
+        product's own flow never hit it and everything hand-driven did.
+
+        Confinement is unchanged: every candidate goes through `_within`, so a
+        relative `../../etc` is refused after the join exactly as an absolute one
+        is refused before it.
+        """
+
+        given = Path(location).expanduser()
+        if given.is_absolute():
+            path = self._within(given)
+            if not path.is_dir():
+                raise SourceReadError(404, f"there is no directory at {location}")
+            return path
+
+        matches = []
+        for root in self._roots:
+            candidate = (root / given).resolve()
+            if self._contains(candidate) and candidate.is_dir() and candidate not in matches:
+                matches.append(candidate)
+        if len(matches) == 1:
+            return matches[0]
+        if matches:
+            # Reading the first would read one project while somebody believed
+            # they were reading the other — a wrong answer with no error.
+            found = ", ".join(str(match) for match in matches)
+            raise SourceReadError(
+                409,
+                f"{location} names a directory in more than one configured root ({found}). "
+                "Give the absolute path of the one you mean.",
+            )
+        searched = ", ".join(str(root) for root in self._roots)
+        raise SourceReadError(
+            404,
+            f"no directory named {location} in any root KAE may read ({searched}). "
+            "Relative names are resolved against those roots, not against the "
+            "server's working directory.",
+        )
 
     # -- capability --------------------------------------------------------
 

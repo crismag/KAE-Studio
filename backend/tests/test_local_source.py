@@ -133,6 +133,71 @@ class TestTheBoundary:
         assert found == (first.resolve(), second.resolve())
 
 
+class TestARelativeNameMeansAProjectInARoot:
+    """`D-268`. `Path("crm").resolve()` asks the process's working directory.
+
+    That is wherever somebody started uvicorn, and it has never been what
+    authorises a read here. The picker emits absolute paths, so the product's own
+    flow never met this and everything hand-driven did — reported as *"there is
+    no directory at crm"* about a directory that exists.
+    """
+
+    def test_it_is_resolved_against_the_roots_and_not_the_working_directory(
+        self,
+        client: LocalSourceClient,
+        workspace: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        # Started somewhere that is not a root, which is the ordinary case and
+        # the one that made the location unreadable.
+        elsewhere = tmp_path / "somewhere-else"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+
+        entries, _truncated = client.tree("crm", "HEAD")
+
+        assert sorted(e["path"] for e in entries) == ["README.md", "main.py"]
+
+    def test_a_name_in_two_roots_is_refused_with_both_named(self, tmp_path: Path) -> None:
+        """Picking the first reads one project while somebody meant the other."""
+
+        first, second = tmp_path / "one", tmp_path / "two"
+        (first / "crm").mkdir(parents=True)
+        (second / "crm").mkdir(parents=True)
+        client = LocalSourceClient((first.resolve(), second.resolve()))
+
+        with pytest.raises(SourceReadError) as raised:
+            client.tree("crm", "HEAD")
+
+        assert raised.value.status == 409
+        assert str(first / "crm") in str(raised.value)
+        assert str(second / "crm") in str(raised.value)
+
+    def test_a_name_in_no_root_says_where_it_looked(
+        self, client: LocalSourceClient, workspace: Path
+    ) -> None:
+        with pytest.raises(SourceReadError) as raised:
+            client.tree("billing", "HEAD")
+
+        assert raised.value.status == 404
+        assert str(workspace) in str(raised.value)
+
+    def test_a_relative_name_still_cannot_climb_out(
+        self, client: LocalSourceClient, workspace: Path, tmp_path: Path
+    ) -> None:
+        """Confinement applies after the join, or this is a new way out."""
+
+        outside = tmp_path / "workspaces-private"
+        outside.mkdir()
+
+        with pytest.raises(SourceReadError):
+            client.tree("../workspaces-private", "HEAD")
+
+        with pytest.raises(SourceReadError):
+            client.tree("crm/../..", "HEAD")
+
+
 class TestWhatItReads:
     def test_the_tree_is_the_files_and_not_the_noise(self, client: LocalSourceClient, workspace: Path) -> None:
         entries, truncated = client.tree(f"{workspace}/crm", "HEAD")
