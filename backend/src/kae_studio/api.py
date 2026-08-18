@@ -2461,7 +2461,13 @@ def create_app(settings: Settings) -> FastAPI:
                 "error": {
                     "code": error.kind,
                     "message": str(error),
-                    "remedy": {
+                    # What the raiser said to do, where it knew (`D-269`). The
+                    # table below is keyed on `kind`, which maps four statuses,
+                    # so before this every other one — unpinned, unconfigured,
+                    # too large, not text — was answered with a sentence about
+                    # an outage that was not happening.
+                    "remedy": error.remedy
+                    or {
                         "not_authorized": "Check the source credential's repository access.",
                         "not_found": "Check the repository name and that the credential can see it.",
                         "rate_limited": "Wait and try again.",

@@ -165,6 +165,7 @@ class LocalSourceClient:
                 409,
                 f"{location} names a directory in more than one configured root ({found}). "
                 "Give the absolute path of the one you mean.",
+                remedy="Set this source's location to the absolute path of the one you mean.",
             )
         searched = ", ".join(str(root) for root in self._roots)
         raise SourceReadError(
@@ -287,12 +288,18 @@ class LocalSourceClient:
             raise SourceReadError(404, f"there is no file at {path}")
         if target.stat().st_size > MAX_FILE_BYTES:
             raise SourceReadError(
-                413, f"{path} is larger than {MAX_FILE_BYTES} bytes and was not read"
+                413,
+                f"{path} is larger than {MAX_FILE_BYTES} bytes and was not read",
+                remedy="Nothing to retry: choose a smaller file.",
             )
         try:
             return target.read_text(encoding="utf-8")
         except UnicodeDecodeError:
-            raise SourceReadError(415, f"{path} is not text this deployment can read") from None
+            raise SourceReadError(
+                415,
+                f"{path} is not text this deployment can read",
+                remedy="Nothing to retry: choose a text file.",
+            ) from None
         except OSError as error:
             raise SourceReadError(403, f"{path} could not be read: {error.strerror}") from None
 

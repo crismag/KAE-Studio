@@ -63,9 +63,16 @@ class SourceReadError(RuntimeError):
     and the app installation, and this reaches a browser.
     """
 
-    def __init__(self, status: int, message: str) -> None:
+    def __init__(self, status: int, message: str, remedy: str = "") -> None:
         super().__init__(message)
         self.status = status
+        #: The one exact next action, where the raiser knows it (`UX-16`,
+        #: `D-269`). The exception handler's table is keyed on `kind`, which maps
+        #: four statuses and sends every other one to a sentence about waiting
+        #: for a provider — true of 502 and of nothing else. A status cannot
+        #: tell *not pinned* from *that name is in two roots*; the code that
+        #: raised can.
+        self.remedy = remedy
 
     @property
     def kind(self) -> str:
@@ -289,9 +296,17 @@ class GitHubSourceClient:
 
         body = self._get(f"/repos/{repo}/contents/{path}", params={"ref": revision})
         if isinstance(body, list):
-            raise SourceReadError(422, f"{path} is a directory, not a file")
+            raise SourceReadError(
+                422,
+                f"{path} is a directory, not a file",
+                remedy="Nothing to retry: choose a file inside it.",
+            )
         if body.get("encoding") != "base64":
-            raise SourceReadError(422, f"{path} is too large to read through the contents API")
+            raise SourceReadError(
+                422,
+                f"{path} is too large to read through the contents API",
+                remedy="Nothing to retry: choose a smaller file.",
+            )
         return base64.b64decode(body.get("content", "")).decode("utf-8", errors="replace")
 
     def read_at(self, repo: str, path: str, revision: str) -> tuple[str, str]:

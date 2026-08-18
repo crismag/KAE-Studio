@@ -126,15 +126,22 @@ class AcquisitionService:
                     501,
                     "this deployment reads no local directories. Set "
                     "KAE_LOCAL_SOURCE_ROOTS to the directories KAE may read.",
+                    remedy="Set KAE_LOCAL_SOURCE_ROOTS and restart the backend.",
                 )
             return self._local
         if source.kind is SourceKind.GITHUB:
             if self._github is None:
                 raise SourceReadError(
-                    501, self._unavailable or "no GitHub credential is configured"
+                    501,
+                    self._unavailable or "no GitHub credential is configured",
+                    remedy="Configure a GitHub credential in Settings.",
                 )
             return self._github
-        raise SourceReadError(501, f"a {source.kind.value} source cannot be read yet")
+        raise SourceReadError(
+            501,
+            f"a {source.kind.value} source cannot be read yet",
+            remedy=f"Nothing to retry: this deployment cannot read a {source.kind.value} source.",
+        )
 
     # -- connections -------------------------------------------------------
 
@@ -410,7 +417,11 @@ class AcquisitionService:
         source = self.source(source_id)
         client = self._client_for(source)
         if source.snapshot is None:
-            raise SourceReadError(409, "this source has not been pinned to a revision")
+            raise SourceReadError(
+                409,
+                "this source has not been pinned to a revision",
+                remedy="Pin this source to a revision, then read it.",
+            )
 
         entries, truncated = client.tree(source.location, source.snapshot.revision)
         admitted = [entry for entry in entries if not source.scope.excludes(entry["path"])]
@@ -447,7 +458,11 @@ class AcquisitionService:
         source = self.source(source_id)
         client = self._client_for(source)
         if source.snapshot is None:
-            raise SourceReadError(409, "this source has not been pinned to a revision")
+            raise SourceReadError(
+                409,
+                "this source has not been pinned to a revision",
+                remedy="Pin this source to a revision, then read it.",
+            )
 
         revision = source.snapshot.revision
         read: list[tuple[str, str, str]] = []
