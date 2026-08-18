@@ -53,6 +53,9 @@ class RecordingMemory:
         #: Grants a person made, which outlive any process (`D-22`).
         self.connections: dict[str, list[dict[str, Any]]] = {}
         self.configuration: dict[str, dict[str, str]] = {}
+        #: Every retirement Memory actually recorded, so a second one that
+        #: reached the record is visible rather than inferred from a timestamp.
+        self.retirements: list[str] = []
 
     def grant(self, project_id: str, connection_id: str = "con-durable") -> str:
         self.connections.setdefault(project_id, []).append(
@@ -193,6 +196,31 @@ class RecordingMemory:
                 row["disposition"] = disposition.strip().lower()
                 return row
         raise AssertionError(f"classified an unknown source {source_id}")
+
+    def _row(self, project_id: str, source_id: str) -> dict[str, Any]:
+        for row in self.rows.get(project_id, []):
+            if row["source_id"] == source_id:
+                return row
+        raise AssertionError(f"unknown source {source_id}")
+
+    async def stop_reading_source(self, project_id: str, source_id: str) -> dict[str, Any]:
+        """Memory's own idempotence, because the surface depends on it (`D-254`).
+
+        A double that overwrote the timestamp on every call would let a Studio
+        change that retires twice pass, while the deployment answers *when did
+        we stop reading this* with the wrong hour.
+        """
+
+        row = self._row(project_id, source_id)
+        if not row.get("retired_at"):
+            row["retired_at"] = f"2026-08-17T0{len(self.retirements)}:00:00+00:00"
+            self.retirements.append(source_id)
+        return row
+
+    async def resume_reading_source(self, project_id: str, source_id: str) -> dict[str, Any]:
+        row = self._row(project_id, source_id)
+        row["retired_at"] = None
+        return row
 
     async def aclose(self) -> None:
         """Closing is not a failure, and a stub that raises breaks teardown."""
@@ -1058,3 +1086,193 @@ class TestTheDispositionIsDecidedInStudioAndKeptInMemory:
         assert before["sources"][0]["documents"] == after["sources"][0]["documents"]
         assert before["sources"][0]["stored_bodies"] == after["sources"][0]["stored_bodies"]
         assert after["sources"][0]["disposition"] == "ephemeral"
+
+
+class TestASourceCanBeStoppedWithoutBeingErased:
+    """`SRC-ACT`'s Studio half — `D-230`, `D-254`, `D-258`.
+
+    The owner ruled that removing a source does not remove what it taught KAE,
+    and KAE-Memory built retirement rather than deletion for a reason about
+    provenance: every ingested document is grouped by `source_id`, so the row's
+    absence turns all of it into material naming no source.
+
+    What is Studio's to prove is the plumbing — that the gesture reaches the
+    record, that the record's answer is what the working set holds, and that a
+    restart does not resurrect a source nobody is reading.
+    """
+
+    def _configured_source(self, client: TestClient) -> str:
+        registered = client.post(
+            "/api/projects/p1/sources",
+            json={**CONFIGURED, "connection_id": connect(client)},
+        ).json()
+        return str(registered["source_id"])
+
+    def test_a_source_being_read_reports_no_retirement(self) -> None:
+        """`null`, and no `retired: false` beside it."""
+
+        client = app_with(RecordingMemory())
+        try:
+            self._configured_source(client)
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed["sources"][0]["retired_at"] is None
+
+    def test_stopping_reaches_the_record_and_comes_back(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            response = client.post(f"/api/sources/{source_id}/retirement")
+        finally:
+            client.__exit__(None, None, None)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["retired_at"] == memory.rows["p1"][0]["retired_at"]
+        assert memory.rows["p1"][0]["retired_at"]
+
+    def test_nothing_the_source_produced_is_removed_with_it(self) -> None:
+        """`D-230` as an assertion rather than a docstring.
+
+        The material report is the only thing in Studio that can see what a
+        source produced, and it must read the same afterwards. A control
+        labelled *Stop reading* beside counts that fell to zero would be a
+        deletion with a gentler word on it.
+        """
+
+        client = app_with(RecordingMemory())
+        try:
+            source_id = self._configured_source(client)
+            before = client.get("/api/projects/p1/source-material").json()
+            client.post(f"/api/sources/{source_id}/retirement")
+            after = client.get("/api/projects/p1/source-material").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [entry["source_id"] for entry in after["sources"]] == [source_id]
+        assert before["sources"][0]["documents"] == after["sources"][0]["documents"]
+        assert before["sources"][0]["stored_bodies"] == after["sources"][0]["stored_bodies"]
+
+    def test_the_source_is_still_listed(self) -> None:
+        # Retirement is not disappearance. A source that vanished from the list
+        # would leave a person with no way to start reading it again, which is
+        # the irreversible control `D-254` refused to build.
+        client = app_with(RecordingMemory())
+        try:
+            source_id = self._configured_source(client)
+            client.post(f"/api/sources/{source_id}/retirement")
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert [s["source_id"] for s in listed["sources"]] == [source_id]
+        assert listed["sources"][0]["retired_at"]
+
+    def test_stopping_twice_keeps_the_first_answer(self) -> None:
+        """*When did we stop reading this* has one true answer (`D-254`)."""
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            first = client.post(f"/api/sources/{source_id}/retirement").json()
+            second = client.post(f"/api/sources/{source_id}/retirement").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert first["retired_at"] == second["retired_at"]
+        assert memory.retirements == [source_id]
+
+    def test_reading_again_clears_it(self) -> None:
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            client.post(f"/api/sources/{source_id}/retirement")
+            resumed = client.delete(f"/api/sources/{source_id}/retirement")
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert resumed.status_code == 200, resumed.text
+        assert resumed.json()["retired_at"] is None
+        assert listed["sources"][0]["retired_at"] is None
+
+    def test_the_source_comes_back_where_it_was_left(self) -> None:
+        """Stopping reading a source never moved it backwards (`D-254`).
+
+        Retirement is orthogonal to `SourceState` rather than a fifth point
+        along it, and a resume that reset the state would make the reversal
+        cost a person whatever the source had reached.
+
+        Proved on a pasted document, which reaches `readable` through the
+        product's own path. A state written straight into the double would
+        prove nothing: the working set is authoritative over the record for
+        exactly this field, and `adopt` would ignore it.
+        """
+
+        client = app_with(RecordingMemory())
+        try:
+            client.post(
+                "/api/projects/p1/documents",
+                json={"title": "Project brief", "text": "We need monthly reports."},
+            )
+            source_id = client.get("/api/projects/p1/sources").json()["sources"][0]["source_id"]
+            client.post(f"/api/sources/{source_id}/retirement")
+            client.delete(f"/api/sources/{source_id}/retirement")
+            source = client.get("/api/projects/p1/sources").json()["sources"][0]
+        finally:
+            client.__exit__(None, None, None)
+
+        assert source["state"] == "readable"
+        assert source["retired_at"] is None
+
+    def test_the_retirement_outlives_the_process(self) -> None:
+        """`AUD-005`. Without this a restart reads every source as live.
+
+        The second app has never seen the gesture, so a working set that held
+        the timestamp only in memory would show a source KAE is not reading as
+        one it is — and the page would offer to stop reading it again.
+        """
+
+        memory = RecordingMemory()
+        first = app_with(memory)
+        source_id = self._configured_source(first)
+        first.post(f"/api/sources/{source_id}/retirement")
+        first.__exit__(None, None, None)
+
+        second = app_with(memory)
+        try:
+            listed = second.get("/api/projects/p1/sources").json()
+        finally:
+            second.__exit__(None, None, None)
+
+        assert listed["sources"][0]["retired_at"] == memory.rows["p1"][0]["retired_at"]
+
+    def test_re_registering_the_same_repository_is_the_update_path(self) -> None:
+        """Update-a-source needs no route of its own (`SRC-ACT`).
+
+        `register` is idempotent on `(project, kind, location)` and restates
+        scope, which is what updating a source is. Asserted here so the row's
+        second half is proved rather than argued.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            connection = connect(client)
+            client.post(
+                "/api/projects/p1/sources", json={**CONFIGURED, "connection_id": connection}
+            )
+            client.post(
+                "/api/projects/p1/sources",
+                json={**CONFIGURED, "connection_id": connection, "include_paths": ["docs/"]},
+            )
+            listed = client.get("/api/projects/p1/sources").json()
+        finally:
+            client.__exit__(None, None, None)
+
+        assert len(listed["sources"]) == 1
+        assert memory.rows["p1"][0]["scope"]["include_paths"] == ["docs/"]

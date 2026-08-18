@@ -275,6 +275,17 @@ class Source:
     #: chose to keep is the more expensive of the two mistakes. The five words
     #: are Memory's and are validated there; this carries whichever it returned.
     disposition: str = ""
+    #: When KAE stopped reading this source, ISO-8601, or `""` while it is
+    #: still read (`D-254`). **Not a `SourceState`**: retirement is orthogonal
+    #: to the four states rather than a fifth point along them — a source stops
+    #: being read from wherever it had got to and comes back there. The
+    #: timestamp rather than a flag, because *when did we stop reading this* is
+    #: the question the surface answers and Memory keeps the first answer.
+    retired_at: str = ""
+
+    @property
+    def retired(self) -> bool:
+        return bool(self.retired_at)
 
     def describe(self) -> dict[str, object]:
         """What a browser sees, including what is *not* true yet.
@@ -314,6 +325,10 @@ class Source:
             # `null`, never a default word. A reader has to be able to tell
             # "nobody has decided" from "somebody chose to keep this".
             "disposition": self.disposition or None,
+            # `null` while the source is read, which a reader can tell from a
+            # timestamp. There is no `retired: false` beside it: two fields for
+            # one fact are two chances to disagree.
+            "retired_at": self.retired_at or None,
             "analysis": ANALYSIS_UNAVAILABLE,
         }
 

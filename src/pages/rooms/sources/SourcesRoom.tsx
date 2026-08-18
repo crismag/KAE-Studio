@@ -81,6 +81,7 @@ import {
   useClassifySource,
   useIngestFiles,
   usePinSource,
+  useReadingSource,
   useSampleFile,
   useSourceFiles,
   useAvailableRepositories,
@@ -399,6 +400,11 @@ function SourceList({
                 // reached is neither absent nor a failed page — and the reason
                 // is the only part a person can act on.
                 const inaccessible = Boolean(source.lastError)
+                // Ahead of both, because it outranks them (`D-258`). A retired
+                // source's `lastError` is a fact about the last time anybody
+                // tried, and showing it over the retirement tells a person to
+                // go and fix something nobody is reading.
+                const retired = Boolean(source.retiredAt)
                 const active = source.sourceId === selectedId
                 return (
                   <tr
@@ -425,15 +431,19 @@ function SourceList({
                       </p>
                     </td>
                     <td className="px-4 py-2.5 align-top">
-                      <Badge tone={inaccessible ? 'attention' : state.tone}>
-                        {inaccessible ? 'Unreachable' : state.label}
+                      <Badge tone={retired ? 'neutral' : inaccessible ? 'attention' : state.tone}>
+                        {retired ? 'Not being read' : inaccessible ? 'Unreachable' : state.label}
                       </Badge>
                       {/* The sentence, not just the word. A badge reading
                           "Pinned" and one reading "Unreachable" call for
                           opposite responses and are the same shape at a
                           glance. */}
                       <p className="mt-1 max-w-xs text-[11px] leading-snug text-ink-subtle">
-                        {inaccessible ? source.lastError : state.means}
+                        {retired
+                          ? 'Stopped. What it already taught KAE stays.'
+                          : inaccessible
+                            ? source.lastError
+                            : state.means}
                       </p>
                     </td>
                     <td className="hidden px-4 py-2.5 align-top text-[11.5px] text-ink-muted sm:table-cell">
@@ -596,8 +606,83 @@ function SourceDetail({ source }: { source: ProjectSource }) {
 
       <Disposition source={source} />
 
+      <Reading source={source} />
+
       {pinned && <FileBrowser source={source} />}
     </div>
+  )
+}
+
+/**
+ * Stopping a source, and starting it again (`SRC-ACT`, `D-230`, `D-254`).
+ *
+ * **The word on the button is the increment.** The owner asked to be able to
+ * remove a source and then ruled that removing one does not remove what it
+ * taught KAE, so a control labelled *Remove* would name a gesture the system
+ * does not perform — `AUD-009` in one word. It says *Stop reading*, and beside
+ * it, in the same breath, what stays: the statements already extracted and the
+ * record of where they came from.
+ *
+ * What stays is said here rather than implied, because it is the part a person
+ * cannot check. The counts in *Where this material lives* directly above are
+ * the visible half of the same claim, and they do not move.
+ *
+ * The reversal sits where the act does. `D-254` made retirement reversible on
+ * purpose; a reversal a person cannot find is an irreversible control with
+ * extra steps.
+ */
+function Reading({ source }: { source: ProjectSource }) {
+  const reading = useReadingSource()
+  const retired = Boolean(source.retiredAt)
+
+  return (
+    <Panel>
+      <PanelHeader>
+        <PanelTitle>{retired ? 'KAE is not reading this' : 'Reading this source'}</PanelTitle>
+      </PanelHeader>
+      <PanelBody className="space-y-3">
+        <p className="text-[12.5px] leading-snug text-ink-muted">
+          {retired ? (
+            <>
+              KAE stopped reading this source
+              {isKnownTimestamp(source.retiredAt ?? '') &&
+                ` on ${formatDateTime(source.retiredAt ?? '')}`}
+              . Everything it had already taught KAE is still here, still says it came from here,
+              and is still counted above.
+            </>
+          ) : (
+            'Stopping is not deleting. KAE stops reading anything new from here; every statement it has already drawn from this source stays, and so does the record that this is where it came from.'
+          )}
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="secondary"
+            disabled={reading.isPending}
+            onClick={() => reading.mutate({ sourceId: source.sourceId, read: retired })}
+          >
+            {reading.isPending
+              ? retired
+                ? 'Starting…'
+                : 'Stopping…'
+              : retired
+                ? 'Read this again'
+                : 'Stop reading this source'}
+          </Button>
+          <span className="text-[11.5px] leading-snug text-ink-subtle">
+            {retired
+              ? 'It comes back where it was left — a pin it already had is still in force.'
+              : 'Reversible. This panel offers the way back.'}
+          </span>
+        </div>
+
+        {reading.error instanceof Error && (
+          <p role="alert" className="text-[12px] text-blocking">
+            {reading.error.message}
+          </p>
+        )}
+      </PanelBody>
+    </Panel>
   )
 }
 

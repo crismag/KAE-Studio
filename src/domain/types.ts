@@ -835,6 +835,18 @@ export interface ProjectSource {
   lastError: string
   /** `null` until somebody decides. Never defaulted — see `SourceDisposition`. */
   disposition: SourceDisposition | null
+  /**
+   * When KAE stopped reading this source, or `null` while it still is
+   * (`D-254`, `D-258`).
+   *
+   * **Not a `SourceState`.** Retirement is orthogonal to the four: a source
+   * stops being read from wherever it had got to, and comes back there. And
+   * not a boolean — *when did we stop reading this* is the question the panel
+   * answers, and KAE-Memory keeps the first answer on purpose.
+   *
+   * Nothing it already taught KAE goes with it (`D-230`).
+   */
+  retiredAt: string | null
   /** Present on every source, always. A conditional field is one a UI forgets. */
   analysis: CapabilityGap
 }

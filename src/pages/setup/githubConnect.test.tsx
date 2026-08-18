@@ -47,6 +47,8 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
       addSource: (projectId, input) => port.addSource(projectId, input),
       pinSource: (sourceId) => port.pinSource(sourceId),
       classifySource: (sourceId, disposition) => port.classifySource(sourceId, disposition),
+      stopReadingSource: (sourceId) => port.stopReadingSource(sourceId),
+      resumeReadingSource: (sourceId) => port.resumeReadingSource(sourceId),
       sourceMaterial: (projectId) => port.sourceMaterial(projectId),
       listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
       sample: (sourceId, path) => port.sample(sourceId, path),

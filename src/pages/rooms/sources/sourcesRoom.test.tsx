@@ -54,6 +54,8 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
       addSource: (projectId, input) => port.addSource(projectId, input),
       pinSource: (sourceId) => port.pinSource(sourceId),
       classifySource: (sourceId, disposition) => port.classifySource(sourceId, disposition),
+      stopReadingSource: (sourceId) => port.stopReadingSource(sourceId),
+      resumeReadingSource: (sourceId) => port.resumeReadingSource(sourceId),
       sourceMaterial: (projectId) => port.sourceMaterial(projectId),
       listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
       sample: (sourceId, path) => port.sample(sourceId, path),
@@ -81,6 +83,7 @@ const PINNED: ProjectSource = {
   },
   lastError: '',
   disposition: null,
+  retiredAt: null,
   analysis: {
     capability: 'repository-analysis',
     reason: 'not built',
@@ -1040,5 +1043,146 @@ describe('when a pin was taken', () => {
     // about the dated sentence.
     expect(screen.queryByText(/Pinned \d/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Pinned —/)).not.toBeInTheDocument()
+  })
+})
+
+describe('a source can be stopped without being erased', () => {
+  /**
+   * `SRC-ACT`'s Studio half — `D-230`, `D-254`, `D-258`.
+   *
+   * The owner asked to be able to remove a source and then ruled that removing
+   * one does **not** remove what it taught KAE. So the assertions here are as
+   * much about the words as the call: a control labelled *Remove* on a page
+   * where nothing is removed is `AUD-009` in one word.
+   */
+
+  const RETIRED: ProjectSource = { ...PINNED, retiredAt: '2026-08-17T14:30:00Z' }
+
+  it('offers stopping rather than deleting, and says what stays', async () => {
+    renderSources((services) => withPinnedSource(services))
+
+    expect(await screen.findByRole('button', { name: /Stop reading this source/i })).toBeEnabled()
+    // The claim a person cannot check for themselves, in words on the page.
+    expect(screen.getByText(/Stopping is not deleting/i)).toBeInTheDocument()
+    expect(screen.getByText(/every statement it has already drawn/i)).toBeInTheDocument()
+  })
+
+  it('never offers to delete or remove a source', async () => {
+    // The negative half, and the reason this test exists at all. The gesture
+    // could be built correctly and named wrongly, and the name is what a
+    // person acts on.
+    renderSources((services) => withPinnedSource(services))
+
+    await screen.findByRole('button', { name: /Stop reading this source/i })
+    expect(screen.queryByRole('button', { name: /^Delete/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Remove/i })).not.toBeInTheDocument()
+  })
+
+  it('sends the gesture and shows what came back', async () => {
+    const stopped: string[] = []
+    renderSources((services) =>
+      withPinnedSource(services, {
+        stopReadingSource: async (sourceId) => {
+          stopped.push(sourceId)
+          return RETIRED
+        },
+        listSources: async () => ({
+          sources: [stopped.length ? RETIRED : PINNED],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /Stop reading this source/i }))
+
+    expect(stopped).toEqual(['src-1'])
+    // Read back from the record rather than from the click.
+    expect(
+      await screen.findByText(/KAE stopped reading this source on 17 Aug/i),
+    ).toBeInTheDocument()
+  })
+
+  it('offers the way back where the stop was', async () => {
+    // `D-254` made retirement reversible on purpose. A reversal a person
+    // cannot find is an irreversible control with extra steps.
+    const resumed: string[] = []
+    renderSources((services) =>
+      withPinnedSource(services, {
+        resumeReadingSource: async (sourceId) => {
+          resumed.push(sourceId)
+          return PINNED
+        },
+        listSources: async () => ({
+          sources: [resumed.length ? PINNED : RETIRED],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /Read this again/i }))
+
+    expect(resumed).toEqual(['src-1'])
+    expect(
+      await screen.findByRole('button', { name: /Stop reading this source/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('says a stopped source is not being read, over whatever state it was in', async () => {
+    // The row's State column. A retired source's `lastError` is a fact about
+    // the last time anybody tried, and showing it over the retirement tells a
+    // person to fix something nobody is reading.
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({
+          sources: [{ ...RETIRED, lastError: 'the credential could not reach it' }],
+          unavailable: '',
+        }),
+      }),
+    )
+
+    expect(await screen.findByText('Not being read')).toBeInTheDocument()
+    expect(screen.queryByText('Unreachable')).not.toBeInTheDocument()
+  })
+
+  it('keeps a stopped source in the list', async () => {
+    // Retirement is not disappearance. A source that vanished would leave
+    // nobody a way to start reading it again.
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({ sources: [RETIRED], unavailable: '' }),
+      }),
+    )
+
+    // The row and the detail panel both name it, which is itself the point:
+    // a stopped source is still selectable.
+    expect(await screen.findAllByText('ministry/reporting-platform')).not.toHaveLength(0)
+  })
+
+  it('does not claim the material it produced went with it', async () => {
+    // `D-230`, as the one thing on this page that could contradict the
+    // sentence beside the button. The counts are read from the material report
+    // and must be there, unchanged, beside a stopped source.
+    renderSources((services) =>
+      withPinnedSource(services, {
+        listSources: async () => ({ sources: [RETIRED], unavailable: '' }),
+        sourceMaterial: async () => ({
+          sources: [
+            {
+              sourceId: 'src-1',
+              kind: 'github',
+              location: 'ministry/reporting-platform',
+              disposition: null,
+              documents: 4,
+              storedBodies: 11,
+            },
+          ],
+          unattributedDocuments: 0,
+          unattributedBodies: 0,
+        }),
+      }),
+    )
+
+    expect(await screen.findByText(/4 documents read from this source/i)).toBeInTheDocument()
+    expect(screen.getByText(/11 stored copies of their text/i)).toBeInTheDocument()
   })
 })

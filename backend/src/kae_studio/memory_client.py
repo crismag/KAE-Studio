@@ -131,6 +131,31 @@ class MemoryClient:
             json={"disposition": disposition},
         )
 
+    async def stop_reading_source(self, project_id: str, source_id: str) -> Any:
+        """Stop KAE reading this source. What it already taught KAE stays.
+
+        `POST` rather than `DELETE`, which is Memory's own choice and its
+        reason (`D-254`): nothing is deleted, and the verb a client reads is
+        the clearest statement of that. Idempotent — retiring twice keeps the
+        first timestamp, because *when did we stop reading this* has one
+        answer.
+        """
+
+        return await self._request(
+            "POST", f"/v1/projects/{project_id}/sources/{source_id}/retirement"
+        )
+
+    async def resume_reading_source(self, project_id: str, source_id: str) -> Any:
+        """Read this source again.
+
+        The source comes back at the state it was left at — stopping reading a
+        pinned repository never unpinned it.
+        """
+
+        return await self._request(
+            "DELETE", f"/v1/projects/{project_id}/sources/{source_id}/retirement"
+        )
+
     async def source_material(self, project_id: str) -> Any:
         """What a retention decision about each source would apply to (`D-170`).
 

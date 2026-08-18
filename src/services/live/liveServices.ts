@@ -585,6 +585,10 @@ interface WireSource {
   //: older than this field is silent about it, and silence there is the same
   //: fact as `null` — nobody has decided.
   disposition?: SourceDisposition | null
+  //: `null` while the source is read. Optional for the same reason as
+  //: `disposition`: a backend older than the field is silent, and silence is
+  //: the same fact as `null` — nothing has been retired.
+  retired_at?: string | null
   analysis: { capability: string; reason: string; state: 'planned'; proved_instead: string[] }
 }
 
@@ -623,6 +627,7 @@ function projectSource(wire: WireSource): ProjectSource {
       : null,
     lastError: wire.last_error,
     disposition: wire.disposition ?? null,
+    retiredAt: wire.retired_at ?? null,
     analysis: {
       capability: wire.analysis.capability,
       reason: wire.analysis.reason,
@@ -2267,6 +2272,18 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         await callArtifacts<WireSource>(`/api/sources/${sourceId}/disposition`, {
           method: 'POST',
           body: JSON.stringify({ disposition }),
+        }),
+      ),
+
+    stopReadingSource: async (sourceId) =>
+      projectSource(
+        await callArtifacts<WireSource>(`/api/sources/${sourceId}/retirement`, { method: 'POST' }),
+      ),
+
+    resumeReadingSource: async (sourceId) =>
+      projectSource(
+        await callArtifacts<WireSource>(`/api/sources/${sourceId}/retirement`, {
+          method: 'DELETE',
         }),
       ),
 

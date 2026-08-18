@@ -62,6 +62,8 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
       addSource: (projectId, input) => port.addSource(projectId, input),
       pinSource: (sourceId) => port.pinSource(sourceId),
       classifySource: (sourceId, disposition) => port.classifySource(sourceId, disposition),
+      stopReadingSource: (sourceId) => port.stopReadingSource(sourceId),
+      resumeReadingSource: (sourceId) => port.resumeReadingSource(sourceId),
       sourceMaterial: (projectId) => port.sourceMaterial(projectId),
       listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
       sample: (sourceId, path) => port.sample(sourceId, path),
@@ -300,6 +302,7 @@ describe('verified is earned, not granted', () => {
     snapshot: null,
     lastError: '',
     disposition: null,
+    retiredAt: null,
     analysis: { capability: 'analysis', reason: '', state: 'planned' as const, provedInstead: [] },
   }
 
@@ -326,6 +329,8 @@ describe('verified is earned, not granted', () => {
           addSource: (projectId, input) => port.addSource(projectId, input),
           pinSource: (sourceId) => port.pinSource(sourceId),
           classifySource: (sourceId, disposition) => port.classifySource(sourceId, disposition),
+          stopReadingSource: (sourceId) => port.stopReadingSource(sourceId),
+          resumeReadingSource: (sourceId) => port.resumeReadingSource(sourceId),
           sourceMaterial: (projectId) => port.sourceMaterial(projectId),
           listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
           sample: (sourceId, path) => port.sample(sourceId, path),

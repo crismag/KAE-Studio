@@ -1793,6 +1793,10 @@ def create_app(settings: Settings) -> FastAPI:
                     # reading as one somebody chose to keep is the expensive
                     # mistake `SourceResponse` keeps the column nullable for.
                     disposition=str(entry.get("disposition") or ""),
+                    # Without this a restart shows every retired source as one
+                    # KAE is still reading — the working set contradicting the
+                    # record, which is the whole reason rehydration exists.
+                    retired_at=str(entry.get("retired_at") or ""),
                 )
             )
             return location
@@ -1984,6 +1988,52 @@ def create_app(settings: Settings) -> FastAPI:
         )
         applied = str(recorded.get("disposition") or "") if isinstance(recorded, dict) else ""
         return acquisition(request).record_disposition(source_id, applied).describe()
+
+    @app.post("/api/sources/{source_id}/retirement")
+    async def stop_reading_source(
+        source_id: str,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Stop KAE reading this source. What it already taught KAE stays.
+
+        `D-230` is the owner's ruling that removing a source does not remove
+        what it taught KAE, and `D-254` is why nothing here is a deletion: the
+        statements would survive one, but every ingested document is grouped by
+        `source_id`, so the row's absence turns all of it into material naming
+        no source.
+
+        `POST` on a `retirement` noun, mirroring Memory's own verbs — a client
+        reading both routes should not have to learn two spellings of one act.
+
+        Memory is asked first and the working set takes the timestamp that came
+        back, so this process can never claim a retirement the record does not
+        hold.
+        """
+
+        source = acquisition(request).source(source_id)
+        recorded = await memory(request).stop_reading_source(source.project_id, source_id)
+        retired = str(recorded.get("retired_at") or "") if isinstance(recorded, dict) else ""
+        return acquisition(request).record_retirement(source_id, retired).describe()
+
+    @app.delete("/api/sources/{source_id}/retirement")
+    async def resume_reading_source(
+        source_id: str,
+        request: Request,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Read this source again.
+
+        Retirement is reversible on purpose (`D-254`), and the reversal is a
+        route rather than a re-registration: `register` would also un-retire the
+        source, but it restates scope and connection while doing it, so the
+        cheap gesture would carry a write nobody asked for.
+        """
+
+        source = acquisition(request).source(source_id)
+        recorded = await memory(request).resume_reading_source(source.project_id, source_id)
+        retired = str(recorded.get("retired_at") or "") if isinstance(recorded, dict) else ""
+        return acquisition(request).record_retirement(source_id, retired).describe()
 
     @app.post("/api/sources/{source_id}/sample")
     async def sample_source(

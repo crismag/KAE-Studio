@@ -1259,6 +1259,9 @@ class MockAcquisition implements AcquisitionPort {
       // Undecided, like every source on every deployment: nothing has ever
       // written this column from the product, which is what `D-168` builds.
       disposition: null,
+      // Read, like every source somebody configured on purpose. The fixture
+      // shows the ordinary case; retirement is reached by using the control.
+      retiredAt: null,
       analysis: {
         capability: 'source.analysis',
         reason:
@@ -1402,6 +1405,7 @@ class MockAcquisition implements AcquisitionPort {
       snapshot: null,
       lastError: '',
       disposition: null,
+      retiredAt: null,
       analysis: ANALYSIS_GAP,
     }
     this.sources.push(source)
@@ -1439,6 +1443,29 @@ class MockAcquisition implements AcquisitionPort {
     const classified: ProjectSource = { ...this.sources[index], disposition }
     this.sources[index] = classified
     return delay({ ...classified }, 400)
+  }
+
+  stopReadingSource(sourceId: string): Promise<ProjectSource> {
+    const index = this.sources.findIndex((s) => s.sourceId === sourceId)
+    if (index === -1) throw new Error(`Unknown source: ${sourceId}`)
+    // The source keeps its place in the list, its state, its snapshot and its
+    // material, because that is what the deployment does (`D-230`, `D-254`).
+    // A mock that removed the row would teach that this is a deletion — the
+    // one thing the row exists to make untrue.
+    const existing = this.sources[index]
+    // The first timestamp is the one that counts, so stopping twice does not
+    // move it.
+    const retired: ProjectSource = { ...existing, retiredAt: existing.retiredAt ?? nextTimestamp() }
+    this.sources[index] = retired
+    return delay({ ...retired }, 400)
+  }
+
+  resumeReadingSource(sourceId: string): Promise<ProjectSource> {
+    const index = this.sources.findIndex((s) => s.sourceId === sourceId)
+    if (index === -1) throw new Error(`Unknown source: ${sourceId}`)
+    const resumed: ProjectSource = { ...this.sources[index], retiredAt: null }
+    this.sources[index] = resumed
+    return delay({ ...resumed }, 400)
   }
 
   sourceMaterial(): Promise<MaterialReport> {

@@ -302,6 +302,20 @@ class AcquisitionService:
         self._sources[source_id] = updated
         return updated
 
+    def record_retirement(self, source_id: str, retired_at: str) -> Source:
+        """Take a retirement KAE-Memory has already recorded (`D-254`).
+
+        **Not the decision.** Memory owns the timestamp and keeps the first one,
+        so the value applied here is whatever came back rather than one this
+        process computed — which is also why resuming passes `""`. Without it
+        `adopt`'s `setdefault` would keep the old value until a restart, the
+        page saying a source is read and the record saying it is not.
+        """
+
+        updated = _with_source(self.source(source_id), retired_at=retired_at)
+        self._sources[source_id] = updated
+        return updated
+
     def pin(self, source_id: str) -> Source:
         """Resolve the reference to an immutable commit and describe the scope.
 

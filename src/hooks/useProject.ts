@@ -586,6 +586,35 @@ export function useClassifySource() {
 }
 
 /**
+ * Stop reading a source, or read it again (`D-230`, `D-254`, `D-258`).
+ *
+ * One hook for both directions, because they are one control: the panel offers
+ * whichever the source is not, and splitting them would let a reversal grow a
+ * different set of invalidations from the act it reverses.
+ *
+ * The material report is invalidated with the source list — not because the
+ * counts change, which is the whole point of `D-230`, but because a report read
+ * before the gesture and rendered after it is the one place a person could
+ * conclude they did change.
+ */
+export function useReadingSource() {
+  const { acquisition, projectId } = useServices()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { sourceId: string; read: boolean }) =>
+      input.read
+        ? acquisition.resumeReadingSource(input.sourceId)
+        : acquisition.stopReadingSource(input.sourceId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['sources', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['source-material', projectId] }),
+      ])
+    },
+  })
+}
+
+/**
  * How much stored text each source's disposition would apply to (`D-170`).
  *
  * Read beside the picker, and its own query rather than part of the source

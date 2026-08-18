@@ -447,6 +447,28 @@ export interface AcquisitionPort {
    */
   classifySource(sourceId: string, disposition: SourceDisposition): Promise<ProjectSource>
   /**
+   * Stop KAE reading this source. **What it already taught KAE stays**
+   * (`D-230`, `D-254`).
+   *
+   * Not a deletion, and the name says so at every layer down to Memory's own
+   * route. The statements extracted from this source survive, and so does the
+   * record of where they came from — which is the reason it is not a delete:
+   * every ingested document is grouped by `source_id`, so removing the row
+   * would turn all of it into material naming no source.
+   *
+   * Idempotent. Stopping twice keeps the first timestamp.
+   */
+  stopReadingSource(sourceId: string): Promise<ProjectSource>
+  /**
+   * Read this source again.
+   *
+   * The reversal exists because the alternative is irreversible, and it is
+   * offered where the stop was — a reversal a person cannot find is an
+   * irreversible control with extra steps. The source comes back at whatever
+   * state it was left at.
+   */
+  resumeReadingSource(sourceId: string): Promise<ProjectSource>
+  /**
    * How much stored text each source's disposition would apply to (`D-170`).
    *
    * **A report, and no behaviour.** It is read beside the picker so a person
