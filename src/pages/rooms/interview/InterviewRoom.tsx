@@ -1001,6 +1001,38 @@ function ContextPanelContent({
   )
 }
 
+/* ------------------------------------------------------------ turn failure */
+
+/**
+ * A turn that did not go through, said out loud and said truthfully.
+ *
+ * Announced, which it was not (`§17`, `D-42`) — a person using a screen reader
+ * was told nothing on the one action this room exists for.
+ *
+ * **And it used to end *"Nothing was recorded, so sending it again is safe."***
+ * CIE records the message before it asks the model
+ * (`cie_slim/kae/conversation.py:644`), so on the ordinary failure — a cold
+ * model, an unpulled one, an empty completion — both halves were false, and the
+ * advice was exactly the duplicate that `api.py:1068` and `useSendMessage` were
+ * each written to prevent in an append-only store (`D-284`).
+ *
+ * Studio cannot tell which failure it got: an unconfigured interviewer and a
+ * provider refusal record nothing, a model failure records the message, and all
+ * three arrive as the same 503 string. So this says *may*, and points at the
+ * transcript, rather than swapping one confident falsehood for its opposite
+ * (`D-38`). It is a separate component so a guard can reach the sentence
+ * without driving the whole room (`D-213`).
+ */
+export function TurnFailed({ reason }: { reason: string }) {
+  return (
+    <ActionFailed className="border-l-2 border-blocking-line pl-3">
+      That message did not go through: {reason}. Your message may already be recorded — it goes to
+      KAE-Memory before the interviewer is asked — so check the conversation above before sending it
+      again. A second send would be a second copy.
+    </ActionFailed>
+  )
+}
+
 /* ---------------------------------------------------------------- composer */
 
 export function Composer({
@@ -1240,14 +1272,7 @@ export function InterviewRoom() {
             )}
 
             {!sendMessage.isPending && sendMessage.isError && (
-              // Announced, which it was not (`§17`, `D-42`). The sentence says
-              // what happened, what it cost and exactly what to do — and
-              // somebody using a screen reader was told none of it, on the one
-              // action this room exists for.
-              <ActionFailed className="border-l-2 border-blocking-line pl-3">
-                That message did not go through: {(sendMessage.error as Error).message}. Nothing was
-                recorded, so sending it again is safe.
-              </ActionFailed>
+              <TurnFailed reason={(sendMessage.error as Error).message} />
             )}
           </div>
         </div>

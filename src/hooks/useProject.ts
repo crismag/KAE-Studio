@@ -78,10 +78,21 @@ export function useSendMessage() {
       return { result: { accepted: true, memoryRevision: null }, turn }
     },
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+    },
+    // The transcript is read again whether or not the turn succeeded, because
+    // the message is durable either way: CIE records it before it asks the
+    // model, and the composer has already cleared the draft. Refreshing only on
+    // success left the sentence gone from the box, absent from the conversation
+    // and present in KAE-Memory — the one state in which "nothing was recorded"
+    // is most persuasive and least true (`D-284`).
+    //
+    // The projection is not refreshed here. A failed turn produced nothing, so
+    // asking for it again would be a guess dressed as a refresh.
+    onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['messages', projectId] }),
         queryClient.invalidateQueries({ queryKey: ['session', projectId] }),
-        queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
       ])
     },
   })

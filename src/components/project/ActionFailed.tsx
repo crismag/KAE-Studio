@@ -13,6 +13,13 @@
  * somebody using a screen reader was told none of it. `§16` was satisfied and
  * `§17` was not, which is why the package lists them separately.
  *
+ * **It was also untrue, and this docstring admiring it is part of why nobody
+ * re-read it** (`D-284`). CIE records the message before it asks the model, so
+ * the ordinary failure leaves it durable and the advice to send it again was
+ * the duplicate two other comments in this codebase exist to prevent. Quoted
+ * here as it was, because the point it illustrates is about the announcement
+ * and not about the wording; the room says something true now.
+ *
  * ## `alert`, not `status`
  *
  * A failed action is assertive by definition: the person is waiting on it, and

@@ -106,6 +106,13 @@ describe('a note offers one exact action, or none at all', () => {
  * inaudible. `§16` was satisfied and `§17` was not, which is why the package
  * lists them separately.
  *
+ * **That sentence was also false**, and this file quoting it as the exemplar is
+ * part of why it survived (`D-284`). CIE records the message before it asks the
+ * model, so the ordinary failure leaves it durable and a resend appends a second
+ * copy. The fixture below carries the corrected wording; what `§17` asks of the
+ * component — that a recovery is announced and not merely a breakage — is
+ * unchanged, because the recovery is still there and is now the true one.
+ *
  * **The count was corrected before it landed.** A scan said nine such sites; on
  * reading the components, seven render a `Refusal` that has carried
  * `role="alert"` all along. A scan is evidence of where to look.
@@ -122,9 +129,13 @@ describe('a failed action is announced', () => {
   it('carries the recovery the sentence names', () => {
     // `§16` and `§17` together: the announcement is worth nothing if it says
     // only that something broke.
-    render(<ActionFailed>Nothing was recorded, so sending it again is safe.</ActionFailed>)
+    render(
+      <ActionFailed>
+        Check the conversation above before sending it again. A second send would be a second copy.
+      </ActionFailed>,
+    )
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/sending it again is safe/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/before sending it again/i)
   })
 
   it('does not announce a condition of the page', () => {
