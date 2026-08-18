@@ -58,14 +58,24 @@ function sourceFiles(dir: string): string[] {
 }
 
 /**
- * Whether anything outside the hook module names it.
+ * Whether anything outside the hook module **calls** it (`D-262`).
  *
  * Tests are excluded on purpose. A hook exercised only by its own test is
  * reached by nobody a person can see, which is the state this checks for.
+ *
+ * The parenthesis is the point. This asked whether the name appeared, and a
+ * comment, a bare import and a string all satisfy that — so a hook could lose
+ * its last caller and stay green on a sentence about it. `SourcesRoom.tsx`
+ * names `usePinSource` in a comment twelve lines above the one place it is
+ * called, so the near-miss is in the tree rather than imagined. A React hook is
+ * always invoked as `name(...)`, so requiring it costs no true positive.
  */
+function namesACall(name: string, text: string): boolean {
+  return new RegExp(`\\b${name}\\s*\\(`).test(text)
+}
+
 function reachedBySomething(name: string, files: string[]): boolean {
-  const word = new RegExp(`\\b${name}\\b`)
-  return files.some((path) => word.test(readFileSync(path, 'utf8')))
+  return files.some((path) => namesACall(name, readFileSync(path, 'utf8')))
 }
 
 describe('the project hooks', () => {
@@ -87,5 +97,20 @@ describe('the project hooks', () => {
   it('registers no hook that something now calls', () => {
     const stale = Object.keys(UNREACHED).filter((name) => reachedBySomething(name, callers))
     expect(stale).toEqual([])
+  })
+
+  it('counts a call and not a mention of one', () => {
+    expect(namesACall('usePinSource', 'const pin = usePinSource()')).toBe(true)
+    expect(namesACall('usePinSource', 'const pin = usePinSource ()')).toBe(true)
+
+    // The three shapes the word-boundary rule could not tell from a call, and
+    // the first of them is real: `SourcesRoom.tsx` says this in a comment.
+    expect(
+      namesACall('usePinSource', ' * both adapters and `usePinSource` — and no component'),
+    ).toBe(false)
+    expect(
+      namesACall('usePinSource', "import { usePinSource } from '../../../hooks/useProject'"),
+    ).toBe(false)
+    expect(namesACall('usePinSource', "track('usePinSource')")).toBe(false)
   })
 })
