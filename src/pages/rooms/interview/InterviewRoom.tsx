@@ -43,6 +43,7 @@ import { SectionsNotRead } from '@/components/project/SectionsNotRead'
 import { ClassificationState } from './ClassificationState'
 import { sectionsNotRead } from '@/components/project/sectionsNotRead'
 import { floorAction, type RecommendedAction } from '@/components/project/nextActionFloor'
+import { rankingPredatesTheProject } from '@/components/project/reasonedBefore'
 import {
   useClassify,
   useConfirmReading,
@@ -858,6 +859,7 @@ function ContextPanelContent({
   onDiscuss,
   onDiscussDecision,
   recommended,
+  predates,
 }: {
   onDiscuss?: (area: string) => void
   /**
@@ -869,6 +871,13 @@ function ContextPanelContent({
   onDiscussDecision?: (question: string) => void
   /** The latest turn's ranking, if a turn has happened in this session. */
   recommended?: RecommendedAction
+  /**
+   * Whether that ranking was reasoned before the project last moved (`D-287`).
+   *
+   * Only meaningful alongside `recommended`: the floor is not reasoned against
+   * a projection at all, so it cannot predate one.
+   */
+  predates?: boolean
 }) {
   const { data: projection } = useProjection()
   const classify = useClassify()
@@ -888,7 +897,13 @@ function ContextPanelContent({
           information, and the reader has to know that before they act on it. */}
       <SectionsNotRead unavailable={projection.unavailable} />
 
-      <NextAction action={action} derived={recommended === undefined} />
+      {/* `predates` only ever qualifies a ranked recommendation. The floor is
+          derived from the projection as it is now, so it is never behind it. */}
+      <NextAction
+        action={action}
+        derived={recommended === undefined}
+        predatesTheProject={recommended !== undefined && predates === true}
+      />
 
       <Panel>
         <PanelHeader>
@@ -1135,6 +1150,10 @@ export function InterviewRoom() {
     .reverse()
     .flatMap((m) => m.nextAction ?? [])
     .at(0) as RecommendedAction | undefined
+  // Whether that ranking was reasoned before the project last moved. Read from
+  // the same transcript, so it costs nothing beyond what is already loaded —
+  // which is what keeps the panel always-present (`D-287`).
+  const predates = rankingPredatesTheProject(messages ?? [])
   const [draft, setDraft] = useState('')
 
   // The last turn, only when it produced no question. A question is written to
@@ -1291,6 +1310,7 @@ export function InterviewRoom() {
           onDiscuss={discuss}
           onDiscussDecision={discussDecision}
           recommended={recommended}
+          predates={predates}
         />
       </aside>
 
@@ -1317,6 +1337,7 @@ export function InterviewRoom() {
               onDiscuss={discuss}
               onDiscussDecision={discussDecision}
               recommended={recommended}
+              predates={predates}
             />
           </Dialog.Content>
         </Dialog.Portal>

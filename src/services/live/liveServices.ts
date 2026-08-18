@@ -1500,6 +1500,7 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
               material: boolean
             }[]
             recommendation?: { advice: string; reason: string; consequence: string } | null
+            projection_fingerprint?: string
           }
         }[]
       >(`/api/projects/${resolve(id)}/messages`)
@@ -1535,6 +1536,16 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
           material: c.material,
         })),
         recommendation: m.metadata?.recommendation ?? null,
+        // The durable state this turn was reasoned from, as CIE's own digest of
+        // it. Carried so a ranking can be compared with a later turn's and said
+        // to predate what the project now holds — the backend has written it
+        // for exactly that since the turn route was built, and dropping it here
+        // meant nothing could ever check (`D-287`).
+        //
+        // Absent is normal and says nothing: a person's message, a system
+        // message, and any turn recorded before this existed all arrive without
+        // one.
+        projectionFingerprint: m.metadata?.projection_fingerprint || undefined,
         // Rebuilt from metadata, so every turn can explain itself rather than
         // only the most recent one. Absent for messages recorded before this
         // existed, and for anything a person wrote.

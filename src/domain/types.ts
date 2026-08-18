@@ -114,6 +114,19 @@ export interface ConversationMessage {
    * must not blur them, or advice becomes a decision by omission.
    */
   recommendation?: { advice: string; reason: string; consequence: string } | null
+  /**
+   * CIE's digest of the durable records this turn was reasoned from.
+   *
+   * A consistency marker, not a timestamp and not KAE-Memory's
+   * `knowledge_revision` — that one lives on the readiness record and stays put
+   * through every write, so a marker keyed on it would report *unchanged* while
+   * the project moved. Two turns carrying the same one were reasoned from the
+   * same durable state.
+   *
+   * Absent says nothing at all: a person's message has none, so does a system
+   * message, and so does any turn recorded before this was carried (`D-287`).
+   */
+  projectionFingerprint?: string
   /** What the turn settled on its own account, and how much each one costs. */
   concluded?: {
     statement: string

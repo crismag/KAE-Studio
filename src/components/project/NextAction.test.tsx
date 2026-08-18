@@ -64,6 +64,53 @@ describe('the recommended next action', () => {
 
     expect(screen.queryByText(/has not weighed it against anything else/i)).not.toBeInTheDocument()
   })
+
+  it('says when a ranking was reasoned before the project last changed', () => {
+    // The third grade of claim (`D-287`). Still guidance, and probably still
+    // right — what a reader cannot otherwise tell is that it was decided
+    // before the last thing that landed.
+    render(
+      <NextAction
+        action={{ kind: 'review', label: 'Review 3 requirements', reason: 'oldest work' }}
+        predatesTheProject
+      />,
+    )
+
+    expect(screen.getByText(/weighed before the project last changed/i)).toBeInTheDocument()
+  })
+
+  it('offers the way out rather than only the qualification', () => {
+    // `UX-16`: a qualified state carries one exact next action. Here it is to
+    // say something, in the composer on the same screen.
+    render(
+      <NextAction
+        action={{ kind: 'review', label: 'Review 3 requirements', reason: 'oldest work' }}
+        predatesTheProject
+      />,
+    )
+
+    expect(screen.getByText(/say something and KAE will weigh it again/i)).toBeInTheDocument()
+  })
+
+  it('does not hedge a current ranking', () => {
+    render(
+      <NextAction
+        action={{ kind: 'review', label: 'Review 3 requirements', reason: 'oldest work' }}
+      />,
+    )
+
+    expect(screen.queryByText(/weighed before the project last changed/i)).not.toBeInTheDocument()
+  })
+
+  it('never stacks the two qualifications on one action', () => {
+    // A derived action was computed from the projection as it is now, so it
+    // cannot be behind it. Both lines together would be the panel arguing
+    // with itself about which claim it is making.
+    render(<NextAction action={floorAction(projection())} derived predatesTheProject />)
+
+    expect(screen.getByText(/has not weighed it against anything else/i)).toBeInTheDocument()
+    expect(screen.queryByText(/weighed before the project last changed/i)).not.toBeInTheDocument()
+  })
 })
 
 describe('the floor', () => {

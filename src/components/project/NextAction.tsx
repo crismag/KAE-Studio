@@ -32,11 +32,22 @@ import type { RecommendedAction } from './nextActionFloor'
 export function NextAction({
   action,
   derived,
+  predatesTheProject,
   onAct,
 }: {
   action: RecommendedAction
   /** True when this came from the floor rather than from a ranked turn. */
   derived?: boolean
+  /**
+   * True when this was ranked, but against durable state the project has since
+   * moved past (`D-287`).
+   *
+   * A third grade of claim beside *reasoned* and *derived*, and the weakest
+   * distinction of the three: nothing here is wrong, and the action may well
+   * still be the right one. What a reader cannot otherwise tell is that it was
+   * decided before the last thing that landed.
+   */
+  predatesTheProject?: boolean
   onAct?: (action: RecommendedAction) => void
 }) {
   return (
@@ -56,6 +67,16 @@ export function NextAction({
         <p className="mt-1.5 text-[11.5px] italic text-ink-subtle">
           Suggested from where this project has got to — KAE has not weighed it against anything
           else yet.
+        </p>
+      )}
+      {predatesTheProject && !derived && (
+        // The same register as the line above, deliberately. This is a
+        // qualification and not an alarm: a colour or a warning glyph would
+        // make a recommendation that is probably still right look broken, and
+        // `UX-16` asks a qualified state to carry its own next action — which
+        // here is simply to say something, in the composer on the same screen.
+        <p className="mt-1.5 text-[11.5px] italic text-ink-subtle">
+          Weighed before the project last changed — say something and KAE will weigh it again.
         </p>
       )}
       {onAct && (
