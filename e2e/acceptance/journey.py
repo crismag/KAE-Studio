@@ -438,15 +438,27 @@ def does_not_know() -> None:
     """
 
     header("J3 — deferring is not deciding")
-    project = new_project("Acceptance J3")
+    # Named per run, for `D-265`'s reason one function away: Memory derives a
+    # project key from the name and returns the existing project for a repeat, so
+    # a fixed name would let clause 1 hold on candidates the deferral turn never
+    # produced (`D-273`).
+    project = new_project(f"Acceptance J3 {int(time.time())}")
     say(project, "A scheduling tool for a small veterinary practice.")
     wait_for_candidates(project, 1)
 
     before = projection(project)
     settled_before = len(before.get("confirmed") or [])
     established_before = _established(before)
+    proposed_before = len(before.get("proposed") or [])
 
     say(project, DONT_KNOW)
+    # Wait for the deferral turn's **own** extraction. Reading the projection
+    # straight after `say` read the first turn's candidates and none of this
+    # one's, so clause 3 — the clause `J3` is named for — took its `else` branch
+    # on every run and printed *no assumption was recorded* while an assumption
+    # was landing seconds later (`D-273`). Bounded and not asserted: `J3` permits
+    # KAE to record nothing, so a window that closes empty is a real answer.
+    wait_for_candidates(project, proposed_before + 1, seconds=60)
     after = projection(project)
     health = after.get("health") or {}
 
