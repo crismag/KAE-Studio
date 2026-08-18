@@ -1767,11 +1767,23 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
       // and `DeliverableListResponse` names its own `deliverables` — and this
       // adapter read the commoner one, so the list was empty for every project
       // in every deployment while its own tests passed on `results` fixtures.
-      const raw = await call<{ deliverables?: WireDeliverable[] } | WireDeliverable[]>(
-        `/api/projects/${resolve(id)}/deliverables`,
-      )
-      const items = Array.isArray(raw) ? raw : (raw.deliverables ?? [])
-      return items.map(deliverable)
+      // The envelope also says how much of the set is missing (`D-280`). The
+      // route has a ceiling — `limit`, defaulting to 20, and Studio's backend
+      // sends none — so `omitted` is how many of the oldest packages were cut.
+      // Carried rather than derived from the array's own length, because the
+      // producer counts what it holds and the array is what survived the cut.
+      const raw = await call<
+        { deliverables?: WireDeliverable[]; total?: number; omitted?: number } | WireDeliverable[]
+      >(`/api/projects/${resolve(id)}/deliverables`)
+      const bare = Array.isArray(raw)
+      const items = bare ? raw : (raw.deliverables ?? [])
+      return {
+        deliverables: items.map(deliverable),
+        // A deployment answering with a bare array claims nothing about
+        // completeness, and must not be read as claiming the list is whole.
+        total: bare ? null : (raw.total ?? null),
+        omitted: bare ? null : (raw.omitted ?? null),
+      }
     },
   }
 

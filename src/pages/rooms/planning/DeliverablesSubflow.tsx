@@ -307,10 +307,10 @@ function DeliverableCard({
 }
 
 export function Deliverables() {
-  const { data: deliverables, isLoading } = useDeliverables()
+  const { data: listing, isLoading } = useDeliverables()
   const { data: projection } = useProjection()
 
-  if (isLoading || !deliverables) {
+  if (isLoading || !listing) {
     return (
       <PageLayout title="Deliverables">
         <div className="space-y-4">
@@ -321,6 +321,7 @@ export function Deliverables() {
     )
   }
 
+  const deliverables = listing.deliverables
   const projectPackages = deliverables.filter((d) => d.scope === 'project')
   const modulePackages = deliverables.filter((d) => d.scope === 'module')
   // Memory names the replacement by identifier. A person reads names, so it is
@@ -330,6 +331,11 @@ export function Deliverables() {
   const replacementFor = (d: Deliverable) =>
     d.supersededById ? nameById.get(d.supersededById) : undefined
   const openDecisions = projection?.openDecisions.length ?? 0
+  // KAE-Memory answers this route with a ceiling and orders by recording time
+  // descending, so what a limit cuts is the oldest packages (`D-280`). Said
+  // only where something was cut: `omitted` is `null` from a deployment that
+  // claimed nothing about completeness, and `0` where the list is whole.
+  const omitted = listing.omitted ?? 0
 
   return (
     <PageLayout
@@ -353,6 +359,16 @@ export function Deliverables() {
               knows what has not been settled rather than inheriting an invented answer.
             </p>
           </div>
+        )}
+
+        {omitted > 0 && (
+          <p className="text-[13px] leading-relaxed text-ink-muted">
+            {/* A statement about the list, not about the project, so it carries
+                no next action and none of the attention styling beside it. */}
+            {plural(listing.total ?? deliverables.length + omitted, 'package')} recorded, showing
+            the most recent {deliverables.length.toLocaleString()}. The{' '}
+            {plural(omitted, 'older package is', 'older packages are')} not on this page.
+          </p>
         )}
 
         <section>

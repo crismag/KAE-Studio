@@ -37,12 +37,12 @@ describe('mock services', () => {
   it('marks generated packages outdated once project knowledge changes', async () => {
     const { memory, artifacts } = createMockServices()
     const before = await artifacts.listDeliverables(PROJECT_ID)
-    expect(before.find((d) => d.id === 'DLV-PROJECT-CONTEXT')?.state).toBe('generated')
+    expect(before.deliverables.find((d) => d.id === 'DLV-PROJECT-CONTEXT')?.state).toBe('generated')
 
     await memory.recordModuleDecision(PROJECT_ID, 'MOD-RPT', { kind: 'accept' })
 
     const after = await artifacts.listDeliverables(PROJECT_ID)
-    expect(after.find((d) => d.id === 'DLV-PROJECT-CONTEXT')?.state).toBe('outdated')
+    expect(after.deliverables.find((d) => d.id === 'DLV-PROJECT-CONTEXT')?.state).toBe('outdated')
   })
 
   it('splits a module without discarding its requirements', async () => {

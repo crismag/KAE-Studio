@@ -35,9 +35,15 @@ const WITH_GAPS: Deliverable = {
   ],
 }
 
-function renderPage(deliverables: Deliverable[]) {
+function renderPage(
+  deliverables: Deliverable[],
+  cut: { total: number | null; omitted: number | null } = {
+    total: deliverables.length,
+    omitted: 0,
+  },
+) {
   const services = createMockServices()
-  services.artifacts.listDeliverables = async () => deliverables
+  services.artifacts.listDeliverables = async () => ({ deliverables, ...cut })
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
@@ -215,6 +221,30 @@ describe('a package says what it was assembled around', () => {
     expect(screen.queryByText(/DLV-ELSEWHERE/)).not.toBeInTheDocument()
   })
 
+  /**
+   * `D-280`. `GET /v1/projects/{id}/deliverables` truncates to `limit`, which
+   * defaults to 20 and which Studio's backend never sends, and orders newest
+   * first — so the page draws a prefix. The producer says how much it cut and
+   * the reader has to say it.
+   */
+  it('says the list was cut, and which end of it', async () => {
+    renderPage([{ ...WITH_GAPS, unresolvedGaps: [] }], { total: 24, omitted: 4 })
+
+    const said = await screen.findByText(/24 packages recorded/i)
+    expect(said).toHaveTextContent('showing the most recent 1')
+    expect(said).toHaveTextContent('4 older packages are not on this page')
+  })
+
+  it('says nothing about completeness where the deployment claimed nothing', async () => {
+    // A KAE-Memory too old to send an envelope answers with a bare array, and
+    // the adapter carries that through as `null`. Told nothing is not told the
+    // list is whole — and it is also not grounds for a sentence (`D-38`).
+    renderPage([{ ...WITH_GAPS, unresolvedGaps: [] }], { total: null, omitted: null })
+
+    expect(await screen.findByText('Project context package')).toBeInTheDocument()
+    expect(screen.queryByText(/recorded, showing the most recent/i)).not.toBeInTheDocument()
+  })
+
   it('says nothing when there is nothing to say', async () => {
     // The control. A complete package must not carry a warning shaped like one,
     // which is the failure mode of announcing an empty list.
@@ -228,5 +258,6 @@ describe('a package says what it was assembled around', () => {
     expect(screen.queryByText(/cannot be reproduced/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/no longer stands behind/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/A later package replaced/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/recorded, showing the most recent/i)).not.toBeInTheDocument()
   })
 })

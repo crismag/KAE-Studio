@@ -68,7 +68,8 @@ describe('deliverables arrive in a shape the page can render', () => {
     for (const state of ['recorded', 'superseded', 'withdrawn']) {
       respond({ deliverables: [{ ...RECORDED, state }] })
 
-      const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+      const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1'))
+        .deliverables
 
       expect(RENDERABLE.has(mapped.state)).toBe(true)
       vi.restoreAllMocks()
@@ -78,7 +79,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('does not invent a state for one it has never seen', async () => {
     respond({ deliverables: [{ ...RECORDED, state: 'a_state_added_next_year' }] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     // `not_generated` rather than a guess: an unknown state means Studio cannot
     // say what happened, and the least-claiming answer is the honest one.
@@ -89,7 +90,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('carries the fields the page reads, under the names it reads them by', async () => {
     respond({ deliverables: [RECORDED] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.id).toBe('dlv_1')
     expect(mapped.name).toBe('Project context package')
@@ -103,7 +104,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('reads a module scope from the module Memory named', async () => {
     respond({ deliverables: [{ ...RECORDED, module: 'MOD-AUTH' }] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.scope).toBe('module')
     expect(mapped.moduleId).toBe('MOD-AUTH')
@@ -112,7 +113,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('treats a stale deliverable as outdated whatever it was recorded as', async () => {
     respond({ deliverables: [{ ...RECORDED, stale: true }] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     // Knowledge has moved on since it was assembled, which is the one thing a
     // reader must not miss about an output they are about to hand to somebody.
@@ -122,7 +123,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('survives a bare array, which is the other shape the route may take', async () => {
     respond([RECORDED])
 
-    const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const mapped = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped).toHaveLength(1)
   })
@@ -141,7 +142,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('reads the envelope key KAE-Memory sends on this route', async () => {
     respond({ deliverables: [RECORDED] })
 
-    const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const mapped = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped).toHaveLength(1)
     expect(mapped[0].id).toBe('dlv_1')
@@ -173,7 +174,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unresolvedGaps).toEqual([
       { areaKey: 'authority_model', summary: 'Who may approve is undecided.' },
@@ -187,7 +188,7 @@ describe('deliverables arrive in a shape the page can render', () => {
     // older row honestly supports.
     respond({ deliverables: [{ ...RECORDED, manifest: {} }] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unresolvedGaps).toEqual([])
   })
@@ -210,7 +211,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unreproducibleReason).toBe('recorded before render inputs were captured (N20.1)')
   })
@@ -220,7 +221,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       deliverables: [{ ...RECORDED, publication_eligible: true, ineligibility_reason: null }],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unreproducibleReason).toBe('')
   })
@@ -231,7 +232,7 @@ describe('deliverables arrive in a shape the page can render', () => {
     // mouth on every deliverable a older deployment holds.
     respond({ deliverables: [RECORDED] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unreproducibleReason).toBe('')
   })
@@ -261,7 +262,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.assembledUnderUncertainty).toEqual({
       proposed: 3,
@@ -289,7 +290,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.assembledUnderUncertainty).toBeUndefined()
   })
@@ -301,7 +302,7 @@ describe('deliverables arrive in a shape the page can render', () => {
     // nothing rather than saying the comfortable thing.
     respond({ deliverables: [RECORDED] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.assembledUnderUncertainty).toBeUndefined()
   })
@@ -329,7 +330,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.qualifications).toEqual([
       'This package rests on 4 statements nobody has confirmed.',
@@ -342,7 +343,7 @@ describe('deliverables arrive in a shape the page can render', () => {
     // than a gap, and an empty list claims nothing either way.
     respond({ deliverables: [RECORDED] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.qualifications).toEqual([])
   })
@@ -363,7 +364,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unreproducibleClaimReason).toBe(
       'recorded before provisional context was captured (N20.2)',
@@ -377,7 +378,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       deliverables: [{ ...RECORDED, reproduces_uncertainty: true, uncertainty_gap_reason: null }],
     })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unreproducibleClaimReason).toBe('')
   })
@@ -385,7 +386,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('claims no uncertainty gap from a deployment too old to send one', async () => {
     respond({ deliverables: [RECORDED] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.unreproducibleClaimReason).toBe('')
   })
@@ -411,7 +412,8 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const [replaced, disowned] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [replaced, disowned] = (await createLiveServices('p1').artifacts.listDeliverables('p1'))
+      .deliverables
 
     expect(replaced.state).toBe('superseded')
     expect(replaced.supersededById).toBe('dlv_new')
@@ -434,7 +436,7 @@ describe('deliverables arrive in a shape the page can render', () => {
       ],
     })
 
-    const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const mapped = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.map((d) => d.state)).toEqual(['superseded', 'withdrawn', 'outdated'])
   })
@@ -445,7 +447,7 @@ describe('deliverables arrive in a shape the page can render', () => {
     // author one on the reader's behalf.
     respond({ deliverables: [{ ...RECORDED, state: 'withdrawn', manifest: {} }] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.state).toBe('withdrawn')
     expect(mapped.withdrawnReason).toBeUndefined()
@@ -454,7 +456,7 @@ describe('deliverables arrive in a shape the page can render', () => {
   it('names no replacement for a package nothing replaced', async () => {
     respond({ deliverables: [RECORDED] })
 
-    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const [mapped] = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped.supersededById).toBeUndefined()
   })
@@ -467,8 +469,34 @@ describe('deliverables arrive in a shape the page can render', () => {
     // that holds no deliverables at all.
     respond({ results: [RECORDED] })
 
-    const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
+    const mapped = (await createLiveServices('p1').artifacts.listDeliverables('p1')).deliverables
 
     expect(mapped).toHaveLength(0)
+  })
+
+  /**
+   * `D-280`. The route truncates to `limit` — 20 by default, and Studio's
+   * backend sends none — so the envelope's `total` and `omitted` are how the
+   * producer states that the reader is holding a prefix.
+   */
+  it('carries how much the route left out, rather than counting what survived', async () => {
+    respond({ deliverables: [RECORDED], total: 24, omitted: 23 })
+
+    const listing = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(listing.total).toBe(24)
+    expect(listing.omitted).toBe(23)
+  })
+
+  it('claims nothing about completeness where the deployment claimed nothing', async () => {
+    // A bare array is a KAE-Memory too old to send an envelope. Zero would be a
+    // claim the list is whole, and nothing here knows that (`D-38`).
+    respond([RECORDED])
+
+    const listing = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(listing.deliverables).toHaveLength(1)
+    expect(listing.total).toBeNull()
+    expect(listing.omitted).toBeNull()
   })
 })

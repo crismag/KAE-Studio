@@ -57,6 +57,7 @@ import type {
   ArtifactPlanEdit,
   ArtifactService,
   ClassificationRequestOutcome,
+  DeliverableListing,
   PublishInput,
   InterviewProvider,
   InterviewTurn,
@@ -830,8 +831,12 @@ class MockIngestion implements IngestionPort {
 /* ----------------------------------------------------------- artifact mocks */
 
 class MockArtifactService implements ArtifactService {
-  listDeliverables(): Promise<Deliverable[]> {
-    return delay(state.deliverables.map((d) => ({ ...d })))
+  listDeliverables(): Promise<DeliverableListing> {
+    // The prototype holds every package it has, so nothing is ever cut and the
+    // truncation sentence is unreachable here. `omitted: 0` rather than `null`:
+    // this fixture does know the list is whole.
+    const deliverables = state.deliverables.map((d) => ({ ...d }))
+    return delay({ deliverables, total: deliverables.length, omitted: 0 })
   }
 }
 

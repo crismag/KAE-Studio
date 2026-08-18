@@ -325,9 +325,23 @@ export interface ProjectProjectionService {
   classify(projectId: string): Promise<ClassificationRequestOutcome>
 }
 
+/**
+ * One page of the deliverables KAE-Memory recorded, and how much it left out.
+ *
+ * KAE-Memory answers this route with a ceiling and says what it cut: `total`
+ * counts everything it holds, `omitted` counts what did not fit. Both are
+ * `null` where the deployment answered with a bare array and said nothing about
+ * completeness, which is not the same claim as a complete list (`D-38`).
+ */
+export interface DeliverableListing {
+  deliverables: Deliverable[]
+  total: number | null
+  omitted: number | null
+}
+
 /** Deliverables Memory recorded. Read-only history, not generation. */
 export interface ArtifactService {
-  listDeliverables(projectId: string): Promise<Deliverable[]>
+  listDeliverables(projectId: string): Promise<DeliverableListing>
 }
 
 /**
