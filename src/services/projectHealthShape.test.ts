@@ -33,6 +33,8 @@ const READERS: Record<string, string> = {
   draftEligible: 'FitFor — is there enough to draft from (`D-33`)',
   implementationEligible: 'FitFor — is this safe to build from (`D-33`)',
   summary: 'DashboardPage — the advisory readiness sentence',
+  knowledgeIsStale:
+    'ClassificationState — the project moved since the number was measured (`D-278`)',
   coverage: 'CoveragePanel — what each area holds (`D-27`)',
   recommendedNext: 'DashboardPage — the preliminary warnings (AUD-002)',
 }

@@ -910,6 +910,7 @@ function ContextPanelContent({
               whether anything has looked. */}
           <ClassificationState
             classification={projection.classification}
+            knowledgeIsStale={projection.health.knowledgeIsStale}
             onClassify={() => classify.mutate()}
             pending={classify.isPending}
             outcome={classify.data}

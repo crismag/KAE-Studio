@@ -404,3 +404,36 @@ class TestTheProjectionSaysWhetherAnythingClassified:
             "engineIsCurrent"
         ] is None
         assert _classification({"percentage": 40})["engineIsCurrent"] is None
+
+
+class TestTheProjectionSaysWhetherTheNumberIsBehindTheProject:
+    """`READY-STALE`, `D-278`. The *first* staleness — the one the other two in
+    this neighbourhood are named against.
+
+    KAE-Memory computes `is_stale` at read time, comparing the revision the
+    snapshot was calculated at with the project's revision now. Studio read it
+    in exactly one place, `api.py`, to decide whether to refuse a classify
+    press, and `_health` dropped it — so the percentage and every area count
+    below it described the project as it was and nothing said so. KAE-Memory's
+    own worker comment names this in the present tense: *"flagged `is_stale` in
+    a field no surface rendered."*
+    """
+
+    def test_a_project_that_moved_since_the_number_was_measured_says_so(self) -> None:
+        from kae_studio.projection import _health
+
+        assert _health({"percentage": 40, "is_stale": True})["knowledgeIsStale"] is True
+        assert _health({"percentage": 40, "is_stale": False})["knowledgeIsStale"] is False
+
+    def test_told_nothing_is_never_told_it_is_current(self) -> None:
+        """`D-38`. A KAE-Memory too old to send the field, a readiness section
+        that did not answer at all, and a malformed value are each *unknown* —
+        and `False` would be Studio asserting freshness on the strength of its
+        own ignorance, which is the direction that costs somebody a decision.
+        """
+
+        from kae_studio.projection import _health
+
+        assert _health({"percentage": 40})["knowledgeIsStale"] is None
+        assert _health(None)["knowledgeIsStale"] is None
+        assert _health({"is_stale": "yes"})["knowledgeIsStale"] is None

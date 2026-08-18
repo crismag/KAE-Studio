@@ -329,3 +329,63 @@ describe('a pass made by a reviewer the deployment has replaced', () => {
     expect(absent.queryByText(/different reviewer/i)).not.toBeInTheDocument()
   })
 })
+
+describe('a number measured before the project moved', () => {
+  it('says the areas have not counted what came after the pass', () => {
+    // `D-278`, the first staleness. The date above leaves a reader to work out
+    // whether anything has happened since; KAE-Memory measures it against the
+    // project's revision and Studio dropped the answer.
+    render(<ClassificationState classification={BY_MODEL} knowledgeIsStale onClassify={() => {}} />)
+
+    expect(screen.getByText(/have not counted what came after it/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /classify again/i })).toBeInTheDocument()
+  })
+
+  it('says nothing when the number was measured at where the project is', () => {
+    render(
+      <ClassificationState
+        classification={BY_MODEL}
+        knowledgeIsStale={false}
+        onClassify={() => {}}
+      />,
+    )
+
+    expect(screen.queryByText(/have not counted/i)).not.toBeInTheDocument()
+  })
+
+  it('says nothing when nothing knows', () => {
+    // `null` is a backend that did not say and a readiness section that did not
+    // answer (`D-38`). This asserts what renders, and deliberately claims no
+    // more: at this polarity `null`, `undefined` and `false` are all falsy, so
+    // it cannot tell an explicit check from a loose one. The tri-state is
+    // enforced where a non-boolean can actually arrive — `_stale` in the
+    // projection and the adapter — and both are guarded there.
+    render(
+      <ClassificationState
+        classification={BY_MODEL}
+        knowledgeIsStale={null}
+        onClassify={() => {}}
+      />,
+    )
+    expect(screen.queryByText(/have not counted/i)).not.toBeInTheDocument()
+
+    const absent = render(<ClassificationState classification={BY_MODEL} onClassify={() => {}} />)
+    expect(absent.queryByText(/have not counted/i)).not.toBeInTheDocument()
+  })
+
+  it('states both causes when both hold, because they are different facts', () => {
+    // One remedy, two reasons: the project moved, and the reviewer behind the
+    // number was replaced. Collapsing them would leave a reader unable to tell
+    // which press is worth making.
+    render(
+      <ClassificationState
+        classification={{ ...BY_MODEL, engineIsCurrent: false }}
+        knowledgeIsStale
+        onClassify={() => {}}
+      />,
+    )
+
+    expect(screen.getByText(/different reviewer from the one KAE uses now/i)).toBeInTheDocument()
+    expect(screen.getByText(/have not counted what came after it/i)).toBeInTheDocument()
+  })
+})

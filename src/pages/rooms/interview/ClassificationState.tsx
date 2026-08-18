@@ -36,6 +36,11 @@
  * a standing warning on every project is a warning nobody reads — is why there
  * is no amber here and no sentence claiming the number is wrong. What is said
  * is when the pass ran, which is a fact, and what is offered is the pass again.
+ *
+ * The date leaves the reader to work out whether anything has happened since.
+ * KAE-Memory measures that directly and Studio dropped it, which is `D-278` —
+ * so the sibling now has a sentence of its own, in the same tone, and it
+ * appears only when the project has actually moved.
  */
 
 import { Sparkles } from 'lucide-react'
@@ -100,11 +105,21 @@ function NothingToClassify() {
 
 export function ClassificationState({
   classification,
+  knowledgeIsStale,
   onClassify,
   pending,
   outcome,
 }: {
   classification: Classification | undefined
+  /**
+   * Whether the project moved since the number below was measured (`D-278`).
+   *
+   * Its own prop rather than a field on `classification`, because KAE-Memory
+   * holds it at the top of readiness and holds `engineIsCurrent` inside the
+   * classification block, and they answer different questions: the project
+   * changed, versus the judgement behind the number was replaced.
+   */
+  knowledgeIsStale?: boolean | null
   onClassify: () => void
   pending?: boolean
   /**
@@ -175,6 +190,29 @@ export function ClassificationState({
         <p className="mt-1 text-[11.5px] leading-relaxed text-ink-subtle">
           This pass was made by a different reviewer from the one KAE uses now. Classifying again
           replaces it with what the current one decides.
+        </p>
+      ) : null}
+      {/* **The first staleness**, and the one the docstring above calls harder
+          to see than the zero (`D-278`). The date says when the pass ran and
+          leaves a reader to work out whether anything has happened since;
+          KAE-Memory measures that directly, against the project's revision
+          rather than a clock.
+
+          `null` is a backend that did not say and a readiness section that did
+          not answer, and a notice built on our own ignorance is `D-38`. Unlike
+          the `=== false` above, that discipline is **not** carried by this
+          test: `null`, `undefined` and `false` are all falsy, so the explicit
+          form here is symmetry with its sibling and nothing more. Where it is
+          load-bearing is upstream, at `_stale` and the adapter — the two hops a
+          non-boolean can arrive at — and that is where it is guarded.
+
+          Rendered beside the reviewer sentence rather than instead of it: both
+          can hold, they state different causes, and only the remedy is
+          shared. */}
+      {knowledgeIsStale === true ? (
+        <p className="mt-1 text-[11.5px] leading-relaxed text-ink-subtle">
+          The project has changed since this pass, and the areas below have not counted what came
+          after it. Classifying again measures what the project holds now.
         </p>
       ) : null}
       {outcome ? (

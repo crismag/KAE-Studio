@@ -981,6 +981,21 @@ export interface ProjectHealth {
   /** Whether this is safe to build from. Never folded together with the above. */
   implementationEligible: boolean
   summary: string
+  /**
+   * Whether the project's knowledge has moved since readiness was calculated.
+   *
+   * **Named for what moved, because three fields in this neighbourhood are
+   * called some form of *stale* and each means something else** (`D-278`).
+   * This one is KAE-Memory's `is_stale`: the project holds knowledge that the
+   * percentage and the area counts have not counted. `engineIsCurrent` asks
+   * whether the reviewer behind the number was replaced; `is_behind_template`,
+   * which Studio does not carry, asks whether the meaning of the number moved.
+   *
+   * `null` where nothing told us — an older backend, or a readiness section
+   * that did not answer. Read as `=== true` and never truthy: a notice derived
+   * from our own ignorance is `D-38`.
+   */
+  knowledgeIsStale: boolean | null
   coverage: CoverageTopic[]
   recommendedNext: string[]
 }

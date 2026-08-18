@@ -681,6 +681,9 @@ interface BackendProjection {
     status: string
     draftEligible?: boolean
     implementationEligible?: boolean
+    /** Whether knowledge has landed since this was measured. Absent on a Studio
+     *  backend older than `D-278`, and `null` when KAE-Memory did not say. */
+    knowledgeIsStale?: boolean | null
     areas: {
       key: string
       name: string
@@ -891,6 +894,10 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       // project's status. Carried at last: the adapter dropped it, so the
       // journey strip had only `active` to compare against stage names.
       stage: raw.health.status,
+      // `null` where the backend said nothing and where KAE-Memory said it does
+      // not know — told nothing about freshness is not told it is fresh
+      // (`D-278`, `D-38`).
+      knowledgeIsStale: raw.health.knowledgeIsStale ?? null,
       // Readiness is advisory in KAE and the wording says so. A bare percentage
       // gets read as a gate, which is the one thing it is built not to be.
       summary: `${raw.health.percentage}% understood (advisory — never a gate). ${raw.contradictions.count} unresolved contradiction(s).`,

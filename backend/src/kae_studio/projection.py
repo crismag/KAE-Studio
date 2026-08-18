@@ -539,6 +539,21 @@ def _positive_weight(value: Any) -> float | None:
     return float(value) if value > 0 else None
 
 
+def _stale(readiness: Any) -> bool | None:
+    """Whether knowledge has landed since readiness was calculated.
+
+    Only a real boolean is an answer. Anything else — an older KAE-Memory, a
+    readiness section that did not answer at all — is `None`, because the two
+    states a reader acts on are *this number is behind* and *this number is
+    current*, and neither is what Studio knows here.
+    """
+
+    if not isinstance(readiness, dict):
+        return None
+    value = readiness.get("is_stale")
+    return value if isinstance(value, bool) else None
+
+
 def _health(readiness: Any) -> dict[str, Any]:
     """Readiness as the UI shows it — advisory, and labelled as such.
 
@@ -583,6 +598,17 @@ def _health(readiness: Any) -> dict[str, Any]:
         # another (`D-195`). Absent stays `None`: a Memory too old to send it
         # has said nothing, and `0` is a weight `AreaResult`'s own invariant
         # forbids.
+        # **The first staleness** (`D-278`), and the one the other two are named
+        # against: has the project moved since this number was measured?
+        # KAE-Memory computes it at read time against the project's current
+        # revision, and Studio read it in exactly one place — the classify
+        # refusal — so the percentage and every count below it described the
+        # project as it was and nothing said so.
+        #
+        # `None` where KAE-Memory did not say and where the readiness section
+        # itself was unavailable: told nothing about freshness is not the same
+        # as told it is fresh (`D-38`).
+        "knowledgeIsStale": _stale(readiness),
         "areas": [
             {
                 "key": a.get("key", ""),

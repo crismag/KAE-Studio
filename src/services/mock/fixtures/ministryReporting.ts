@@ -1205,6 +1205,10 @@ export const health: ProjectHealth = {
   stage: 'requirements',
   summary:
     'The submission and approval workflow is well understood. Approval authority and the correction path are unresolved, and both block work that depends on them.',
+  // The fixture's percentage and its statements are one hand-written set, so
+  // the number does describe what the project holds — and the ordinary case is
+  // the one the surface must stay quiet about (`D-278`).
+  knowledgeIsStale: false,
   // The weights are on KAE-Memory's own scale — 1.0, 1.5 and 2.0 — because a
   // weight is a number Memory emits and this project's areas are the fictional
   // ones the rest of the fixture invents. Not all equal, deliberately: an even
