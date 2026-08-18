@@ -20,8 +20,8 @@ exercised the artifact chain through the wiring the deployment actually uses.
 `STUDIO_PASSWORD` is needed only where the deployment reports
 `authentication: required`; the harness asks before signing in (`D-64`).
 
-Scenarios: sparse-idea, weak-answer, does-not-know, established, lifecycle,
-continuity.
+Scenarios: sparse-idea, messy-requirements, weak-answer, does-not-know,
+established, lifecycle, continuity.
 """
 
 from __future__ import annotations
@@ -33,7 +33,10 @@ import time
 import urllib.error
 import urllib.request
 
-API = os.environ.get("STUDIO_API", "http://127.0.0.1:8100")
+#: Studio's port. It defaulted to `8100`, which is KAE-Memory on the canonical
+#: local deployment — so a bare run went at the wrong service and failed on
+#: `/api/status` before signing in.
+API = os.environ.get("STUDIO_API", "http://127.0.0.1:8200")
 
 #: Mechanical checks that did not hold. Non-empty means a non-zero exit.
 #:
@@ -493,7 +496,118 @@ def does_not_know() -> None:
     print(f"  project: {project}")
 
 
+def read_version(item: dict) -> int:
+    """The version the reviewer read. Memory refuses a rejection naming another.
+
+    Read from the projection rather than passed as `1`, because a statement
+    corrected between extraction and review is exactly the case that check
+    exists for.
+    """
+
+    return int(item.get("version") or 1)
+
+
+MESSY = (
+    "We run a small print shop and orders come in by email, phone and sometimes "
+    "in person, so what I really want is one place where an order exists once. "
+    "Every order has to carry a customer reference, and nothing may be marked "
+    "despatched before it has been paid for or signed off by me.\n\n"
+    "For example, last week a rush job for a school went out on a Friday and we "
+    "invoiced it eleven days later, which is the sort of thing this should make "
+    "impossible.\n\n"
+    "I am not sure whether we need per-user logins. There are four of us and we "
+    "trust each other, but the accountant asks who changed a price and I cannot "
+    "currently answer that. I would prefer something plain and fast over "
+    "anything clever, and I would rather not pay per seat."
+)
+
+
+def messy_requirements() -> None:
+    """`J2` — several paragraphs of mixed material, told apart rather than flattened.
+
+    `J2` passes when CIE disentangles the material *without flattening all
+    statements into confirmed requirements*, and Memory *retains traceable
+    lifecycle distinctions*. Both halves are mechanical here; whether the
+    disentangling is a good reading is judgement and is printed, not asserted.
+
+    The uncertain sentence is deliberately not asserted to have become an
+    `unknown`. Which kind a probabilistic extractor gives it is taste; that the
+    material did not arrive as one undifferentiated requirement is not.
+    """
+
+    header("J2 — messy requirements, disentangled and not flattened")
+    # Named per run. Memory derives a project key from the name and returns the
+    # existing project for a repeat, so a fixed name meant the second run
+    # inherited the first run's confirmed statement — and clause 3 below, the
+    # one that catches flattening into settled requirements, was then false on
+    # every run but the first (`D-265`).
+    project = new_project(f"Acceptance J2 {int(time.time())}")
+    say(project, MESSY)
+    proposed = wait_for_candidates(project, 3)
+    show("Proposed", proposed)
+
+    state = projection(project)
+
+    # 1. Several statements, not one. A single candidate from four paragraphs is
+    #    the flattening this journey is named after.
+    must(len(proposed) >= 3, "mixed material arrived as several statements, not one")
+
+    # 2. Told apart. Goals, constraints and uncertainty are different things and
+    #    the extractor has kinds for them.
+    kinds = sorted({str(item.get("kind")) for item in proposed})
+    print(f"  kinds present: {', '.join(kinds)}")
+    must(len(kinds) >= 2, "the material was told apart by kind rather than given one label")
+
+    # 3. Nobody confirmed anything, so nothing may be confirmed.
+    must(not state.get("confirmed"), "nothing arrived confirmed")
+    must(
+        all(item.get("lifecycle") == "proposed" for item in proposed),
+        "no requirement was asserted as settled on the strength of one message",
+    )
+
+    # 4. Three lifecycle states, held as three states. Confirm one, refuse
+    #    another with a reason, and read the projection back.
+    keep, refuse = proposed[0], proposed[1]
+    call(f"/api/projects/{project}/knowledge/{keep['id']}/confirm", {})
+    call(
+        f"/api/projects/{project}/knowledge/{refuse['id']}/reject",
+        {
+            "reason": "not something we said; keeping the record honest",
+            "expected_version": read_version(refuse),
+        },
+    )
+    after = projection(project)
+    print(f"\n  confirmed={len(after['confirmed'])} proposed={len(after['proposed'])}"
+          f" rejected={len(after.get('rejected') or [])}")
+    must(
+        any(item["id"] == keep["id"] for item in after["confirmed"]),
+        "the confirmed statement is held as confirmed",
+    )
+    must(
+        any(item["id"] == refuse["id"] for item in after.get("rejected") or []),
+        "the refused statement is held as rejected rather than deleted",
+    )
+    must(
+        any(item["lifecycle"] == "proposed" for item in after["proposed"]),
+        "what nobody ruled on is still proposed",
+    )
+
+    # 5. Traceable, and still traceable after the lifecycle moved. A projection
+    #    alone cannot answer this: it says what state a statement is in, not
+    #    whether the sentence it came from can still be reached.
+    trace = call(f"/api/projects/{project}/knowledge/{keep['id']}/trace")
+    quoted = json.dumps(trace) if trace is not None else ""
+    must(MESSY[:40] in quoted, "confirming did not cost the statement its provenance")
+
+    print("\n  What to judge (not asserted):")
+    print("   - is the disentangling a fair reading, or did it shred one thought into five?")
+    print("   - did the uncertainty about logins survive as uncertainty?")
+    print(f"   - readiness: {(after.get('health') or {}).get('percentage')}%")
+    print(f"  project: {project}")
+
+
 SCENARIOS = {
+    "messy-requirements": messy_requirements,
     "sparse-idea": sparse_idea,
     "weak-answer": weak_answer,
     "does-not-know": does_not_know,
