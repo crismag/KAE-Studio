@@ -618,7 +618,180 @@ def messy_requirements() -> None:
     print(f"  project: {project}")
 
 
+ARCHITECTURE_ASK = (
+    "I don't know how this should be architected. I've never made that kind of "
+    "decision before — what are the reasonable options for a first version, and "
+    "which would you pick?"
+)
+
+ARCHITECTURE_FOLLOW_UP = (
+    "That helps. Before I choose: what would each option cost us if the practice "
+    "grows to four sites and we need per-site scheduling?"
+)
+
+
+def architecture() -> None:
+    """`J4` — the user cannot architect this and asks KAE to help.
+
+    Written to `J4`'s own pass conditions (`D-289`), not to the neighbouring
+    scenarios': *recommend and compare approaches, capture decisions only when
+    actually made, retain unchosen and revisitable reasoning appropriately, and
+    progressively develop implementable architecture context.*
+
+    Whether the options offered are good architecture is judgement and is
+    printed. What is asserted is that asking for advice settles nothing, that
+    the unchosen option is retained through the product's own door, and that
+    what the conversation produced can still be traced back to it.
+    """
+
+    header("J4 — architecture collaboration, with nothing decided by asking")
+    # Named per run: Memory derives a project key from the name and returns the
+    # existing project for a repeat, so a fixed name would let the "nothing was
+    # confirmed" clauses hold on a project that had already been through this
+    # once (`D-265`, `D-273`).
+    project = new_project(f"Acceptance J4 {int(time.time())}")
+    say(project, "A scheduling tool for a small veterinary practice.")
+    seeded = wait_for_candidates(project, 1)
+
+    before = projection(project)
+    settled_before = len(before.get("confirmed") or [])
+    established_before = _established(before)
+    proposed_before = len(seeded)
+
+    move = say(project, ARCHITECTURE_ASK)
+    # The architecture turn's **own** extraction, bounded. Reading straight back
+    # would read the seeding turn's candidates and none of this one's, which is
+    # the defect `D-273` found in `J3` — a clause that never reaches the branch
+    # it exists for. An empty window is still a real answer here, so this is
+    # waited on and not asserted.
+    wait_for_candidates(project, proposed_before + 1, seconds=90)
+    after_ask = projection(project)
+
+    # 1. The question was taken rather than refused. A project that gained
+    #    nothing at all from being asked for architectural help treated the ask
+    #    as noise — which is the "never decline access without naming the route"
+    #    failure one level up.
+    must(
+        len(after_ask.get("proposed") or []) >= proposed_before
+        or bool(after_ask.get("openQuestions")),
+        "asking for architectural help was taken rather than refused",
+    )
+
+    # 2. **Capture decisions only when actually made.** Nobody chose anything, so
+    #    nothing may be settled: not a confirmation, not confirmed readiness, and
+    #    not a `decision` statement sitting in the project as though ruled.
+    must(
+        len(after_ask.get("confirmed") or []) == settled_before,
+        "asking for a recommendation confirmed nothing",
+    )
+    must(
+        _established(after_ask) == established_before,
+        "asking for a recommendation did not move confirmed readiness",
+    )
+    decisions = [s for s in after_ask.get("proposed") or [] if s.get("kind") == "decision"]
+    must(
+        all(item.get("lifecycle") == "proposed" for item in decisions),
+        "no architectural decision was recorded as settled by the asking",
+    )
+
+    # 3. **Compare approaches — conditional by design**, in `J3`'s clause-3
+    #    shape. A turn may legitimately ask a clarifying question instead of
+    #    advising, and requiring advice here would be asserting model behaviour.
+    #    Where advice *is* given it has to be weighable: `Recommendation` exists
+    #    because the advice used to arrive as prose a person had to retype.
+    recommendation = move.get("recommendation")
+    if isinstance(recommendation, dict):
+        print(f"\n  advice     : {recommendation.get('advice', '')[:100]}")
+        print(f"  reason     : {recommendation.get('reason', '')[:100]}")
+        print(f"  consequence: {recommendation.get('consequence', '')[:100]}")
+        must(
+            bool(str(recommendation.get("reason", "")).strip()),
+            "advice arrives with the reason it outranks the alternatives",
+        )
+        must(
+            bool(str(recommendation.get("consequence", "")).strip()),
+            "advice says what taking it would commit to",
+        )
+    else:
+        print("\n  no recommendation on this turn — permitted; nothing was faked")
+
+    # 4. **Retain the unchosen.** The product's own door, not the model's memory:
+    #    `keep_open` writes origin `unresolved_alternative` and forces
+    #    `revisit=before_build`, because an option nobody chose has to come back
+    #    or "keep open" is a way of losing the question politely.
+    advice = (
+        str(recommendation.get("advice"))
+        if isinstance(recommendation, dict) and recommendation.get("advice")
+        else "a single deployable service to begin with, split later if it hurts"
+    )
+    call(
+        f"/api/projects/{project}/recommendations",
+        {
+            "disposition": "keep_open",
+            "advice": advice,
+            "reason": "worth deciding, and not today",
+            "subject": "architecture",
+        },
+    )
+    kept = projection(project)
+    assumed = ((kept.get("preliminary") or {}).get("assumed")) or []
+    unresolved = [a for a in assumed if a.get("origin") == "unresolved_alternative"]
+    must(bool(unresolved), "an option nobody chose is retained rather than dropped")
+    must(
+        all(a.get("state") != "accepted" for a in unresolved),
+        "the unchosen option is not recorded as agreed to",
+    )
+    # **`revisit` is deliberately not asserted here, and that is a finding.**
+    # The route forces `revisit=before_build` for `keep_open`, and the field
+    # exists on `AssumptionResponse` — but the preliminary context, which is the
+    # only path Studio reads assumptions through, does not carry it. A check on
+    # `revisit_when` here could only ever read `None`, which is a check that
+    # cannot fail. Recorded as `ASSUME-REVISIT` rather than written as one.
+
+    # 5. **Progressively develop.** A second architectural turn, and what it
+    #    produced must still lead back to the conversation it came from — a
+    #    projection says what state a statement is in, never whether the sentence
+    #    behind it can still be reached.
+    standing = len(kept.get("proposed") or [])
+    say(project, ARCHITECTURE_FOLLOW_UP)
+    grown = wait_for_candidates(project, standing + 1, seconds=90)
+    after_follow = projection(project)
+    must(
+        len(after_follow.get("proposed") or []) >= standing,
+        "a second architectural turn did not cost the project what the first produced",
+    )
+    # Identified by id rather than by position: the projection's order is its
+    # own, and `[-1]` is not a promise about which statement is newest.
+    seeded_ids = {str(item.get("id")) for item in seeded}
+    from_architecture = [
+        item for item in after_follow.get("proposed") or [] if str(item.get("id")) not in seeded_ids
+    ]
+    if from_architecture:
+        traced = False
+        for item in from_architecture[:5]:
+            trace = call(f"/api/projects/{project}/knowledge/{item['id']}/trace")
+            quoted = json.dumps(trace) if trace is not None else ""
+            if ARCHITECTURE_ASK[:40] in quoted or ARCHITECTURE_FOLLOW_UP[:40] in quoted:
+                traced = True
+                break
+        must(traced, "what the architecture conversation produced leads back to it")
+    else:
+        print("  the architectural turns produced no new statements — printed, not asserted")
+
+    show("Proposed after two architectural turns", after_follow.get("proposed") or [])
+    print("\n  What to judge (not asserted):")
+    print("   - were real alternatives compared, or one option presented as the answer?")
+    print("   - is the reasoning behind the unchosen option still legible?")
+    print(
+        "   - architecture curation is KAE-Memory's MCP path and Studio cannot write "
+        f"modules: modules.available={((after_follow.get('modules') or {}).get('available'))}"
+    )
+    print(f"   - readiness: {(after_follow.get('health') or {}).get('percentage')}%")
+    print(f"  project: {project}")
+
+
 SCENARIOS = {
+    "architecture": architecture,
     "messy-requirements": messy_requirements,
     "sparse-idea": sparse_idea,
     "weak-answer": weak_answer,
