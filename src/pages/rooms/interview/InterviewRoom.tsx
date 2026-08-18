@@ -912,7 +912,7 @@ function ContextPanelContent({
             classification={projection.classification}
             onClassify={() => classify.mutate()}
             pending={classify.isPending}
-            queued={classify.isSuccess}
+            outcome={classify.data}
           />
           <ContentLoss coverage={projection.extractionCoverage} />
           <div className="mt-3 border-t border-line pt-2">

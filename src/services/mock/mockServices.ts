@@ -56,6 +56,7 @@ import type {
   ArtifactPipeline,
   ArtifactPlanEdit,
   ArtifactService,
+  ClassificationRequestOutcome,
   PublishInput,
   InterviewProvider,
   InterviewTurn,
@@ -490,11 +491,16 @@ class MockProjectProjectionService implements ProjectProjectionService {
     })
   }
 
-  classify(): Promise<void> {
-    // The prototype's project is already classified, so this is the honest
-    // no-op: queued, nothing to change. It exists because the interface
-    // requires it, and a mock that threw would fail a surface that is correct.
-    return delay(undefined)
+  classify(): Promise<ClassificationRequestOutcome> {
+    // **The prototype's project is already classified, which is exactly the
+    // state the live route refuses** — so the honest answer is that nothing was
+    // queued, not that a run started (`D-275`). This comment used to read
+    // "queued, nothing to change", which is the conflation the live adapter had
+    // as well, written down.
+    //
+    // A fixture is a claim about a contract (`D-247`), so the prototype now
+    // shows the sentence the deployment shows.
+    return delay({ queued: false })
   }
 }
 

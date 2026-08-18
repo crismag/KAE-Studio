@@ -95,7 +95,13 @@ describe('a project nothing has classified says so', () => {
   it('says queued rather than done', () => {
     // A worker runs it. A surface that showed the areas changing on click
     // would be inventing the one thing this journey is about.
-    render(<ClassificationState classification={NEVER} onClassify={() => {}} queued />)
+    render(
+      <ClassificationState
+        classification={NEVER}
+        onClassify={() => {}}
+        outcome={{ queued: true }}
+      />,
+    )
 
     expect(screen.getByText(/queued/i)).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
@@ -141,10 +147,62 @@ describe('a project that was classified', () => {
   })
 
   it('says queued rather than done here too', () => {
-    render(<ClassificationState classification={BY_MODEL} onClassify={() => {}} queued />)
+    render(
+      <ClassificationState
+        classification={BY_MODEL}
+        onClassify={() => {}}
+        outcome={{ queued: true }}
+      />,
+    )
 
     expect(screen.getByText(/queued/i)).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('does not describe a worker reading the project when nothing was queued', () => {
+    // **The defect this file's own subject came back as** (`D-275`). The
+    // backend refuses a classification that already covers the project so that
+    // pressing twice does not buy a second model pass (`D-271`), answers it
+    // 200, and this surface rendered it with the queued sentence — a person was
+    // told a worker was reading their project, the areas then did not move, and
+    // nothing ever said why.
+    render(
+      <ClassificationState
+        classification={BY_MODEL}
+        onClassify={() => {}}
+        outcome={{ queued: false }}
+      />,
+    )
+
+    // Asserted on the two clauses that are false rather than on the word
+    // "queued", which the honest sentence also contains — *nothing was queued*
+    // and *a worker is reading* are opposites that share it.
+    expect(screen.queryByText(/worker is reading/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/will change once it finishes/i)).not.toBeInTheDocument()
+  })
+
+  it('says instead that there was nothing to classify', () => {
+    // Not silence either: a press that produces no sentence at all reads as a
+    // control that did nothing, which is the same question unanswered.
+    render(
+      <ClassificationState
+        classification={BY_MODEL}
+        onClassify={() => {}}
+        outcome={{ queued: false }}
+      />,
+    )
+
+    expect(screen.getByText(/nothing was queued/i)).toBeInTheDocument()
+    expect(screen.getByText(/already covers everything the project holds/i)).toBeInTheDocument()
+  })
+
+  it('offers the control until it is pressed', () => {
+    // The control for both arms above: with no outcome the button is what
+    // renders, so a failure there means the sentences replaced the wrong thing.
+    render(<ClassificationState classification={BY_MODEL} onClassify={() => {}} />)
+
+    expect(screen.getByRole('button', { name: /classify again/i })).toBeInTheDocument()
+    expect(screen.queryByText(/nothing was queued/i)).not.toBeInTheDocument()
   })
 
   it('renders no date rather than an em dash when the pass did not record one', () => {

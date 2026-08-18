@@ -42,6 +42,7 @@ import { Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/primitives'
 import type { ClassificationState as Classification } from '@/domain/types'
+import type { ClassificationRequestOutcome } from '@/services/interfaces'
 import { formatDateTime, isKnownTimestamp } from '@/lib/format'
 import { neverClassified } from './neverClassified'
 
@@ -58,17 +59,45 @@ function Queued() {
   )
 }
 
+/**
+ * Pressed, and nothing was queued — because there was nothing to queue.
+ *
+ * **The state this exists for.** The backend refuses a classification that
+ * already covers what the project holds, so that pressing twice does not buy a
+ * second model pass over every statement (`D-271`). The refusal is answered
+ * 200, and this surface used to render it with `Queued` — a person was told a
+ * worker was reading their project, the areas then did not move, and nothing
+ * ever said why (`D-275`).
+ *
+ * It is the ordinary answer for an up-to-date project rather than a failure, so
+ * it is stated in the same subtle tone as the date above it and offers nothing
+ * to do.
+ */
+function NothingToClassify() {
+  return (
+    <p className="mt-2 text-[12px] text-ink-muted">
+      Nothing was queued — this classification already covers everything the project holds. The
+      areas below will not change until the project does.
+    </p>
+  )
+}
+
 export function ClassificationState({
   classification,
   onClassify,
   pending,
-  queued,
+  outcome,
 }: {
   classification: Classification | undefined
   onClassify: () => void
   pending?: boolean
-  /** A run has been queued in this session. The numbers have not moved yet. */
-  queued?: boolean
+  /**
+   * What the press in this session did, or `undefined` if nothing was pressed.
+   *
+   * Not a boolean: the request has two outcomes and one status code, and this
+   * surface said the wrong one for the whole time it was a boolean (`D-275`).
+   */
+  outcome?: ClassificationRequestOutcome
 }) {
   if (!classification || classification.engine === 'unknown') return null
 
@@ -83,7 +112,12 @@ export function ClassificationState({
           statement belongs to. Until then every area is empty and the percentage is 0 — which is
           about the review, not about your project.
         </p>
-        {queued ? (
+        {/* No refusal arm here, and deliberately: the backend refuses only a
+            classification that already exists, so a project nothing has
+            classified cannot reach one. An unqueued answer re-offers the
+            control rather than printing a sentence for a state that cannot
+            happen (`D-45`). */}
+        {outcome?.queued ? (
           <Queued />
         ) : (
           <Button className="mt-2.5" onClick={onClassify} disabled={pending}>
@@ -112,8 +146,12 @@ export function ClassificationState({
           ? `Areas reflect a review pass on ${formatDateTime(classification.reviewedAt)}.`
           : 'Areas reflect a review pass, which did not record when it ran.'}
       </p>
-      {queued ? (
-        <Queued />
+      {outcome ? (
+        outcome.queued ? (
+          <Queued />
+        ) : (
+          <NothingToClassify />
+        )
       ) : (
         <Button
           className="mt-1.5 -ml-3"

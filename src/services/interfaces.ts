@@ -270,6 +270,29 @@ export interface IngestionPort {
   runs(projectId: string): Promise<AgentRunRecord[]>
 }
 
+/**
+ * What pressing classify actually did.
+ *
+ * The request has two outcomes and one status code. A run is enqueued, or the
+ * backend refuses because the classification already covers what the project
+ * holds and the reviewer that produced it is still the configured one
+ * (`D-271`) — and the refusal is the ordinary answer for an up-to-date
+ * project, not an error.
+ *
+ * One field rather than a union, because there is exactly one reason to refuse
+ * today and a vocabulary invented ahead of a second one would be a shape
+ * nothing fills (`D-275`).
+ */
+export interface ClassificationRequestOutcome {
+  /**
+   * A review run now exists and a worker will read the project.
+   *
+   * `false` means nothing was enqueued and nothing will change — which a
+   * caller must not describe as work in flight.
+   */
+  queued: boolean
+}
+
 /** Assembles the projection the UI renders from current Memory knowledge. */
 export interface ProjectProjectionService {
   getProjection(projectId: string): Promise<ProjectProjection>
@@ -282,9 +305,10 @@ export interface ProjectProjectionService {
    * not_started` forever (`AUD-041`).
    *
    * Queued, not done — a worker runs it. The caller should expect the
-   * projection to change on a later read rather than on this one's return.
+   * projection to change on a later read rather than on this one's return,
+   * and only when the outcome says a run was queued.
    */
-  classify(projectId: string): Promise<void>
+  classify(projectId: string): Promise<ClassificationRequestOutcome>
 }
 
 /** Deliverables Memory recorded. Read-only history, not generation. */

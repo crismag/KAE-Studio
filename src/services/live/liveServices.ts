@@ -1634,8 +1634,21 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     // revision, so asking twice about unchanged knowledge returns the run that
     // already happened rather than buying a second model pass over every
     // statement.
+    //
+    // **Both outcomes are 200, so the body is the only thing separating them**
+    // (`D-275`). The backend refuses an up-to-date classification without
+    // enqueuing anything, and that refusal used to arrive here indistinguishable
+    // from a queued run — which the surface then described as a worker starting.
+    //
+    // Discriminated on `run_id`, the field that means a run exists.
+    // `EnqueueReviewResponse` carries no status, so testing for the absence of
+    // the refusal word would read any future body as success.
     classify: async (id) => {
-      await call(`/api/projects/${resolve(id)}/classify`, { method: 'POST', body: '{}' })
+      const answer = await call<{ run_id?: string }>(`/api/projects/${resolve(id)}/classify`, {
+        method: 'POST',
+        body: '{}',
+      })
+      return { queued: typeof answer?.run_id === 'string' && answer.run_id.length > 0 }
     },
   }
 
