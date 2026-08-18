@@ -1062,6 +1062,16 @@ export interface ProjectProjection {
   acceptanceTests: AcceptanceTest[]
   modules: ProjectModule[]
   openDecisions: OpenDecision[]
+  /**
+   * How many open decisions the project has, and how many the listing's
+   * ceiling cut. `openDecisions` is a prefix ordered most severe first, so
+   * what is missing is the least severe.
+   *
+   * Both `null` where the producer made no claim — a KAE-Memory older than
+   * the envelope, or any answer that is a bare array. That is not the same as
+   * a claim that the list is whole, and must not render as one (`D-282`).
+   */
+  openDecisionsCompleteness: { total: number | null; omitted: number | null }
   findings: ReviewFinding[]
   health: ProjectHealth
   /** Absent on a backend older than the disclosure. */

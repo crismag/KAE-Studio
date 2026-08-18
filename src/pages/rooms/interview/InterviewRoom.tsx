@@ -875,6 +875,7 @@ function ContextPanelContent({
   if (!projection) return null
 
   const blocking = projection.openDecisions.filter((d) => !d.deferred)
+  const omittedQuestions = projection.openDecisionsCompleteness.omitted ?? 0
   // The floor, when nothing has been ranked yet. R12 asks for a recommendation
   // *always*, and rendering must cost no model call — so this is derived from
   // the projection already in hand rather than requested.
@@ -933,6 +934,26 @@ function ContextPanelContent({
               <OpenDecisionRow key={d.id} decision={d} onDiscuss={onDiscussDecision} />
             ))}
           </ul>
+          {/* KAE-Memory answers the candidates listing with a ceiling and
+              orders it most severe first, so what a limit cuts is the least
+              severe questions (`D-282`). The badge above counts what is on
+              this page and is deliberately left alone: `total` counts deferred
+              questions too, which `blocking` excludes, so it would be a count
+              of a different set. Said only where something was cut — `omitted`
+              is `null` from a deployment that claimed nothing. A statement
+              about the list, not a warning about the project, so it carries no
+              control and none of the attention tone above it. */}
+          {omittedQuestions > 0 && (
+            <p className="mt-3 text-[12.5px] leading-relaxed text-ink-subtle">
+              {plural(
+                projection.openDecisionsCompleteness.total ??
+                  projection.openDecisions.length + omittedQuestions,
+                'question',
+              )}{' '}
+              in all, showing the {projection.openDecisions.length.toLocaleString()} most severe.
+              The {plural(omittedQuestions, 'other is', 'others are')} not on this page.
+            </p>
+          )}
         </PanelBody>
       </Panel>
 

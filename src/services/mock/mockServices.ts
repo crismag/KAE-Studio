@@ -463,6 +463,10 @@ class MockProjectProjectionService implements ProjectProjectionService {
       acceptanceTests: fixture.acceptanceTests,
       modules: state.modules.map((m) => ({ ...m })),
       openDecisions,
+      // The prototype holds every question it has, so it does know its list is
+      // whole — 0 omitted rather than null, which would claim ignorance the
+      // fixture does not have (`D-282`).
+      openDecisionsCompleteness: { total: openDecisions.length, omitted: 0 },
       findings,
       health: fixture.health,
       recentChanges: fixture.recentChanges,

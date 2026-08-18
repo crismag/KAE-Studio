@@ -181,6 +181,10 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
         # confident lie.
         "extractionCoverage": extraction_coverage_view(coverage_data),
         "openQuestions": _questions(clarification_data),
+        # The candidates listing is a prefix, ordered most severe first, and it
+        # says how long the whole thing is. Carried so the room can say the
+        # list was cut and which end of it went (`D-282`).
+        "openQuestionsCompleteness": _completeness(clarification_data),
         "blockers": _listing(blocker_data),
         # A count, not a list: Memory exposes recording and resolving a
         # contradiction over HTTP and no way to enumerate them. Saying so beats
@@ -663,3 +667,27 @@ def _questions(payload: Any) -> list[dict[str, Any]]:
 
 def _listing(payload: Any) -> list[dict[str, Any]]:
     return [entry for entry in _items(payload) if isinstance(entry, dict)]
+
+
+def _completeness(payload: Any) -> dict[str, int | None]:
+    """What the producer says it left out, beside what it sent.
+
+    `_items` returns the list and nothing else, which is right for the two
+    routes that answer with a bare array — `/knowledge` and `/blockers` take no
+    limit and their queries have none, so they make no claim about
+    completeness. The candidates listing does: it truncates to `limit` and says
+    by how much (`D-281`).
+
+    Both counts are `None` where no claim was made, and never 0 — a KAE-Memory
+    older than the envelope has told us nothing about loss, and reading that as
+    "the list is whole" is how a page ends up asserting something nobody said.
+    """
+
+    if not isinstance(payload, dict):
+        return {"total": None, "omitted": None}
+    total = payload.get("total")
+    omitted = payload.get("omitted")
+    return {
+        "total": total if isinstance(total, int) else None,
+        "omitted": omitted if isinstance(omitted, int) else None,
+    }

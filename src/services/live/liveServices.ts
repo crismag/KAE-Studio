@@ -728,6 +728,8 @@ interface BackendProjection {
     /** Absent on a backend that only materialises. */
     asked?: boolean
   }[]
+  /** Absent on a backend older than `D-282`; both counts null where unclaimed. */
+  openQuestionsCompleteness?: { total?: number | null; omitted?: number | null }
   blockers: unknown[]
   contradictions: { count: number; listable: boolean; reason: string }
   preliminary: {
@@ -858,6 +860,12 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       // safe reading of a missing field is that it *was* asked.
       asked: q.asked ?? true,
     })),
+    // Carried rather than derived from the array's length: the producer counts
+    // what it holds, and the array is what survived the cut (`D-282`).
+    openDecisionsCompleteness: {
+      total: raw.openQuestionsCompleteness?.total ?? null,
+      omitted: raw.openQuestionsCompleteness?.omitted ?? null,
+    },
     // Every proposed statement is something a person has not yet agreed to, so
     // it belongs on the review surface. Without this the page rendered nothing
     // and the only visible control was a status filter that looks like a
