@@ -36,13 +36,17 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+const INCOMPLETE =
+  '2 extraction runs have not finished. Review reads what exists now, so anything still ' +
+  'queued will not be classified and the pass will need running again.'
+
 describe('what the press did', () => {
   it('reports a run that was enqueued', async () => {
     // The control: Memory's `EnqueueReviewResponse`, which is what the
     // backend passes through on every path that did enqueue something.
     expect(
       await classify({ run_id: 'run_9', outstanding_extraction_runs: 0, warnings: [] }),
-    ).toEqual({ queued: true })
+    ).toEqual({ queued: true, warnings: [] })
   })
 
   it('reports that a refused press queued nothing', async () => {
@@ -52,13 +56,35 @@ describe('what the press did', () => {
         engine: 'reviewed_by_model',
         knowledge_revision: 12,
       }),
-    ).toEqual({ queued: false })
+    ).toEqual({ queued: false, warnings: [] })
   })
 
   it('does not read a body with no run in it as a queued run', async () => {
     // The reason the discriminator is `run_id` rather than the refusal word. A
     // body that names neither is not evidence that a worker is running.
-    expect(await classify({})).toEqual({ queued: false })
-    expect(await classify({ run_id: '' })).toEqual({ queued: false })
+    expect(await classify({})).toEqual({ queued: false, warnings: [] })
+    expect(await classify({ run_id: '' })).toEqual({ queued: false, warnings: [] })
+  })
+})
+
+describe('what the pass will not see', () => {
+  it('carries KAE-Memory`s warning whole', async () => {
+    // `D-276`. The route composes this rather than refusing the request,
+    // because a caller who does not know needs telling — and this adapter
+    // discarded the body, so nobody was ever told. Verbatim: the count lives
+    // inside Memory's sentence and is not re-derived here.
+    expect(
+      await classify({ run_id: 'run_9', outstanding_extraction_runs: 2, warnings: [INCOMPLETE] }),
+    ).toEqual({ queued: true, warnings: [INCOMPLETE] })
+  })
+
+  it('says nothing where Memory said nothing', async () => {
+    // An older Memory sending no warnings field is not the same as one
+    // reporting outstanding work, and neither invents a sentence.
+    expect(await classify({ run_id: 'run_9' })).toEqual({ queued: true, warnings: [] })
+    expect(await classify({ run_id: 'run_9', warnings: 'not a list' })).toEqual({
+      queued: true,
+      warnings: [],
+    })
   })
 })

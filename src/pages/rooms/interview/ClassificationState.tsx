@@ -51,11 +51,27 @@ import { neverClassified } from './neverClassified'
  * surface exists to prevent. A worker runs the pass; the numbers change on a
  * later read.
  */
-function Queued() {
+function Queued({ warnings }: { warnings: string[] }) {
   return (
-    <p className="mt-2 text-[12px] text-ink-muted">
-      Queued. A worker is reading the project now — the areas below will change once it finishes.
-    </p>
+    <>
+      <p className="mt-2 text-[12px] text-ink-muted">
+        Queued. A worker is reading the project now — the areas below will change once it finishes.
+      </p>
+      {/* **What the pass will not see, in Memory's own words** (`D-276`).
+          Review classifies what exists now, so a pass queued while extraction
+          is still draining is short by whatever is still queued — and the
+          sentence above, which is true, would otherwise be the whole of what a
+          person is told.
+
+          Verbatim and never summarised, the rule the projection already applies
+          to `classification.note`. Nothing renders when there is nothing to
+          say, so this is not a standing warning (`D-243`). */}
+      {warnings.map((warning) => (
+        <p key={warning} className="mt-1 text-[12px] leading-relaxed text-ink-subtle">
+          {warning}
+        </p>
+      ))}
+    </>
   )
 }
 
@@ -118,7 +134,7 @@ export function ClassificationState({
             control rather than printing a sentence for a state that cannot
             happen (`D-45`). */}
         {outcome?.queued ? (
-          <Queued />
+          <Queued warnings={outcome.warnings} />
         ) : (
           <Button className="mt-2.5" onClick={onClassify} disabled={pending}>
             <Sparkles className="size-3.5" aria-hidden="true" />
@@ -148,7 +164,7 @@ export function ClassificationState({
       </p>
       {outcome ? (
         outcome.queued ? (
-          <Queued />
+          <Queued warnings={outcome.warnings} />
         ) : (
           <NothingToClassify />
         )

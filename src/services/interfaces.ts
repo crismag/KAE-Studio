@@ -291,6 +291,20 @@ export interface ClassificationRequestOutcome {
    * caller must not describe as work in flight.
    */
   queued: boolean
+  /**
+   * What this pass will not see, in KAE-Memory's own words.
+   *
+   * Review reads what exists now, so a pass queued while extraction is still
+   * draining classifies part of the project and needs running again. Memory
+   * reports that rather than refusing the request, because a caller who knows
+   * what they are doing is doing something legitimate and a caller who does
+   * not needs telling (`D-276`).
+   *
+   * Rendered verbatim, never summarised — the same rule the projection applies
+   * to `classification.note`. Empty when there is nothing to say, and on a
+   * refusal, where nothing was queued for a warning to be about.
+   */
+  warnings: string[]
 }
 
 /** Assembles the projection the UI renders from current Memory knowledge. */

@@ -1644,11 +1644,25 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     // `EnqueueReviewResponse` carries no status, so testing for the absence of
     // the refusal word would read any future body as success.
     classify: async (id) => {
-      const answer = await call<{ run_id?: string }>(`/api/projects/${resolve(id)}/classify`, {
-        method: 'POST',
-        body: '{}',
-      })
-      return { queued: typeof answer?.run_id === 'string' && answer.run_id.length > 0 }
+      const answer = await call<{ run_id?: string; warnings?: unknown }>(
+        `/api/projects/${resolve(id)}/classify`,
+        { method: 'POST', body: '{}' },
+      )
+      const queued = typeof answer?.run_id === 'string' && answer.run_id.length > 0
+      // **Memory's sentence about what this pass will miss, carried whole**
+      // (`D-276`). Review reads what exists now, so a pass queued while
+      // extraction is draining classifies part of the project — and the route
+      // reports that rather than refusing, on the stated grounds that the
+      // caller needs telling. Studio discarded it, so nobody was ever told.
+      //
+      // Verbatim, for the reason the projection gives about
+      // `classification.note`: rewriting it would be deciding how alarmed to be
+      // on the reader's behalf. The count is inside the sentence and is not
+      // carried separately, where nothing would read it.
+      const warnings = Array.isArray(answer?.warnings)
+        ? answer.warnings.filter((line): line is string => typeof line === 'string')
+        : []
+      return { queued, warnings: queued ? warnings : [] }
     },
   }
 

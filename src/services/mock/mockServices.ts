@@ -500,7 +500,8 @@ class MockProjectProjectionService implements ProjectProjectionService {
     //
     // A fixture is a claim about a contract (`D-247`), so the prototype now
     // shows the sentence the deployment shows.
-    return delay({ queued: false })
+    // No warnings: nothing was queued, so there is no pass for one to be about.
+    return delay({ queued: false, warnings: [] })
   }
 }
 

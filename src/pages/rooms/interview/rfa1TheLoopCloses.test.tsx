@@ -99,7 +99,7 @@ describe('a project nothing has classified says so', () => {
       <ClassificationState
         classification={NEVER}
         onClassify={() => {}}
-        outcome={{ queued: true }}
+        outcome={{ queued: true, warnings: [] }}
       />,
     )
 
@@ -151,12 +151,47 @@ describe('a project that was classified', () => {
       <ClassificationState
         classification={BY_MODEL}
         onClassify={() => {}}
-        outcome={{ queued: true }}
+        outcome={{ queued: true, warnings: [] }}
       />,
     )
 
     expect(screen.getByText(/queued/i)).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('says what the queued pass will not see, in Memory`s own words', () => {
+    // `D-276`. Review classifies what exists now, so a pass queued while
+    // extraction is still draining is short by whatever is still queued.
+    // Memory composes the sentence and reports it rather than refusing the
+    // request; Studio discarded the body, so nobody was ever told.
+    const warning =
+      '2 extraction runs have not finished. Review reads what exists now, so anything ' +
+      'still queued will not be classified and the pass will need running again.'
+    render(
+      <ClassificationState
+        classification={BY_MODEL}
+        onClassify={() => {}}
+        outcome={{ queued: true, warnings: [warning] }}
+      />,
+    )
+
+    // Verbatim, including the number and the instruction to run it again.
+    expect(screen.getByText(warning)).toBeInTheDocument()
+  })
+
+  it('says nothing extra when the pass will see everything', () => {
+    // The control, and the reason this is not a standing warning (`D-243`):
+    // the ordinary queued press is unchanged.
+    render(
+      <ClassificationState
+        classification={BY_MODEL}
+        onClassify={() => {}}
+        outcome={{ queued: true, warnings: [] }}
+      />,
+    )
+
+    expect(screen.getByText(/worker is reading/i)).toBeInTheDocument()
+    expect(screen.queryByText(/will not be classified/i)).not.toBeInTheDocument()
   })
 
   it('does not describe a worker reading the project when nothing was queued', () => {
@@ -170,7 +205,7 @@ describe('a project that was classified', () => {
       <ClassificationState
         classification={BY_MODEL}
         onClassify={() => {}}
-        outcome={{ queued: false }}
+        outcome={{ queued: false, warnings: [] }}
       />,
     )
 
@@ -188,7 +223,7 @@ describe('a project that was classified', () => {
       <ClassificationState
         classification={BY_MODEL}
         onClassify={() => {}}
-        outcome={{ queued: false }}
+        outcome={{ queued: false, warnings: [] }}
       />,
     )
 
