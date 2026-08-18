@@ -456,7 +456,16 @@ export interface ReviewFinding {
 
 /* ---------------------------------------------------------------- deliverables */
 
-export type DeliverableState = 'not_generated' | 'generated' | 'reviewed' | 'published' | 'outdated'
+/**
+ * `outdated`, `superseded` and `withdrawn` are three different conditions.
+ *
+ * `DeliverableService.withdraw` is explicit that collapsing the last two
+ * "would leave a reader unable to tell 'there is a newer one' from 'do not use
+ * this'". `outdated` is neither: it is derived from the knowledge revision
+ * moving, while the other two are decisions somebody recorded.
+ */
+export type DeliverableState =
+  'not_generated' | 'generated' | 'reviewed' | 'published' | 'outdated' | 'superseded' | 'withdrawn'
 
 export type PublishTargetKind = 'github' | 'local' | 's3'
 
@@ -534,6 +543,22 @@ export interface Deliverable {
    * byte and still cannot say how much of itself was guesswork.
    */
   unreproducibleClaimReason?: string
+  /**
+   * Why the project no longer stands behind this package, in Memory's words.
+   *
+   * Recorded by `withdraw` into the manifest. Absent where the withdrawal
+   * recorded no reason, which is a state and not a prompt to invent one — a
+   * withdrawn package with no reason says only that it was withdrawn.
+   */
+  withdrawnReason?: string
+  /**
+   * The deliverable that replaced this one, where `state` is `superseded`.
+   *
+   * The identifier, because that is what Memory records. It is resolved to the
+   * replacement's name before it reaches a reader; printing a UUID where a
+   * person reads is `D-199`.
+   */
+  supersededById?: string
   publishedTo?: { target: PublishTargetKind; reference: string; at: string }
   blockedReason?: string
 }

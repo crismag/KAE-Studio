@@ -1323,6 +1323,7 @@ interface WireDeliverable {
   source_knowledge: string[]
   manifest: {
     unresolved_critical_gaps?: { area_key: string; summary: string }[]
+    withdrawn_reason?: string
     [key: string]: unknown
   }
   recorded_by: string | null
@@ -1358,11 +1359,32 @@ interface WireDeliverable {
  * The states mean different things and the mapping says which. Memory records
  * that an output *existed*; it deliberately performs no rendering or
  * publication, so nothing it returns can mean `published`.
+ *
+ * `superseded` and `withdrawn` were both `outdated` until `D-274`, which is the
+ * collapse `DeliverableService.withdraw` says leaves a reader "unable to tell
+ * 'there is a newer one' from 'do not use this'". They keep their own words.
  */
 const DELIVERABLE_STATE: Record<string, Deliverable['state']> = {
   recorded: 'generated',
-  superseded: 'outdated',
-  withdrawn: 'outdated',
+  superseded: 'superseded',
+  withdrawn: 'withdrawn',
+}
+
+/**
+ * States a moved knowledge revision does not override.
+ *
+ * `stale` outranks `recorded`: an output whose knowledge moved on is out of
+ * date whatever it was recorded as. It does not outrank these two, because
+ * both are decisions somebody made about the package and staleness is a
+ * derivation about the project — a package the project disowned is not made
+ * current by the knowledge standing still.
+ */
+const DECIDED_STATES: ReadonlySet<Deliverable['state']> = new Set(['superseded', 'withdrawn'])
+
+function deliverableState(wire: WireDeliverable): Deliverable['state'] {
+  const recorded = DELIVERABLE_STATE[wire.state] ?? 'not_generated'
+  if (DECIDED_STATES.has(recorded)) return recorded
+  return wire.stale ? 'outdated' : recorded
 }
 
 function deliverable(wire: WireDeliverable): Deliverable {
@@ -1373,9 +1395,7 @@ function deliverable(wire: WireDeliverable): Deliverable {
     // Memory scopes a deliverable to a module by naming one, not by a keyword.
     scope: wire.module ? 'module' : 'project',
     moduleId: wire.module ?? undefined,
-    // `stale` outranks the recorded state: an output whose knowledge has moved
-    // on is outdated whatever it was recorded as.
-    state: wire.stale ? 'outdated' : (DELIVERABLE_STATE[wire.state] ?? 'not_generated'),
+    state: deliverableState(wire),
     sourceMemoryRevision: wire.knowledge_revision,
     contentHash: wire.content_hash,
     includes: wire.artifacts.map((a) => a.logical_path ?? a.path ?? '').filter(Boolean),
@@ -1417,6 +1437,13 @@ function deliverable(wire: WireDeliverable): Deliverable {
     unreproducibleClaimReason: wire.reproduces_uncertainty
       ? ''
       : (wire.uncertainty_gap_reason ?? ''),
+    // Memory's own sentence for why the project stopped standing behind this,
+    // written into the manifest by `withdraw`. Undefined where the withdrawal
+    // recorded none, which the card says nothing about rather than filling in.
+    withdrawnReason: wire.manifest?.withdrawn_reason || undefined,
+    // The replacement's identifier. Resolved to its name before a reader sees
+    // it; nothing renders this value itself.
+    supersededById: wire.superseded_by ?? undefined,
     generatedAt: undefined,
   }
 }

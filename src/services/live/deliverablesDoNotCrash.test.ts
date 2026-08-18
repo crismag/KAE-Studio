@@ -32,8 +32,24 @@ const RECORDED = {
   superseded_by: null,
 }
 
-/** The five states `Deliverables.tsx` can render. Anything else throws there. */
-const RENDERABLE = new Set(['not_generated', 'generated', 'reviewed', 'published', 'outdated'])
+/**
+ * The states `Deliverables.tsx` can render. Anything else throws there.
+ *
+ * Seven since `D-274`, which stopped `superseded` and `withdrawn` arriving as
+ * `outdated`. Written out rather than imported from the page: this file's job
+ * is to state what the surface accepts where a reader can check it against
+ * `STATE_META`, and importing the answer would make the two agree by
+ * definition rather than by inspection.
+ */
+const RENDERABLE = new Set([
+  'not_generated',
+  'generated',
+  'reviewed',
+  'published',
+  'outdated',
+  'superseded',
+  'withdrawn',
+])
 
 function respond(body: unknown) {
   return vi
@@ -372,6 +388,75 @@ describe('deliverables arrive in a shape the page can render', () => {
     const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
 
     expect(mapped.unreproducibleClaimReason).toBe('')
+  })
+
+  /**
+   * `D-274`. `DELIVERABLE_STATE` mapped `superseded` and `withdrawn` both onto
+   * `outdated`, which is the collapse `DeliverableService.withdraw` names in
+   * its own docstring: it *"would leave a reader unable to tell 'there is a
+   * newer one' from 'do not use this'"*. The card then attached the `outdated`
+   * sentence — *regenerate to pick up the current revision* — to both, which is
+   * a wrong instruction rather than a thin one.
+   */
+  it('keeps a replaced package and a disowned one apart', async () => {
+    respond({
+      deliverables: [
+        { ...RECORDED, deliverable_id: 'dlv_old', state: 'superseded', superseded_by: 'dlv_new' },
+        {
+          ...RECORDED,
+          deliverable_id: 'dlv_gone',
+          state: 'withdrawn',
+          manifest: { withdrawn_reason: 'The engagement it was written for was cancelled.' },
+        },
+      ],
+    })
+
+    const [replaced, disowned] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(replaced.state).toBe('superseded')
+    expect(replaced.supersededById).toBe('dlv_new')
+    expect(disowned.state).toBe('withdrawn')
+    expect(disowned.withdrawnReason).toBe('The engagement it was written for was cancelled.')
+    // Neither is the state that tells somebody to regenerate.
+    expect(replaced.state).not.toBe('outdated')
+    expect(disowned.state).not.toBe('outdated')
+  })
+
+  it('does not let a moved revision overwrite a decision somebody recorded', async () => {
+    // `stale` outranks `recorded` and must not outrank these two: a package the
+    // project disowned is not made current by the knowledge standing still, and
+    // *replaced* is what a reader needs before *out of date*.
+    respond({
+      deliverables: [
+        { ...RECORDED, state: 'superseded', stale: true },
+        { ...RECORDED, state: 'withdrawn', stale: true },
+        { ...RECORDED, state: 'recorded', stale: true },
+      ],
+    })
+
+    const mapped = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.map((d) => d.state)).toEqual(['superseded', 'withdrawn', 'outdated'])
+  })
+
+  it('says only that a package was withdrawn when no reason was recorded', async () => {
+    // `withdraw` takes the reason from its caller and writes it into the
+    // manifest. A withdrawal that recorded none is a state, not a prompt to
+    // author one on the reader's behalf.
+    respond({ deliverables: [{ ...RECORDED, state: 'withdrawn', manifest: {} }] })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.state).toBe('withdrawn')
+    expect(mapped.withdrawnReason).toBeUndefined()
+  })
+
+  it('names no replacement for a package nothing replaced', async () => {
+    respond({ deliverables: [RECORDED] })
+
+    const [mapped] = await createLiveServices('p1').artifacts.listDeliverables('p1')
+
+    expect(mapped.supersededById).toBeUndefined()
   })
 
   it('returns nothing, and says nothing, when the envelope is the sibling one', async () => {

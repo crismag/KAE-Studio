@@ -1,6 +1,15 @@
 import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Check, CircleDashed, FileText, Lock, RefreshCw, TriangleAlert, X } from 'lucide-react'
+import {
+  Check,
+  CircleDashed,
+  FileText,
+  Lock,
+  MinusCircle,
+  RefreshCw,
+  TriangleAlert,
+  X,
+} from 'lucide-react'
 import { plural } from '@/lib/plural'
 import { formatDateTime } from '@/lib/format'
 import { PageLayout } from '@/components/project/PageLayout'
@@ -27,11 +36,20 @@ const STATE_META: Record<
   reviewed: { label: 'Reviewed', tone: 'accent' },
   published: { label: 'Published', tone: 'confirmed' },
   outdated: { label: 'Outdated', tone: 'attention' },
+  superseded: { label: 'Superseded', tone: 'neutral' },
+  withdrawn: { label: 'Withdrawn', tone: 'attention' },
 }
 
 /* ------------------------------------------------------------ card */
 
-function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
+function DeliverableCard({
+  deliverable,
+  replacedBy,
+}: {
+  deliverable: Deliverable
+  /** The replacement's name, where it is among the packages on this page. */
+  replacedBy?: string
+}) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const meta = STATE_META[deliverable.state]
   const u = deliverable.assembledUnderUncertainty
@@ -60,6 +78,10 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
               {deliverable.state === 'outdated' && (
                 <RefreshCw className="size-3" aria-hidden="true" />
               )}
+              {deliverable.state === 'superseded' && (
+                <MinusCircle className="size-3" aria-hidden="true" />
+              )}
+              {deliverable.state === 'withdrawn' && <X className="size-3" aria-hidden="true" />}
               {deliverable.state === 'not_generated' && (
                 <CircleDashed className="size-3" aria-hidden="true" />
               )}
@@ -116,6 +138,37 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
             <RefreshCw className="mt-0.5 size-3.5 shrink-0 text-attention" aria-hidden="true" />
             Project knowledge changed after this version was generated. Regenerate to pick up the
             current revision.
+          </p>
+        )}
+
+        {/* Not the `outdated` sentence: regenerating is not what either of
+            these asks for, and telling somebody to regenerate a package the
+            project has disowned is a wrong instruction rather than a thin one. */}
+        {deliverable.state === 'superseded' && (
+          <p className="flex items-start gap-2 rounded-md border border-line bg-surface-sunken/60 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
+            <MinusCircle className="mt-0.5 size-3.5 shrink-0 text-ink-subtle" aria-hidden="true" />
+            <span>
+              A later package replaced this one
+              {replacedBy ? (
+                <>
+                  {' — '}
+                  <span className="text-ink">{replacedBy}</span>
+                </>
+              ) : (
+                ''
+              )}
+              . It stays readable as what was produced.
+            </span>
+          </p>
+        )}
+
+        {deliverable.state === 'withdrawn' && (
+          <p className="flex items-start gap-2 rounded-md border border-attention-line bg-attention-soft/50 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-ink-muted">
+            <X className="mt-0.5 size-3.5 shrink-0 text-attention" aria-hidden="true" />
+            <span>
+              The project no longer stands behind this package
+              {deliverable.withdrawnReason ? `: ${deliverable.withdrawnReason}` : '.'}
+            </span>
           </p>
         )}
 
@@ -270,6 +323,12 @@ export function Deliverables() {
 
   const projectPackages = deliverables.filter((d) => d.scope === 'project')
   const modulePackages = deliverables.filter((d) => d.scope === 'module')
+  // Memory names the replacement by identifier. A person reads names, so it is
+  // resolved against what this page already holds; a replacement outside that
+  // set leaves the sentence unnamed rather than printing a UUID (`D-199`).
+  const nameById = new Map(deliverables.map((d) => [d.id, d.name]))
+  const replacementFor = (d: Deliverable) =>
+    d.supersededById ? nameById.get(d.supersededById) : undefined
   const openDecisions = projection?.openDecisions.length ?? 0
 
   return (
@@ -302,7 +361,7 @@ export function Deliverables() {
           </h2>
           <div className="space-y-4">
             {modulePackages.map((d) => (
-              <DeliverableCard key={d.id} deliverable={d} />
+              <DeliverableCard key={d.id} deliverable={d} replacedBy={replacementFor(d)} />
             ))}
           </div>
         </section>
@@ -313,7 +372,7 @@ export function Deliverables() {
           </h2>
           <div className="space-y-4">
             {projectPackages.map((d) => (
-              <DeliverableCard key={d.id} deliverable={d} />
+              <DeliverableCard key={d.id} deliverable={d} replacedBy={replacementFor(d)} />
             ))}
           </div>
         </section>

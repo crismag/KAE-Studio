@@ -148,6 +148,73 @@ describe('a package says what it was assembled around', () => {
     ).toBeInTheDocument()
   })
 
+  /**
+   * `D-274`. Both states arrived as `outdated`, so the card told a reader to
+   * *regenerate to pick up the current revision* about a package the project
+   * had withdrawn. The sentence is true of a stale package and wrong here, so
+   * the assertion that matters is the absence of it.
+   */
+  it('tells a withdrawn package apart from a stale one, in the reason Memory recorded', async () => {
+    renderPage([
+      {
+        ...WITH_GAPS,
+        unresolvedGaps: [],
+        state: 'withdrawn',
+        withdrawnReason: 'The engagement it was written for was cancelled.',
+      },
+    ])
+
+    expect(await screen.findByText(/no longer stands behind this package/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/The engagement it was written for was cancelled\./),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Regenerate to pick up the current revision/i),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Outdated')).not.toBeInTheDocument()
+  })
+
+  it('says only that a package was withdrawn where no reason was recorded', async () => {
+    renderPage([{ ...WITH_GAPS, unresolvedGaps: [], state: 'withdrawn' }])
+
+    expect(await screen.findByText(/no longer stands behind this package/i)).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Regenerate to pick up the current revision/i),
+    ).not.toBeInTheDocument()
+  })
+
+  /**
+   * The replacement is named, never printed as an identifier (`D-199`). The
+   * name is resolved against the packages the page already holds.
+   */
+  it('names the package that replaced a superseded one', async () => {
+    renderPage([
+      { ...WITH_GAPS, unresolvedGaps: [], state: 'superseded', supersededById: 'DLV-NEW' },
+      { ...WITH_GAPS, id: 'DLV-NEW', name: 'Project context package v2', unresolvedGaps: [] },
+    ])
+
+    // Asserted on the sentence rather than on the page: the replacement's own
+    // card carries that name too, so a page-wide match would pass without the
+    // sentence naming anything.
+    const said = await screen.findByText(/A later package replaced this one/i)
+    expect(said).toHaveTextContent('Project context package v2')
+    expect(screen.queryByText(/DLV-NEW/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/Regenerate to pick up the current revision/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('still says a package was replaced when the replacement is not on this page', async () => {
+    // A limit or a scope filter can leave the replacement out of the list. The
+    // sentence stands without a name rather than falling back to the id.
+    renderPage([
+      { ...WITH_GAPS, unresolvedGaps: [], state: 'superseded', supersededById: 'DLV-ELSEWHERE' },
+    ])
+
+    expect(await screen.findByText(/A later package replaced this one/i)).toBeInTheDocument()
+    expect(screen.queryByText(/DLV-ELSEWHERE/)).not.toBeInTheDocument()
+  })
+
   it('says nothing when there is nothing to say', async () => {
     // The control. A complete package must not carry a warning shaped like one,
     // which is the failure mode of announcing an empty list.
@@ -159,5 +226,7 @@ describe('a package says what it was assembled around', () => {
     expect(screen.queryByText(/unsettled/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/rests on/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/cannot be reproduced/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/no longer stands behind/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/A later package replaced/i)).not.toBeInTheDocument()
   })
 })
