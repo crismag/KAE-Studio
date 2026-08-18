@@ -630,6 +630,23 @@ export function useSourceMaterial() {
   })
 }
 
+/**
+ * Which documents a source taught KAE (`D-259`, `D-260`).
+ *
+ * `enabled` so the read only happens when somebody opens the list. The names
+ * are behind a disclosure — the count is the glanceable fact and the paths are
+ * the one you go looking for — and a query that ran anyway would fetch a
+ * repository's worth of paths for every source anybody selected.
+ */
+export function useSourceDocuments(sourceId: string | undefined, enabled: boolean) {
+  const { acquisition } = useServices()
+  return useQuery({
+    queryKey: ['source-documents', sourceId],
+    queryFn: () => acquisition.sourceDocuments(sourceId!),
+    enabled: Boolean(sourceId) && enabled,
+  })
+}
+
 /** The files a pinned source would read. Enabled only once one is chosen. */
 export function useSourceFiles(sourceId: string | undefined, limit?: number) {
   const { acquisition } = useServices()

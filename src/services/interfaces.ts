@@ -43,6 +43,7 @@ import type {
   PublisherAvailability,
   SetupState,
   SourceDisposition,
+  SourceDocuments,
   SourceListing,
   SynthesizedObject,
   SynthesizedObjectDetail,
@@ -482,6 +483,20 @@ export interface AcquisitionPort {
    * would let one failed read hide the other.
    */
   sourceMaterial(projectId: string): Promise<MaterialReport>
+
+  /**
+   * Which documents this source taught KAE, not how many (`D-259`, `D-260`).
+   *
+   * `sourceMaterial` gives a count, and a count cannot answer *did the include
+   * paths catch what I meant*. Distinct from `listFiles`, which lists what the
+   * provider holds at a revision: a file can be listed there and never read,
+   * and a document can be named here after its file was deleted upstream.
+   *
+   * The answer may be short. `totalDocuments` and `truncated` come with it so a
+   * caller cannot report the length of what it received as the number of files
+   * read.
+   */
+  sourceDocuments(sourceId: string, limit?: number): Promise<SourceDocuments>
 
   /**
    * The in-scope files of a pinned source, largest first. **Reads nothing into

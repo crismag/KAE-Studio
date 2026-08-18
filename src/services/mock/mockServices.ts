@@ -29,6 +29,7 @@ import type {
   GenerationRun,
   InterviewSession,
   MaterialReport,
+  SourceDocuments,
   MemoryConnection,
   ProjectModule,
   ProjectProjection,
@@ -1490,6 +1491,37 @@ class MockAcquisition implements AcquisitionPort {
       // here, not an edge one.
       unattributedDocuments: 2,
       unattributedBodies: 6,
+    })
+  }
+
+  sourceDocuments(sourceId: string, limit = 200): Promise<SourceDocuments> {
+    const source = this.sources.find((s) => s.sourceId === sourceId)
+    if (!source) throw new Error(`Unknown source: ${sourceId}`)
+
+    // Deliberately not `listFiles`' paths. The file browser lists what the
+    // provider holds at a revision and this lists what KAE actually read, and
+    // a mock that returned the same set for both would teach that the two
+    // questions have one answer (`D-260`).
+    const read =
+      this.sources.indexOf(source) === 0
+        ? [
+            { document: 'CONTRIBUTING.md', storedBodies: 1 },
+            { document: 'README.md', storedBodies: 2 },
+            { document: 'docs/ARCHITECTURE.md', storedBodies: 5 },
+            { document: 'docs/DECISIONS.md', storedBodies: 3 },
+          ]
+        : []
+    return delay({
+      sourceId,
+      documents: read.slice(0, limit).map((entry) => ({
+        ...entry,
+        lastReadAt: '2026-08-14T09:12:00Z',
+      })),
+      // The total is the whole set, not the slice. A mock that reported the
+      // slice would let a surface pass a prefix off as everything and no test
+      // would notice.
+      totalDocuments: read.length,
+      truncated: read.length > limit,
     })
   }
 

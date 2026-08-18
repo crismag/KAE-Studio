@@ -814,6 +814,41 @@ export interface MaterialReport {
   unattributedBodies: number
 }
 
+/** One document KAE read out of a source, and when it last read it. */
+export interface IngestedDocument {
+  /**
+   * The coordinate the ingesting run named — for a repository,
+   * `owner/repo@sha:path`. The ingester's own word for what it read, not a
+   * path reconstructed from the source location.
+   */
+  document: string
+  /** Copies of text this one document produced. A long file chunks into many. */
+  storedBodies: number
+  lastReadAt: string | null
+}
+
+/**
+ * Which documents a source taught KAE (`D-259`, `D-260`).
+ *
+ * `MaterialReport` answers *how much*; this answers *which*, which is the
+ * question somebody checking whether the include paths caught what they meant
+ * is actually asking.
+ *
+ * Not the same list as the file browser's. That shows what the provider holds
+ * at a revision; this shows what KAE read, at whatever revision it read it.
+ */
+export interface SourceDocuments {
+  sourceId: string
+  documents: IngestedDocument[]
+  /**
+   * Every document under this source, not just the ones listed. Carried
+   * separately so a surface can say *412, showing the first 200* instead of
+   * reporting the length of what it received as the number of files read.
+   */
+  totalDocuments: number
+  truncated: boolean
+}
+
 export interface ProjectSource {
   sourceId: string
   projectId: string

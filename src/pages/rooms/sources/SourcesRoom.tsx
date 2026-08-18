@@ -87,6 +87,7 @@ import {
   useAvailableRepositories,
   useHasConnection,
   useProjection,
+  useSourceDocuments,
   useSourceMaterial,
   useSourcesOfKind,
   useSourcesUnavailable,
@@ -608,6 +609,8 @@ function SourceDetail({ source }: { source: ProjectSource }) {
 
       <Reading source={source} />
 
+      <DocumentsRead source={source} />
+
       {pinned && <FileBrowser source={source} />}
     </div>
   )
@@ -816,6 +819,91 @@ function Material({ sourceId }: { sourceId: string }) {
         ? 'Nothing has been read from this source yet, so this decision would apply to nothing.'
         : `This would apply to ${plural(row.documents, 'document')} read from this source, held as ${plural(row.storedBodies, 'stored copy', 'stored copies')} of their text.`}
     </p>
+  )
+}
+
+/**
+ * What KAE actually read out of this source (`D-259`, `D-260`).
+ *
+ * A source could say it had read 412 documents and name none of them, which
+ * left *did the include paths catch what I meant* unanswerable from the page
+ * that configures those paths.
+ *
+ * **Not the file browser below.** That lists what the provider holds at the
+ * pinned revision; this lists what KAE read, at whatever revision it read it. A
+ * file can sit in that list unread, and a document can be named here after its
+ * file was deleted upstream. One list answering both questions would be
+ * `AUD-009` — a surface naming something the system did not do.
+ *
+ * **The names are behind a disclosure and the count is not.** A repository
+ * ingested whole would otherwise open this pane as a wall of paths, in front of
+ * somebody who came to pin a revision. And the total comes from the response
+ * rather than from the length of the list, because a truncated list reporting
+ * its own length would state a number nothing measured.
+ */
+function DocumentsRead({ source }: { source: ProjectSource }) {
+  const [open, setOpen] = useState(false)
+  const read = useSourceDocuments(source.sourceId, open)
+
+  return (
+    <Panel>
+      <PanelHeader>
+        <PanelTitle>What KAE has read from this source</PanelTitle>
+      </PanelHeader>
+      <PanelBody className="space-y-3">
+        <p className="text-[12.5px] text-ink-muted">
+          The documents KAE drew statements from. This is not the file list below: that is what the
+          repository holds now, and this is what was actually read.
+        </p>
+
+        <Button variant="secondary" onClick={() => setOpen((current) => !current)}>
+          {open ? 'Hide what was read' : 'Show what was read'}
+        </Button>
+
+        {open && (
+          <QueryState
+            query={read}
+            of="What KAE read from this source"
+            skeleton={<Skeleton className="h-24" />}
+          >
+            {(listing) =>
+              listing.totalDocuments === 0 ? (
+                <p className="text-[12px] text-ink-muted">
+                  Nothing has been read from this source yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[12px] text-ink-muted">
+                    {/* The total, then what is on screen. A page that showed
+                        only the rows it received would report the ceiling as
+                        the number of files read. */}
+                    {plural(listing.totalDocuments, 'document')} read from this source
+                    {listing.truncated &&
+                      `, showing the first ${listing.documents.length.toLocaleString()}`}
+                    .
+                  </p>
+                  <ul className="space-y-1">
+                    {listing.documents.map((entry) => (
+                      <li
+                        key={entry.document}
+                        className="flex items-baseline justify-between gap-3 text-[12px]"
+                      >
+                        <Mono className="truncate text-ink-muted">{entry.document}</Mono>
+                        <span className="shrink-0 text-ink-subtle">
+                          {isKnownTimestamp(entry.lastReadAt ?? '')
+                            ? `read ${formatDateTime(entry.lastReadAt!)}`
+                            : plural(entry.storedBodies, 'stored copy', 'stored copies')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            }
+          </QueryState>
+        )}
+      </PanelBody>
+    </Panel>
   )
 }
 

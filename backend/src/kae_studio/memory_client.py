@@ -168,6 +168,22 @@ class MemoryClient:
 
         return await self._request("GET", f"/v1/projects/{project_id}/source-material")
 
+    async def source_documents(self, project_id: str, source_id: str, limit: int) -> Any:
+        """Which documents this source taught KAE, not how many (`D-259`).
+
+        `source_material` answers *how much* and cannot say which files, which
+        leaves a person unable to check whether the include paths caught what
+        they meant. Carried through unshaped, `total_documents` and `truncated`
+        included: a surface that had only the returned list would state a
+        number nothing measured.
+        """
+
+        return await self._request(
+            "GET",
+            f"/v1/projects/{project_id}/sources/{source_id}/documents",
+            params={"limit": limit},
+        )
+
     async def pin_source(self, project_id: str, source_id: str, body: dict[str, Any]) -> Any:
         """Fix a source to the revision Studio resolved against the provider."""
 

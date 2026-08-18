@@ -50,6 +50,7 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
       stopReadingSource: (sourceId) => port.stopReadingSource(sourceId),
       resumeReadingSource: (sourceId) => port.resumeReadingSource(sourceId),
       sourceMaterial: (projectId) => port.sourceMaterial(projectId),
+      sourceDocuments: (sourceId, limit) => port.sourceDocuments(sourceId, limit),
       listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
       sample: (sourceId, path) => port.sample(sourceId, path),
       ingestFiles: (sourceId, projectId, paths) => port.ingestFiles(sourceId, projectId, paths),

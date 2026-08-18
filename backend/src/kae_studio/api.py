@@ -1880,6 +1880,27 @@ def create_app(settings: Settings) -> FastAPI:
 
         return await memory(request).source_material(project_id)
 
+    @app.get("/api/sources/{source_id}/documents")
+    async def source_documents(
+        source_id: str,
+        request: Request,
+        limit: int = 200,
+        _: Operator = Depends(require_operator),
+    ) -> Any:
+        """Which documents this source taught KAE (`D-259`, `D-260`).
+
+        The project comes from the working set rather than the path, as every
+        other single-source route here does — a caller holding a source id
+        should not have to also hold the project it belongs to.
+
+        Proxied unshaped, `total_documents` and `truncated` included. A surface
+        given only the returned list would report its length as the number of
+        files read, which is a number nothing measured.
+        """
+
+        source = acquisition(request).source(source_id)
+        return await memory(request).source_documents(source.project_id, source_id, limit)
+
     @app.post("/api/projects/{project_id}/sources", status_code=status.HTTP_201_CREATED)
     async def add_source(
         project_id: str,

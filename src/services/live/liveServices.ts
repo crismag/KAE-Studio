@@ -564,6 +564,18 @@ interface WireMaterialReport {
   unattributed_bodies: number
 }
 
+/** `GET /api/sources/{id}/documents`, proxied from Memory unshaped. */
+interface WireSourceDocuments {
+  source_id: string
+  documents: {
+    document: string
+    stored_bodies: number
+    last_read_at: string | null
+  }[]
+  total_documents: number
+  truncated: boolean
+}
+
 interface WireSource {
   source_id: string
   project_id: string
@@ -2305,6 +2317,25 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
         })),
         unattributedDocuments: raw.unattributed_documents,
         unattributedBodies: raw.unattributed_bodies,
+      }
+    },
+
+    sourceDocuments: async (sourceId, limit = 200) => {
+      const raw = await callArtifacts<WireSourceDocuments>(
+        `/api/sources/${sourceId}/documents?limit=${limit}`,
+      )
+      return {
+        sourceId: raw.source_id,
+        documents: (raw.documents ?? []).map((row) => ({
+          document: row.document,
+          storedBodies: row.stored_bodies,
+          lastReadAt: row.last_read_at ?? null,
+        })),
+        // Both carried from the wire rather than derived from the list. A
+        // total computed here would be the length of what arrived, which is
+        // precisely the number the route exists to correct.
+        totalDocuments: raw.total_documents,
+        truncated: raw.truncated,
       }
     },
   }

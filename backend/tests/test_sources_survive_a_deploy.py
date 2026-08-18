@@ -56,6 +56,9 @@ class RecordingMemory:
         #: Every retirement Memory actually recorded, so a second one that
         #: reached the record is visible rather than inferred from a timestamp.
         self.retirements: list[str] = []
+        #: Every ceiling a documents read asked Memory for, so a proxy that
+        #: dropped the caller's limit is visible rather than assumed away.
+        self.document_limits: list[int] = []
 
     def grant(self, project_id: str, connection_id: str = "con-durable") -> str:
         self.connections.setdefault(project_id, []).append(
@@ -176,6 +179,38 @@ class RecordingMemory:
             "unattributed_documents": 2,
             "unattributed_bodies": 6,
         }
+
+    async def source_documents(
+        self, project_id: str, source_id: str, limit: int
+    ) -> dict[str, Any]:
+        """Which documents a source taught KAE (`D-259`).
+
+        The double lists nothing of its own: the aggregation is KAE-Memory's and
+        is proved against a real database in its own suite. What is Studio's to
+        prove is that the project is resolved from the source id, that the limit
+        travels, and that `total_documents` arrives unchanged rather than being
+        recomputed from the list.
+        """
+
+        self.document_limits.append(limit)
+        for row in self.rows.get(project_id, []):
+            if row["source_id"] == source_id:
+                return {
+                    "source_id": source_id,
+                    "documents": [
+                        {
+                            "document": "docs/ARCHITECTURE.md",
+                            "stored_bodies": 5,
+                            "last_read_at": "2026-08-14T09:12:00Z",
+                        }
+                    ],
+                    # Larger than the list on purpose. A proxy that rebuilt the
+                    # total from what it received would report 1 here, which is
+                    # the number the route exists to correct.
+                    "total_documents": 412,
+                    "truncated": True,
+                }
+        raise AssertionError(f"listed documents for an unknown source {source_id}")
 
     async def classify_source(
         self, project_id: str, source_id: str, disposition: str
@@ -1276,3 +1311,74 @@ class TestASourceCanBeStoppedWithoutBeingErased:
 
         assert len(listed["sources"]) == 1
         assert memory.rows["p1"][0]["scope"]["include_paths"] == ["docs/"]
+
+
+class TestASourceCanNameWhatItRead:
+    """`D-259`, `D-260`. A source that read 412 files could name none of them.
+
+    The counts have reached the browser since `D-171` and could not answer *did
+    the include paths catch what I meant*. What Studio owns here is the hop: the
+    project resolved from a source id, the caller's ceiling carried, and the
+    totals passed through rather than recomputed.
+    """
+
+    def _configured_source(self, client: TestClient) -> str:
+        registered = client.post(
+            "/api/projects/p1/sources",
+            json={**CONFIGURED, "connection_id": connect(client)},
+        ).json()
+        return str(registered["source_id"])
+
+    def test_the_documents_arrive_with_the_total_that_was_not_recomputed(self) -> None:
+        """The guard. A proxy that rebuilt the total from the list it received
+        would report one document for a source that read 412, which is a number
+        nothing measured.
+        """
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            listed = client.get(f"/api/sources/{source_id}/documents")
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed.status_code == 200
+        body = listed.json()
+        assert body["documents"] == [
+            {
+                "document": "docs/ARCHITECTURE.md",
+                "stored_bodies": 5,
+                "last_read_at": "2026-08-14T09:12:00Z",
+            }
+        ]
+        assert body["total_documents"] == 412
+        assert body["truncated"] is True
+
+    def test_the_callers_ceiling_reaches_memory(self) -> None:
+        """A limit the proxy dropped would silently serve somebody else's."""
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            client.get(f"/api/sources/{source_id}/documents", params={"limit": 25})
+        finally:
+            client.__exit__(None, None, None)
+
+        assert memory.document_limits == [25]
+
+    def test_a_stopped_source_still_names_its_documents(self) -> None:
+        """`D-230`: stopping is not deleting, so the list does not go with it."""
+
+        memory = RecordingMemory()
+        client = app_with(memory)
+        try:
+            source_id = self._configured_source(client)
+            client.post(f"/api/sources/{source_id}/retirement")
+            listed = client.get(f"/api/sources/{source_id}/documents")
+        finally:
+            client.__exit__(None, None, None)
+
+        assert listed.status_code == 200
+        assert listed.json()["total_documents"] == 412

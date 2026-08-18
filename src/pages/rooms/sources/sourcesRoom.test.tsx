@@ -37,7 +37,7 @@ import { createMockServices } from '@/services/mock/mockServices'
 import { SourcesRoom } from './SourcesRoom'
 import { PasteDocument } from './intake'
 import type { AcquisitionPort, StudioServices } from '@/services/interfaces'
-import type { MaterialReport, ProjectSource } from '@/domain/types'
+import type { MaterialReport, ProjectSource, SourceDocuments } from '@/domain/types'
 
 function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): StudioServices {
   const port = base.acquisition
@@ -57,6 +57,7 @@ function withAcquisition(base: StudioServices, over: Partial<AcquisitionPort>): 
       stopReadingSource: (sourceId) => port.stopReadingSource(sourceId),
       resumeReadingSource: (sourceId) => port.resumeReadingSource(sourceId),
       sourceMaterial: (projectId) => port.sourceMaterial(projectId),
+      sourceDocuments: (sourceId, limit) => port.sourceDocuments(sourceId, limit),
       listFiles: (sourceId, limit) => port.listFiles(sourceId, limit),
       sample: (sourceId, path) => port.sample(sourceId, path),
       ingestFiles: (sourceId, projectId, paths) => port.ingestFiles(sourceId, projectId, paths),
@@ -525,6 +526,124 @@ describe('what the recorded word would apply to', () => {
 
     expect(await screen.findByText(/4 documents read from this source/i)).toBeInTheDocument()
     expect(screen.queryByText(/name no source/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('a source names what it actually read', () => {
+  const listing = (over: Partial<SourceDocuments> = {}): SourceDocuments => ({
+    sourceId: 'src-1',
+    // Deliberately not the file browser's fixture paths. The two panels answer
+    // different questions and a shared fixture would let a test pass on the
+    // wrong list's rendering of the same name.
+    documents: [
+      { document: 'docs/DECISIONS.md', storedBodies: 2, lastReadAt: '2026-08-14T09:12:00Z' },
+      { document: 'CONTRIBUTING.md', storedBodies: 5, lastReadAt: '2026-08-14T09:12:00Z' },
+    ],
+    totalDocuments: 2,
+    truncated: false,
+    ...over,
+  })
+
+  it('does not put a repository of paths in front of somebody who came to pin it', async () => {
+    // The count is the glanceable fact and the names are the one you go looking
+    // for. A detail pane that opened as a wall of paths would bury the pin,
+    // the disposition and the stop control underneath it.
+    renderSources((services) =>
+      withPinnedSource(services, { sourceDocuments: async () => listing() }),
+    )
+
+    expect(await screen.findByRole('button', { name: /Show what was read/i })).toBeInTheDocument()
+    expect(screen.queryByText('docs/DECISIONS.md')).not.toBeInTheDocument()
+  })
+
+  it('names each document once the list is opened', async () => {
+    // The whole point of the row: a source could say it had read 412 documents
+    // and name none of them, so nobody could check whether the include paths
+    // caught what they meant.
+    const user = userEvent.setup()
+    renderSources((services) =>
+      withPinnedSource(services, { sourceDocuments: async () => listing() }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /Show what was read/i }))
+
+    expect(await screen.findByText('docs/DECISIONS.md')).toBeInTheDocument()
+    expect(screen.getByText('CONTRIBUTING.md')).toBeInTheDocument()
+  })
+
+  it('says how many exist rather than how many arrived', async () => {
+    // The guard. A page that reported the length of what it received would
+    // state a number nothing measured — 200 files read from a source that read
+    // 412 — which is `AUD-009` at the scale of a repository.
+    const user = userEvent.setup()
+    renderSources((services) =>
+      withPinnedSource(services, {
+        sourceDocuments: async () => listing({ totalDocuments: 412, truncated: true }),
+      }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /Show what was read/i }))
+
+    const summary = await screen.findByText(/412 documents read from this source/i)
+    expect(summary).toHaveTextContent(/showing the first 2/i)
+  })
+
+  it('says a source nobody has read has nothing to name', async () => {
+    const user = userEvent.setup()
+    renderSources((services) =>
+      withPinnedSource(services, {
+        sourceDocuments: async () => listing({ documents: [], totalDocuments: 0 }),
+      }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /Show what was read/i }))
+
+    expect(
+      await screen.findByText(/Nothing has been read from this source yet/i),
+    ).toBeInTheDocument()
+  })
+
+  it('does not take the rest of the page down when the list cannot be read', async () => {
+    // Whether KAE can list what it read is not a precondition for pinning,
+    // classifying, or stopping a source.
+    const user = userEvent.setup()
+    renderSources((services) =>
+      withPinnedSource(services, {
+        sourceDocuments: async () => {
+          throw new Error('KAE-Memory did not answer')
+        },
+      }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /Show what was read/i }))
+
+    expect(await screen.findByLabelText(/What KAE should keep of this source/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Stop reading this source/i })).toBeInTheDocument()
+  })
+
+  it('keeps what was read apart from what the repository holds now', async () => {
+    // Two different questions. The file browser lists what the provider holds
+    // at the pinned revision; this lists what KAE read. A file can sit unread
+    // in the first, and a document can be named in the second after its file
+    // was deleted upstream.
+    const user = userEvent.setup()
+    renderSources((services) =>
+      withPinnedSource(services, {
+        sourceDocuments: async () =>
+          listing({
+            documents: [
+              { document: 'docs/RETIRED.md', storedBodies: 1, lastReadAt: '2026-08-14T09:12:00Z' },
+            ],
+            totalDocuments: 1,
+          }),
+      }),
+    )
+
+    await user.click(await screen.findByRole('button', { name: /Show what was read/i }))
+
+    // Named as read, and absent from the file listing the same fixture serves.
+    expect(await screen.findByText('docs/RETIRED.md')).toBeInTheDocument()
+    expect(screen.getByText(/what the repository holds now/i)).toBeInTheDocument()
   })
 })
 
