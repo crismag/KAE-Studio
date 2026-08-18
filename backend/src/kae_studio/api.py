@@ -655,19 +655,21 @@ def create_app(settings: Settings) -> FastAPI:
         document silently cut at a chunk limit is `AUD-024`.
         """
 
-        ingested = await memory(request).ingest_document(
-            project_id, body.title, body.text, max_chunks=body.max_chunks
-        )
-
         # A pasted or uploaded document is a Source (`D-24`, `§7`). Decode
         # happens in Studio; Memory only ever sees text. Kind records how it
         # arrived so a PDF is not listed as something somebody typed.
         #
         # Identity is the title on Memory's side: giving a corrected brief
         # again is the same origin supplying material, not a second origin.
+        #
+        # Registered *before* the document, so the document can name it
+        # (`D-286`). The other order left every paste unattached to the source
+        # that existed only because of it, and Memory refuses a `source_id`
+        # naming no source, so the identifier has to exist first.
         title = body.title.strip()
+        source_id: str | None = None
         if title:
-            await memory(request).register_source(
+            registered = await memory(request).register_source(
                 project_id,
                 {
                     "kind": body.origin,
@@ -685,8 +687,17 @@ def create_app(settings: Settings) -> FastAPI:
                     "scope": {},
                 },
             )
+            source_id = registered.get("source_id")
 
-        return ingested
+        return await memory(request).ingest_document(
+            project_id,
+            body.title,
+            body.text,
+            max_chunks=body.max_chunks,
+            # `source_type` is left to Memory's default, which is an imported
+            # document — what a paste and an upload both are.
+            source_id=source_id,
+        )
 
     @app.post("/api/decode")
     async def decode_upload(

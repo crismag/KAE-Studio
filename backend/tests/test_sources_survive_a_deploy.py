@@ -59,6 +59,13 @@ class RecordingMemory:
         #: Every ceiling a documents read asked Memory for, so a proxy that
         #: dropped the caller's limit is visible rather than assumed away.
         self.document_limits: list[int] = []
+        #: Every document handed over, with the keywords it arrived under, so a
+        #: route that drops one is visible rather than inferred.
+        self.documents: list[dict[str, Any]] = []
+        #: The order the writes reached Memory in. Two durable writes that both
+        #: succeed say nothing about which happened first, and here that is the
+        #: whole question.
+        self.calls: list[str] = []
 
     def grant(self, project_id: str, connection_id: str = "con-durable") -> str:
         self.connections.setdefault(project_id, []).append(
@@ -75,6 +82,7 @@ class RecordingMemory:
 
     async def register_source(self, project_id: str, body: dict[str, Any]) -> dict[str, Any]:
         self.registrations += 1
+        self.calls.append("register_source")
         rows = self.rows.setdefault(project_id, [])
         for row in rows:
             # Idempotent by (kind, location), as Memory is. A double that
@@ -106,8 +114,10 @@ class RecordingMemory:
         return {"field": field, "value": value, "state": "confirmed"}
 
     async def ingest_document(
-        self, project_id: str, title: str, text: str, **_: Any
+        self, project_id: str, title: str, text: str, **keywords: Any
     ) -> dict[str, Any]:
+        self.calls.append("ingest_document")
+        self.documents.append({"title": title, "text": text, **keywords})
         # Carries loss, because `AUD-024` is that loss must reach a person and
         # a double that never reports any cannot catch a route that drops it.
         return {
