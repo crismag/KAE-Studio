@@ -376,6 +376,23 @@ def _download_filename(package_id: str) -> str:
     return f"{kept}.zip" if kept else "package.zip"
 
 
+def _primary_repository(setup: Any) -> str:
+    """The repository this project named in Project Setup, if it named one.
+
+    One reader for one field. The source reconciliation (`D-23`, `D-55`) and
+    generation (`D-283`) both ask whether a repository was *chosen*, and two
+    transcriptions of the same nested shape is how one of them would keep
+    answering after Memory moved the field.
+    """
+
+    if not isinstance(setup, dict):
+        return ""
+    field = (setup.get("configuration") or {}).get("primary_repository")
+    if not isinstance(field, dict):
+        return ""
+    return str(field.get("value") or "").strip()
+
+
 def create_app(settings: Settings) -> FastAPI:
     """Build the Studio backend."""
 
@@ -500,7 +517,12 @@ def create_app(settings: Settings) -> FastAPI:
         project = await client.get_project(project_id)
         name = str(project.get("name", "")) if isinstance(project, dict) else ""
         context = await client.context(project_id)
-        return to_generation_input(context, project_name=name)
+        # The assembly says what the project knows; the repository it publishes
+        # to is a setup decision and lives elsewhere. Without it KAE-Artifacts
+        # blocks the GitHub integration specification saying nobody has chosen
+        # one, to a person who chose one on the setup page (`D-283`).
+        repository = _primary_repository(await client.setup_state(project_id))
+        return to_generation_input(context, project_name=name, repository=repository)
 
     # -- session -----------------------------------------------------------
 
@@ -1854,12 +1876,7 @@ def create_app(settings: Settings) -> FastAPI:
         # holds for any future path that sets the field without passing through
         # Studio. Bounded to one field, idempotent by `(kind, location)` on
         # Memory's side, and additive: nothing is renamed or removed.
-        setup = await memory(request).setup_state(project_id)
-        configured = ""
-        if isinstance(setup, dict):
-            field = (setup.get("configuration") or {}).get("primary_repository")
-            if isinstance(field, dict):
-                configured = str(field.get("value") or "").strip()
+        configured = _primary_repository(await memory(request).setup_state(project_id))
 
         if configured and configured not in known:
             registered = await memory(request).register_source(

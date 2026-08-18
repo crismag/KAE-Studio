@@ -119,8 +119,9 @@ CONTEXT: dict[str, Any] = {
 class FakeMemory:
     """Enough of `MemoryClient` for these routes, and nothing more."""
 
-    def __init__(self, context: dict[str, Any] | None = None) -> None:
+    def __init__(self, context: dict[str, Any] | None = None, repository: str = "") -> None:
         self._context = context if context is not None else CONTEXT
+        self._repository = repository
         self.context_calls = 0
 
     async def get_project(self, project_id: str) -> dict[str, Any]:
@@ -129,6 +130,28 @@ class FakeMemory:
     async def context(self, project_id: str, **_: Any) -> dict[str, Any]:
         self.context_calls += 1
         return self._context
+
+    async def setup_state(self, project_id: str) -> dict[str, Any]:
+        """`GET /v1/projects/{id}/setup`, in Memory's own shape.
+
+        The nested `{"value": ...}` is `ProjectConfiguration.as_dict()`, not a
+        convenience: a fixture that flattened it would let a reader of the wrong
+        depth pass here and block a real project (`D-283`).
+        """
+
+        return {
+            "project_id": project_id,
+            "configuration": {
+                "primary_repository": {
+                    "value": self._repository,
+                    "state": "confirmed" if self._repository else "unknown",
+                    "in_use": bool(self._repository),
+                    "evidence": [],
+                    "derived_from_knowledge_id": None,
+                    "confirmed_by": None,
+                }
+            },
+        }
 
     async def aclose(self) -> None:
         return None
@@ -330,6 +353,41 @@ class TestTheMemoryBoundary:
             )
 
         assert memory.context_calls == 2
+
+    def test_a_chosen_repository_reaches_the_generator_that_asks_for_one(self) -> None:
+        """`D-283`: the setup page's answer, against the real KAE-Artifacts app.
+
+        Studio sent `options: {}` on every call, so the integration
+        specification was blocked saying nobody had chosen a repository — shown
+        to a person who had chosen one, on a page of Studio's own.
+        """
+
+        with studio(memory=FakeMemory(repository="kae/task-inbox")) as client:
+            plan = client.post(
+                "/api/projects/dabbcd54/artifact-plans",
+                json={"profile": "integration-specification"},
+            ).json()
+
+        github = [e for e in plan["entries"] if e["logical_path"] == "docs/integrations/GITHUB.md"]
+        assert github, "the integration-specification profile no longer plans GITHUB.md"
+        assert github[0]["readiness"] != "blocked"
+        assert not github[0]["blocked_reason"]
+
+    def test_no_chosen_repository_still_blocks_with_the_reason(self) -> None:
+        """The control. The refusal is right when nothing was chosen.
+
+        Without this the test above passes if the rule stops firing entirely.
+        """
+
+        with studio(memory=FakeMemory()) as client:
+            plan = client.post(
+                "/api/projects/dabbcd54/artifact-plans",
+                json={"profile": "integration-specification"},
+            ).json()
+
+        github = [e for e in plan["entries"] if e["logical_path"] == "docs/integrations/GITHUB.md"]
+        assert github[0]["readiness"] == "blocked"
+        assert github[0]["blocked_reason"] == "No repository has been chosen for this project."
 
     def test_a_project_with_no_assemblable_context_says_so(self) -> None:
         """422 with a reason, not a 500 and not an empty plan."""
@@ -606,6 +664,21 @@ class TestTheMapping:
         from kae_studio.generation_input import to_generation_input
 
         assert to_generation_input(CONTEXT)["input_revision"] == "memory:281"
+
+    def test_the_repository_key_is_absent_when_nothing_was_chosen(self) -> None:
+        """`D-283`: the key's presence is the claim.
+
+        KAE-Artifacts blocks on `not options["repository"]`, so sending an empty
+        one would be indistinguishable — but a project that chose nothing
+        *should* be blocked, and only the omission says so honestly.
+        """
+
+        from kae_studio.generation_input import to_generation_input
+
+        assert to_generation_input(CONTEXT)["options"] == {}
+        assert to_generation_input(CONTEXT, repository="kae/task-inbox")["options"] == {
+            "repository": "kae/task-inbox"
+        }
 
 
 class TestWhatAPackageMayNotCarry:

@@ -68,8 +68,16 @@ class ContextNotUsable(ValueError):
     """
 
 
-def to_generation_input(context: dict[str, Any], project_name: str = "") -> dict[str, Any]:
-    """Convert `GET /v1/projects/{id}/context` into KAE-Artifacts input."""
+def to_generation_input(
+    context: dict[str, Any], project_name: str = "", repository: str = ""
+) -> dict[str, Any]:
+    """Convert `GET /v1/projects/{id}/context` into KAE-Artifacts input.
+
+    ``repository`` is the project's chosen repository, and it is separate from
+    the context because Memory keeps it separate: the assembly says what a
+    project knows, and naming a repository is a setup decision rather than
+    knowledge.
+    """
 
     manifest = context.get("manifest")
     if not isinstance(manifest, dict):
@@ -149,7 +157,15 @@ def to_generation_input(context: dict[str, Any], project_name: str = "") -> dict
         # Carried so a package's provenance can be checked against Memory
         # without re-reading every statement.
         "source_references": [f"memory:content_hash:{manifest.get('content_hash', '')}"],
-        "options": {},
+        # KAE-Artifacts refuses the GitHub integration specification when this
+        # key is absent — *"No repository has been chosen for this project"* —
+        # and Studio used to send `{}` on every call, so the refusal was shown
+        # to people who had chosen one (`D-283`). `repository` is KAE-Artifacts'
+        # own word for it; nothing is renamed on the way past.
+        #
+        # Omitted rather than sent empty when nothing was chosen: the key's
+        # presence is the claim, and the refusal is correct in that case.
+        "options": {"repository": repository} if repository else {},
     }
 
 
