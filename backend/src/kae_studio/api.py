@@ -1970,16 +1970,24 @@ def create_app(settings: Settings) -> FastAPI:
         # Memory's (`D-22`). Without this the first source added after a restart
         # is refused against a grant the setup page is displaying as live.
         await _rehydrate_connections(request, project_id)
-        # Recorded durably first, and its identity comes back from there
-        # (`D-21`). Minting an id here and telling Memory afterwards would give
-        # one source two identities whenever the second call failed.
+        # Refused before anything durable is written (`D-285`). Registering
+        # first left a `project_sources` row behind for every add the next line
+        # rejected, which the person then saw appear in the list underneath the
+        # error saying it had failed. Nothing is minted here, so `D-21` holds:
+        # the identity is still KAE-Memory's to assign.
+        acquisition(request).authorize(SourceKind(body.kind), body.connection_id)
         registered = await memory(request).register_source(
             project_id,
             {
                 "kind": body.kind,
                 "location": body.location,
                 "state": "configured",
-                "connection_id": None,
+                # The grant this source names, when it names one. Sent as `None`
+                # regardless until `D-285`, so the durable record said every
+                # source reached its provider through no connection while the
+                # working set built from the same request knew which — and after
+                # a restart `_rehydrate` read the record's answer back.
+                "connection_id": body.connection_id or None,
                 "scope": {
                     "include_paths": list(body.include_paths),
                     # From the scope built two lines up, not `[]`. The durable

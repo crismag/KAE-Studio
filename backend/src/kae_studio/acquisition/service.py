@@ -120,7 +120,18 @@ class AcquisitionService:
         provider made it possible to get wrong again.
         """
 
-        if source.kind is SourceKind.LOCAL:
+        return self.client_for_kind(source.kind)
+
+    def client_for_kind(self, kind: SourceKind) -> GitHubSourceClient | LocalSourceClient:
+        """The same dispatch, before a `Source` exists to carry the kind.
+
+        Configuring a source asks the same question reading one does — can this
+        deployment reach that provider at all — and `add_source` needs the
+        answer before it has built anything (`D-285`). Extracted rather than
+        restated, so the three refusal sentences keep one definition.
+        """
+
+        if kind is SourceKind.LOCAL:
             if self._local is None:
                 raise SourceReadError(
                     501,
@@ -129,7 +140,7 @@ class AcquisitionService:
                     remedy="Set KAE_LOCAL_SOURCE_ROOTS and restart the backend.",
                 )
             return self._local
-        if source.kind is SourceKind.GITHUB:
+        if kind is SourceKind.GITHUB:
             if self._github is None:
                 raise SourceReadError(
                     501,
@@ -139,8 +150,8 @@ class AcquisitionService:
             return self._github
         raise SourceReadError(
             501,
-            f"a {source.kind.value} source cannot be read yet",
-            remedy=f"Nothing to retry: this deployment cannot read a {source.kind.value} source.",
+            f"a {kind.value} source cannot be read yet",
+            remedy=f"Nothing to retry: this deployment cannot read a {kind.value} source.",
         )
 
     # -- connections -------------------------------------------------------
@@ -218,6 +229,38 @@ class AcquisitionService:
 
     # -- sources -----------------------------------------------------------
 
+    def authorize(self, kind: SourceKind, connection_id: str) -> None:
+        """What has to be true before this source may be configured.
+
+        A local directory needs no authorisation to reach it, so demanding a
+        connection would be a grant with nothing behind it — `§19`, and the
+        reason Settings has no revoke control (`D-68`).
+
+        A remote kind that **names** a grant is checked against the working set.
+        That is what stops a source being configured against a credential nobody
+        issued (`D-22`), and it is unchanged.
+
+        A remote kind that names none is configured against the deployment's own
+        credential, so the question is whether there is one — asked of the same
+        dispatch that would read the source, so an unreachable provider is
+        refused in `D-58`'s words rather than in a sentence about a missing
+        identifier. Since `GH-APP` the ordinary GitHub credential is an App
+        installation, which issues no per-project connection for the Sources
+        room to name; requiring one refused every repository somebody picked
+        from a list of repositories KAE could already read (`D-285`).
+
+        Called by the route before it writes anything durable, and again by
+        `add_source`, so a caller reaching the service directly is held to the
+        same rule as one arriving over HTTP.
+        """
+
+        if kind is SourceKind.LOCAL:
+            return
+        if connection_id:
+            self.connection(connection_id)
+            return
+        self.client_for_kind(kind)
+
     def add_source(
         self,
         project_id: str,
@@ -236,13 +279,7 @@ class AcquisitionService:
         know which it was holding.
         """
 
-        # A local directory needs no authorisation to reach it, so demanding a
-        # connection would be a grant with nothing behind it — `§19`, and the
-        # reason Settings has no revoke control (`D-68`). Every remote kind
-        # still names one: that check is what stops a source being configured
-        # against a credential nobody issued.
-        if kind is not SourceKind.LOCAL:
-            self.connection(connection_id)
+        self.authorize(kind, connection_id)
         source = Source(
             source_id=source_id or f"src_{uuid.uuid4().hex[:12]}",
             project_id=project_id,
