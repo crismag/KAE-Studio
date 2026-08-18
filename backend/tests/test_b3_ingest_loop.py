@@ -92,6 +92,10 @@ class _RecordingMemory:
     def __init__(self) -> None:
         self.documents: list[tuple[str, str]] = []
         self.provenance: list[tuple[str | None, str | None]] = []
+        #: Which project each document was posted under. Recorded because the
+        #: route used to take it from the request body (`D-267`), and an empty
+        #: one built a URL with no project in it that Memory answered 404 to.
+        self.projects: list[str] = []
 
     async def ingest_document(
         self,
@@ -104,6 +108,7 @@ class _RecordingMemory:
     ) -> Any:
         self.documents.append((document, text))
         self.provenance.append((source_type, source_id))
+        self.projects.append(project_id)
         return {"chunks_recorded": 1, "truncated_chunks": 0, "warnings": []}
 
     def __getattr__(self, name: str) -> Any:
@@ -177,6 +182,49 @@ def test_chosen_files_become_evidence_in_memory(client_and_memory: Any) -> None:
     assert REVISION[:7] in document
     assert "README.md" in document
     assert "Invoices are sent within three days." in text
+
+
+def test_the_project_comes_from_the_source_and_not_from_the_caller(
+    client_and_memory: Any,
+) -> None:
+    """A caller who omits `project_id` used to get a 404 that read like a bad source.
+
+    The body field defaulted to `""`, so every file went to
+    `/v1/projects//documents` — a URL with an empty path segment — and Memory's
+    `Not Found` surfaced as `memory_refused`. The source has known its project
+    since it was configured, so the body was never the authority (`D-267`).
+    """
+
+    client, memory, source_id = client_and_memory
+
+    response = client.post(f"/api/sources/{source_id}/ingest", json={"paths": ["README.md"]})
+
+    assert response.status_code == 200
+    assert memory.projects == ["p1"], "the project must come from the source"
+
+
+def test_a_body_naming_a_different_project_is_refused_rather_than_ignored(
+    client_and_memory: Any,
+) -> None:
+    """Dropping it silently would land the files somewhere the caller did not name.
+
+    Deriving the project makes the body field redundant, and a redundant field
+    that is quietly discarded is how somebody believes they ingested into `p2`.
+    The refusal names both values so the caller can see which one the server
+    would have used.
+    """
+
+    client, memory, source_id = client_and_memory
+
+    response = client.post(
+        f"/api/sources/{source_id}/ingest",
+        json={"project_id": "p2", "paths": ["README.md"]},
+    )
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "p2" in detail and "p1" in detail
+    assert memory.documents == [], "a refused request must not ingest anything"
 
 
 def test_a_repository_file_is_recorded_as_one(client_and_memory: Any) -> None:

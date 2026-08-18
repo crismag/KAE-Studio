@@ -2290,6 +2290,22 @@ def create_app(settings: Settings) -> FastAPI:
         source = acquisition(request).source(source_id)
         revision = source.snapshot.revision if source.snapshot else ""
 
+        # The project comes from the source, which has known it since it was
+        # configured (`D-267`). This read the body and defaulted to `""`, so a
+        # caller who omitted it posted every file to `/v1/projects//documents`
+        # and read the 404 as an unknown source. A body value that *disagrees*
+        # is refused rather than dropped: a caller believing it ingested into
+        # the project it named while the files landed in another one is the
+        # more expensive of the two mistakes.
+        claimed = str(body.get("project_id") or "").strip()
+        if claimed and claimed != source.project_id:
+            raise HTTPException(
+                409,
+                f"this request names project {claimed!r} and source {source_id} belongs to "
+                f"{source.project_id!r}. The source's project is the one that would be used; "
+                "send the matching value or leave project_id out.",
+            )
+
         results = []
         for path, text, coordinate in read:
             # One document per file, named for where it came from and for the
@@ -2299,7 +2315,7 @@ def create_app(settings: Settings) -> FastAPI:
             # later, so naming it after a revision nobody opened is a claim the
             # evidence cannot support.
             outcome = await memory(request).ingest_document(
-                body.get("project_id", ""),
+                source.project_id,
                 document=f"{source.location}@{coordinate[:7]}:{path}",
                 text=text,
                 # What was read, and which registered source it was read out of
