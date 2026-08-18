@@ -232,6 +232,105 @@ class TestItRefusesToBuyAPassItDoesNotNeed:
         assert memory.reviews, "a project no review has run over was refused a review"
 
 
+class TestAReviewerChangeIsAlsoStaleness:
+    """`REV-STALE`, `D-271`. `is_stale` tracks the knowledge revision, so a
+    deployment that swaps `KAE_REVIEW=deterministic` for `ollama` changes what a
+    classification *means* while changing no knowledge at all — and every
+    project already classified keeps the fixture's answer for ever. Found by
+    hitting it: `D-270` had to reach past this route to reclassify a live
+    project.
+
+    Memory answers the question, because the reviewer is `KAE_REVIEW` in
+    Memory's environment and Studio has never seen it.
+    """
+
+    @staticmethod
+    def _memory(**classification: object) -> "_RecordingMemory":
+        return _RecordingMemory(
+            readiness={
+                "percentage": 16,
+                "current_knowledge_revision": 9,
+                "knowledge_revision": 9,
+                "is_stale": False,
+                "classification": {"degraded": False, **classification},
+            }
+        )
+
+    def test_a_classification_by_a_reviewer_this_deployment_dropped_is_replaced(self) -> None:
+        memory = self._memory(
+            engine="reviewed_by_fixture",
+            engine_is_current=False,
+            current_reviewer="model",
+        )
+        with _client(memory) as client:
+            response = client.post("/api/projects/p1/classify", json={})
+
+        assert response.status_code == 200, response.text
+        assert response.json().get("status") != "already_current"
+        assert memory.reviews, "the fixture's answer was kept under a model reviewer"
+
+    def test_the_key_carries_the_reviewer_or_memory_returns_the_old_run(self) -> None:
+        """The half that makes the refusal above mean anything. A
+        reclassification after a reviewer change is by definition at the
+        revision the previous one was taken at, so a key made of the revision
+        alone is a key Memory has already seen — and Memory answers a seen key
+        with the run that already exists.
+        """
+
+        before = self._memory(
+            engine="reviewed_by_fixture", engine_is_current=False, current_reviewer="fixture"
+        )
+        after = self._memory(
+            engine="reviewed_by_fixture", engine_is_current=False, current_reviewer="model"
+        )
+        with _client(before) as client:
+            client.post("/api/projects/p1/classify", json={})
+        with _client(after) as client:
+            client.post("/api/projects/p1/classify", json={})
+
+        assert before.reviews[0][1] != after.reviews[0][1]
+
+    def test_a_current_reviewer_is_still_refused(self) -> None:
+        """The cost guard is unchanged. Nothing about this row makes a second
+        pass over unchanged knowledge by the same reviewer legitimate."""
+
+        memory = self._memory(
+            engine="reviewed_by_model", engine_is_current=True, current_reviewer="model"
+        )
+        with _client(memory) as client:
+            response = client.post("/api/projects/p1/classify", json={})
+
+        assert response.json()["status"] == "already_current"
+        assert memory.reviews == []
+
+    def test_an_unanswerable_comparison_refuses_exactly_as_before(self) -> None:
+        """Unknown is not stale. Memory reports `null` when it does not
+        recognise its own `KAE_REVIEW`, and reading that as *not current* would
+        buy a model pass over every project in the deployment on every press —
+        which is the cost this route's guard exists to prevent.
+        """
+
+        memory = self._memory(
+            engine="reviewed_by_model", engine_is_current=None, current_reviewer="unknown"
+        )
+        with _client(memory) as client:
+            response = client.post("/api/projects/p1/classify", json={})
+
+        assert response.json()["status"] == "already_current"
+        assert memory.reviews == []
+
+    def test_a_memory_that_never_heard_of_the_field_refuses_as_it_used_to(self) -> None:
+        """An older Memory omits it entirely, and this route must not read a
+        missing field as a reason to spend money."""
+
+        memory = self._memory(engine="reviewed_by_model")
+        with _client(memory) as client:
+            response = client.post("/api/projects/p1/classify", json={})
+
+        assert response.json()["status"] == "already_current"
+        assert memory.reviews == []
+
+
 class TestTheProjectionSaysWhetherAnythingClassified:
     def test_it_carries_memorys_classification_rather_than_only_the_number(self) -> None:
         """The conservation check for this finding.

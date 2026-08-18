@@ -1275,15 +1275,28 @@ def create_app(settings: Settings) -> FastAPI:
         operate. That decision belongs to whoever pays for it; making the
         capability reachable does not.
 
-        The idempotency key is the project's knowledge revision, so one review
-        exists per state of the project. Pressing again on unchanged knowledge
-        returns the run that already happened rather than buying a second one.
+        The idempotency key is the project's knowledge revision **and the
+        reviewer that would produce the classification**, so one review exists
+        per state of the project per reviewer. Pressing again on unchanged
+        knowledge returns the run that already happened rather than buying a
+        second one.
         """
 
         readiness = await memory(request).readiness(project_id)
         payload = readiness if isinstance(readiness, dict) else {}
         classification = payload.get("classification")
-        engine = classification.get("engine") if isinstance(classification, dict) else None
+        classification = classification if isinstance(classification, dict) else {}
+        engine = classification.get("engine")
+        # **A second staleness, and Memory is what can see it** (`D-271`). The
+        # reviewer is `KAE_REVIEW` in Memory's environment and Studio has never
+        # been told it, so `engine_is_current` is Memory's own comparison of the
+        # engine that produced the classification with the one it would use now.
+        #
+        # `None` is not `False`: nothing classified yet, or a setting Memory
+        # does not recognise. Neither is a reason to say the classification is
+        # out of date, and treating them as one would make a typo buy a model
+        # pass over every project on every press.
+        engine_is_current = classification.get("engine_is_current")
 
         # **Refuse when there is nothing to classify**, and refuse *here* rather
         # than relying on the idempotency key.
@@ -1297,7 +1310,19 @@ def create_app(settings: Settings) -> FastAPI:
         # `is_stale` is the question actually being asked. It is false when
         # readiness was calculated at the project's current revision, which is
         # exactly "the classification covers what the project holds now".
-        if engine is not None and payload.get("is_stale") is False:
+        #
+        # **And it is not the whole question.** `is_stale` asks whether the
+        # *project* moved; a deployment that swaps the fixture reviewer for a
+        # model changes what a classification means while moving no knowledge at
+        # all, so every existing project would keep the fixture's answer for
+        # ever. *The classification was produced by a reviewer this deployment
+        # no longer uses* is a true staleness condition — and it states its own
+        # reason, which a `force` flag would not.
+        if (
+            engine is not None
+            and payload.get("is_stale") is False
+            and engine_is_current is not False
+        ):
             return {
                 "status": "already_current",
                 "engine": engine,
@@ -1310,7 +1335,17 @@ def create_app(settings: Settings) -> FastAPI:
         # makes every project's first review the same run.
         if revision is None:
             revision = payload.get("knowledge_revision")
-        key = f"studio-review-{project_id}-{revision if revision is not None else 'unknown'}"
+        # **The reviewer is part of the key, or the refusal above changes
+        # nothing.** Memory returns the existing run for a key it has already
+        # seen, and a re-classification after a reviewer change is by definition
+        # at the revision the previous one was taken at — so a key made of the
+        # revision alone would let this route through and Memory would hand back
+        # the fixture's run.
+        reviewer = classification.get("current_reviewer") or "unknown"
+        key = (
+            f"studio-review-{project_id}-"
+            f"{revision if revision is not None else 'unknown'}-{reviewer}"
+        )
         return await memory(request).enqueue_review(project_id, key)
 
     @app.post("/api/projects/{project_id}/knowledge/{knowledge_id}/confirm")
