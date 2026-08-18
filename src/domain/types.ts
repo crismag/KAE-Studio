@@ -962,6 +962,20 @@ export interface CoverageTopic {
    * invariant, so zero is never a real value here.
    */
   weight: number | null
+  /**
+   * Whether the knowledge inside this area contradicts itself.
+   *
+   * KAE-Memory computes this per area from the project's unresolved
+   * contradictions, and computes it *independently of* the area's state — so a
+   * `sufficient` area can hold a conflict, and did render as *"enough for
+   * now"* until `D-288`. Memory does not agree with that sentence: it refuses
+   * to call a contradicted area one answer away whatever its shortfall
+   * (`D-157`).
+   *
+   * `null` is *KAE-Memory did not say*, which is not *no contradiction*
+   * (`D-38`).
+   */
+  contradicted: boolean | null
 }
 
 export interface ProjectHealth {

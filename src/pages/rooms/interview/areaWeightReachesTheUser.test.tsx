@@ -19,6 +19,7 @@ function area(over: Partial<CoverageTopic> & Pick<CoverageTopic, 'key'>): Covera
     state: 'missing',
     detail: 'missing · 0 of 1 confirmed',
     weight: 1,
+    contradicted: false,
     ...over,
   }
 }

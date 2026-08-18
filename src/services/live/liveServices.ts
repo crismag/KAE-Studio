@@ -692,7 +692,9 @@ interface BackendProjection {
       required: number
       state: string
       mandatory: boolean
-      contradicted: boolean
+      /** Absent on a Studio backend older than `D-288`, and `null` when
+       *  KAE-Memory did not say. */
+      contradicted?: boolean | null
       /** Absent on a Studio backend older than `D-195`, and `null` when
        *  KAE-Memory did not say. Never `0`. */
       weight?: number | null
@@ -924,6 +926,11 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
         state: coverageState(a),
         detail: coverageDetail(a),
         weight: typeof a.weight === 'number' && a.weight > 0 ? a.weight : null,
+        // Whether the knowledge inside this area contradicts itself. Not a
+        // degree of coverage — an area can hold a conflict at any degree — so
+        // it travels beside the state rather than as one of its values, which
+        // is also what keeps `D-31` open (`D-288`).
+        contradicted: typeof a.contradicted === 'boolean' ? a.contradicted : null,
       })),
       // Warnings only. The capability gaps that used to be flattened into this
       // list now travel as `unavailable` and `modulesGap` on the projection,

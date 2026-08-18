@@ -1220,6 +1220,7 @@ export const health: ProjectHealth = {
       state: 'strong',
       detail: 'Problem, objectives, and value are confirmed.',
       weight: 1.5,
+      contradicted: false,
     },
     {
       key: 'users_and_stakeholders',
@@ -1227,6 +1228,7 @@ export const health: ProjectHealth = {
       state: 'strong',
       detail: 'Submitters and readers confirmed; the approver role is contested.',
       weight: 1,
+      contradicted: false,
     },
     {
       key: 'workflows',
@@ -1234,6 +1236,7 @@ export const health: ProjectHealth = {
       state: 'strong',
       detail: 'Submission and approval flows are confirmed end to end.',
       weight: 1.5,
+      contradicted: false,
     },
     {
       key: 'functional_requirements',
@@ -1241,6 +1244,7 @@ export const health: ProjectHealth = {
       state: 'forming',
       detail: '8 confirmed, 1 contested.',
       weight: 2,
+      contradicted: false,
     },
     {
       key: 'interfaces',
@@ -1248,6 +1252,7 @@ export const health: ProjectHealth = {
       state: 'thin',
       detail: 'Two contracts undefined; the integration interview has not been run.',
       weight: 1,
+      contradicted: false,
     },
     {
       key: 'security',
@@ -1255,6 +1260,7 @@ export const health: ProjectHealth = {
       state: 'thin',
       detail: 'Blocked on approval authority.',
       weight: 1.5,
+      contradicted: false,
     },
     {
       key: 'data',
@@ -1262,6 +1268,7 @@ export const health: ProjectHealth = {
       state: 'forming',
       detail: 'Ownership assigned for reports and decisions; audit retention unowned.',
       weight: 1.5,
+      contradicted: false,
     },
     {
       key: 'acceptance',
@@ -1269,6 +1276,7 @@ export const health: ProjectHealth = {
       state: 'forming',
       detail: '7 tests drafted; 4 requirements unverified.',
       weight: 1,
+      contradicted: false,
     },
     {
       key: 'operations',
@@ -1276,6 +1284,7 @@ export const health: ProjectHealth = {
       state: 'missing',
       detail: 'Not yet discussed.',
       weight: 1,
+      contradicted: false,
     },
   ],
   recommendedNext: [

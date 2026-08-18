@@ -548,6 +548,17 @@ export function CoverageSection({
                 {Math.round(shares.get(topic.key) as number)}% of readiness
               </p>
             )}
+            {/* The same shape as the blocked line below, and for the same
+                reason: a contradiction is a fact about the knowledge inside an
+                area rather than a degree of coverage, so it cannot become a
+                sixth state without settling `D-31` sideways. The project-level
+                count already says how many there are; only this says *which
+                area*, which is the part a person can act on (`D-288`). */}
+            {topic.contradicted === true && (
+              <p className="text-[11.5px] leading-snug text-blocking">
+                Contradicted — statements here disagree. The Reviews room names them.
+              </p>
+            )}
             {/* `PLANNING_MODEL`'s `blocked`: *"another decision is required
                 first — dimmed, states the blocker"*. Beside the state rather
                 than as a sixth state, because Memory's `AreaState` cannot
