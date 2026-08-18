@@ -272,3 +272,60 @@ describe('a project that was classified', () => {
     expect(older.container).toBeEmptyDOMElement()
   })
 })
+
+describe('a pass made by a reviewer the deployment has replaced', () => {
+  it('says so, because the date alone does not describe that staleness', () => {
+    // `D-277`. The date answers *when* the pass ran; this answers *by what*.
+    // KAE-Memory computes it and refuses a re-classification while both the
+    // reviewer and the knowledge stand still (`D-271`) — so this is the one
+    // condition under which the button below changes anything.
+    render(
+      <ClassificationState
+        classification={{ ...BY_MODEL, engineIsCurrent: false }}
+        onClassify={() => {}}
+      />,
+    )
+
+    expect(screen.getByText(/different reviewer from the one KAE uses now/i)).toBeInTheDocument()
+  })
+
+  it('offers the pass as the remedy rather than only naming the problem', () => {
+    // `UX-16`. A statement a person cannot act on is a complaint.
+    render(
+      <ClassificationState
+        classification={{ ...BY_MODEL, engineIsCurrent: false }}
+        onClassify={() => {}}
+      />,
+    )
+
+    expect(screen.getByText(/replaces it with what the current one decides/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /classify again/i })).toBeInTheDocument()
+  })
+
+  it('says nothing when the reviewer still stands', () => {
+    render(
+      <ClassificationState
+        classification={{ ...BY_MODEL, engineIsCurrent: true }}
+        onClassify={() => {}}
+      />,
+    )
+
+    expect(screen.queryByText(/different reviewer/i)).not.toBeInTheDocument()
+  })
+
+  it('says nothing when nothing knows', () => {
+    // `D-38`, and the reason the component reads `=== false` rather than a
+    // falsy check: `null` is a reviewer Memory does not recognise or a backend
+    // too old to say, and neither is a claim that the pass is stale.
+    render(
+      <ClassificationState
+        classification={{ ...BY_MODEL, engineIsCurrent: null }}
+        onClassify={() => {}}
+      />,
+    )
+    expect(screen.queryByText(/different reviewer/i)).not.toBeInTheDocument()
+
+    const absent = render(<ClassificationState classification={BY_MODEL} onClassify={() => {}} />)
+    expect(absent.queryByText(/different reviewer/i)).not.toBeInTheDocument()
+  })
+})

@@ -494,12 +494,35 @@ def _classification(readiness: Any) -> dict[str, Any]:
         # A Memory older than the classification block tells us nothing about
         # how it classified. `unknown` says that; `null` would claim the
         # stronger thing, that no review has run.
-        return {"engine": "unknown", "degraded": False, "note": "", "reviewedAt": None}
+        return {
+            "engine": "unknown",
+            "degraded": False,
+            "note": "",
+            "reviewedAt": None,
+            "engineIsCurrent": None,
+        }
     return {
         "engine": payload.get("engine"),
         "degraded": bool(payload.get("degraded", False)),
         "note": payload.get("note", ""),
         "reviewedAt": payload.get("reviewed_at"),
+        # **The second staleness** (`D-271`): `is_stale` asks whether the
+        # project moved, this asks whether the judgement behind the number did.
+        # A deployment that swaps the fixture reviewer for a model changes what
+        # every existing classification means while moving no knowledge at all.
+        #
+        # It was read for the refusal on `POST .../classify` and reached no
+        # sentence, so the condition governed a button while nothing said why
+        # pressing it would change anything (`D-277`).
+        #
+        # Carried as it arrives, `None` included: Memory sends that both when
+        # nothing has been classified and when `KAE_REVIEW` is a word it does
+        # not recognise, because unknown is not stale and a typo must not mark
+        # every project. `current_reviewer` stays behind — it is a vocabulary
+        # word, the comparison has already been made by the only service that
+        # can make it, and a field with no reader is one this estate keeps
+        # having to delete.
+        "engineIsCurrent": payload.get("engine_is_current"),
     }
 
 

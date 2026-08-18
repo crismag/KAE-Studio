@@ -370,3 +370,37 @@ class TestTheProjectionSaysWhetherAnythingClassified:
 
         assert _classification({"percentage": 40})["engine"] == "unknown"
         assert _classification(None)["engine"] == "unknown"
+
+    def test_it_carries_whether_the_reviewer_is_still_the_configured_one(self) -> None:
+        """`D-277`, and the second staleness.
+
+        Memory computes `engine_is_current` and Studio's classify route reads
+        it to decide the refusal — so the backend already knew a pass was made
+        by a reviewer this deployment has since replaced, and the projection
+        dropped it. The date said *when*; nothing said *by what*.
+        """
+
+        from kae_studio.projection import _classification
+
+        def carried(value: object) -> object:
+            return _classification(
+                {
+                    "percentage": 40,
+                    "classification": {
+                        "engine": "reviewed_by_model",
+                        "degraded": False,
+                        "engine_is_current": value,
+                    },
+                }
+            )["engineIsCurrent"]
+
+        assert carried(False) is False
+        assert carried(True) is True
+
+        # Unknown is not stale (`D-38`). A Memory that does not report the
+        # field, and one too old to carry classification at all, both reach the
+        # surface as `None` — which renders nothing rather than a claim.
+        assert _classification({"percentage": 40, "classification": {"engine": "reviewed_by_model", "degraded": False}})[
+            "engineIsCurrent"
+        ] is None
+        assert _classification({"percentage": 40})["engineIsCurrent"] is None

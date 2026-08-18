@@ -756,6 +756,7 @@ interface BackendProjection {
     degraded: boolean
     note: string
     reviewedAt: string | null
+    engineIsCurrent?: boolean | null
   }
 }
 
@@ -929,6 +930,9 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
           degraded: raw.classification.degraded,
           note: raw.classification.note,
           reviewedAt: raw.classification.reviewedAt,
+          // `null` where the backend said nothing and where it said it does
+          // not know — unknown is not stale (`D-277`).
+          engineIsCurrent: raw.classification.engineIsCurrent ?? null,
         }
       : undefined,
     contradictions: {

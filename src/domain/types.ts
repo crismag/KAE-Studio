@@ -1018,6 +1018,20 @@ export interface ClassificationState {
   /** Memory's own sentence about its limits. Never rewritten on the way through. */
   note: string
   reviewedAt: string | null
+  /**
+   * Whether the reviewer that produced this pass is the one the deployment
+   * still uses (`D-271`).
+   *
+   * The second staleness: `engine` says what judged the project, this says
+   * whether that judgement is still the one KAE would make. A deployment that
+   * gains a model reviewer changes what every existing classification means
+   * while moving no knowledge at all.
+   *
+   * `null` is unknown and is **not** stale — nothing classified yet, a
+   * `KAE_REVIEW` Memory does not recognise, or a backend too old to send it.
+   * Read as `=== false`, never as falsy.
+   */
+  engineIsCurrent?: boolean | null
 }
 
 export interface SectionUnavailable {

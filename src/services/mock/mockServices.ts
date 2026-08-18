@@ -487,6 +487,9 @@ class MockProjectProjectionService implements ProjectProjectionService {
         degraded: false,
         note: 'Classified by the configured review model.',
         reviewedAt: null,
+        // The prototype's deployment has not changed its reviewer, which is
+        // the ordinary case and the one the surface must stay quiet about.
+        engineIsCurrent: true,
       },
     })
   }

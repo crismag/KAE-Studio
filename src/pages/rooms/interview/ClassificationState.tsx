@@ -162,6 +162,21 @@ export function ClassificationState({
           ? `Areas reflect a review pass on ${formatDateTime(classification.reviewedAt)}.`
           : 'Areas reflect a review pass, which did not record when it ran.'}
       </p>
+      {/* **The second staleness, said rather than only acted on** (`D-277`).
+          The date above answers *when*; this answers *by what*, and it is the
+          one condition under which the control below changes anything —
+          KAE-Memory refuses a re-classification while the reviewer and the
+          knowledge both stand still (`D-271`).
+
+          `=== false` and never falsy: `null` is nothing classified yet, or a
+          `KAE_REVIEW` Memory does not recognise, or a backend too old to say.
+          Unknown is not stale (`D-38`). */}
+      {classification.engineIsCurrent === false ? (
+        <p className="mt-1 text-[11.5px] leading-relaxed text-ink-subtle">
+          This pass was made by a different reviewer from the one KAE uses now. Classifying again
+          replaces it with what the current one decides.
+        </p>
+      ) : null}
       {outcome ? (
         outcome.queued ? (
           <Queued warnings={outcome.warnings} />
