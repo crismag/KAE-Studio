@@ -687,11 +687,31 @@ class MemoryClient:
             json={"answer": answer, "actor_id": actor, "disposition": disposition},
         )
 
-    async def confirm_knowledge(self, project_id: str, knowledge_id: str, reviewer: str) -> Any:
-        # Not project-scoped, unlike reject. A knowledge id is globally unique,
-        # and confirm was added before the project-scoped convention settled.
+    async def confirm_knowledge(
+        self,
+        project_id: str,
+        knowledge_id: str,
+        reviewer: str,
+        expected_version: int,
+    ) -> Any:
+        """Confirm a candidate the reviewer has actually read.
+
+        The reviewed route, not the bare `/v1/knowledge/{id}/confirm` this used
+        to call. That one declares no body, so the `reviewer` sent to it was
+        dropped by Pydantic's `extra="ignore"` behind a 200 and every
+        confirmation in the audit trail named nobody while every rejection named
+        somebody.
+
+        `expected_version` for the reason `reject_knowledge` gives, and it
+        matters more here: a rejection applied to wording that moved loses a
+        candidate, a confirmation applied to it makes something nobody read
+        authoritative.
+        """
+
         return await self._request(
-            "POST", f"/v1/knowledge/{knowledge_id}/confirm", json={"reviewer": reviewer}
+            "POST",
+            f"/v1/projects/{project_id}/knowledge/{knowledge_id}/confirm",
+            json={"reviewer": reviewer, "expected_version": expected_version},
         )
 
     async def record_assumption(

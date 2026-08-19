@@ -39,10 +39,28 @@ class RecordingMemory:
 
     def __init__(self) -> None:
         self.confirmed_sets: list[tuple[str, list[str]]] = []
+        self.confirmed: list[dict[str, Any]] = []
 
     async def confirm_knowledge_set(self, project_id: str, knowledge_ids: list[str]) -> Any:
         self.confirmed_sets.append((project_id, list(knowledge_ids)))
         return [{"id": i, "lifecycle": "validated"} for i in knowledge_ids]
+
+    async def confirm_knowledge(
+        self,
+        project_id: str,
+        knowledge_id: str,
+        reviewer: str,
+        expected_version: int,
+    ) -> Any:
+        self.confirmed.append(
+            {
+                "project_id": project_id,
+                "knowledge_id": knowledge_id,
+                "reviewer": reviewer,
+                "expected_version": expected_version,
+            }
+        )
+        return {"id": knowledge_id, "lifecycle": "validated", "outcome": "applied"}
 
     async def aclose(self) -> None:
         return None
@@ -74,6 +92,48 @@ def test_one_request_confirms_every_statement_the_reading_used() -> None:
 
     assert response.status_code == 200
     assert memory.confirmed_sets == [("p1", ["know-1", "know-2", "know-3"])]
+
+
+def test_a_confirmation_names_the_person_who_made_it() -> None:
+    """The audit trail held every rejection and no confirmation (`D-304`).
+
+    Studio was already sending `reviewer`, to a route that declares no body —
+    Pydantic's `extra="ignore"` dropped it in the parser and answered 200. What
+    reaches Memory is asserted here rather than what Studio sends, because the
+    sending was never the part that was wrong.
+    """
+
+    with studio() as (browser, memory):
+        response = browser.post(
+            "/api/projects/p1/knowledge/k-9/confirm",
+            json={"expected_version": 4},
+        )
+
+    assert response.status_code == 200
+    assert memory.confirmed == [
+        {
+            "project_id": "p1",
+            "knowledge_id": "k-9",
+            "reviewer": "operator",
+            "expected_version": 4,
+        }
+    ]
+
+
+def test_a_confirmation_that_names_no_version_is_refused() -> None:
+    """A confirmation of wording that moved is worse than a rejection of it.
+
+    A rejection applied to changed text loses a candidate; a confirmation
+    applied to it makes something nobody read authoritative. Refused here, so
+    the request never reaches a Memory that would have to guess.
+    """
+
+    with studio() as (browser, memory):
+        response = browser.post("/api/projects/p1/knowledge/k-9/confirm", json={})
+
+    assert response.status_code == 422
+    assert "version the reviewer read" in response.json()["detail"]
+    assert memory.confirmed == [], "nothing reached Memory"
 
 
 def test_an_empty_set_is_refused_and_says_why() -> None:

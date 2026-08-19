@@ -283,6 +283,18 @@ class ConfirmSetIn(BaseModel):
     knowledge_ids: list[str] = Field(default_factory=list, max_length=200)
 
 
+class ConfirmIn(BaseModel):
+    """The version a confirmation applies to.
+
+    No reason field, unlike `ReviewIn`: agreeing with a statement as written
+    needs no explanation, while refusing one does. The version is separate from
+    the reviewer for the same reason it is on rejection — it is what the browser
+    displayed, and deriving it here would make the check agree with itself.
+    """
+
+    expected_version: int = 0
+
+
 class ReviewIn(BaseModel):
     reason: str = ""
     #: The version the reviewer had on screen. Memory refuses a rejection that
@@ -1385,10 +1397,18 @@ def create_app(settings: Settings) -> FastAPI:
     async def confirm(
         project_id: str,
         knowledge_id: str,
+        body: ConfirmIn,
         request: Request,
         operator: Operator = Depends(require_operator),
     ) -> Any:
-        return await memory(request).confirm_knowledge(project_id, knowledge_id, operator.name)
+        if body.expected_version < 1:
+            raise HTTPException(
+                422,
+                "a confirmation must name the version the reviewer read",
+            )
+        return await memory(request).confirm_knowledge(
+            project_id, knowledge_id, operator.name, body.expected_version
+        )
 
     @app.post("/api/projects/{project_id}/recommendations")
     async def decide_recommendation(

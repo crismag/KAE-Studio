@@ -259,7 +259,8 @@ export function useConfirmFinding() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (findingId: string) => memory.confirmFinding(projectId, findingId),
+    mutationFn: ({ findingId, expectedVersion }: { findingId: string; expectedVersion: number }) =>
+      memory.confirmFinding(projectId, findingId, expectedVersion),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projection', projectId] }),
   })
 }

@@ -79,6 +79,24 @@ describe('acting on a statement where it is read', () => {
     expect(screen.queryByText(/Review this on the Reviews page/)).not.toBeInTheDocument()
   })
 
+  it('carries the version a confirmation needs', async () => {
+    /**
+     * The same optimistic-concurrency check rejection has always sent, and the
+     * more consequential of the two: a rejection of moved wording loses a
+     * candidate, a confirmation of it makes something nobody read
+     * authoritative (`D-306`).
+     */
+    const user = userEvent.setup()
+    const confirmFinding = vi.fn().mockResolvedValue({ accepted: true, memoryRevision: 5 })
+    show([requirement({ version: 7 })], { confirmFinding })
+
+    await user.click(await screen.findByRole('button', { name: /^confirm$/i }))
+
+    await waitFor(() => expect(confirmFinding).toHaveBeenCalled())
+    // (projectId, findingId, expectedVersion)
+    expect(confirmFinding.mock.calls[0][2]).toBe(7)
+  })
+
   it('carries the version a rejection needs', async () => {
     /**
      * Optimistic concurrency. KAE-Memory refuses a rejection aimed at wording

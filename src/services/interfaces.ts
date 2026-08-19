@@ -98,7 +98,14 @@ export interface ProjectMemoryClient {
   /** Stored provenance for one statement. Recorded evidence, never a generated
    *  explanation — the two are indistinguishable on screen, so only one is shown. */
   knowledgeTrace(projectId: string, knowledgeId: string): Promise<KnowledgeTrace>
-  confirmFinding(projectId: string, findingId: string): Promise<MemoryWriteResult>
+  /** Confirm a candidate, naming the version the reviewer read. Memory refuses a
+   *  confirmation of wording that has since moved — the dangerous direction, since
+   *  it would make something nobody read authoritative. */
+  confirmFinding(
+    projectId: string,
+    findingId: string,
+    expectedVersion: number,
+  ): Promise<MemoryWriteResult>
   /** Reject a candidate, with the reason. Separate from confirm on purpose:
    *  they are opposite acts on the durable record, and one method serving both
    *  is how a Reject button ends up confirming. */

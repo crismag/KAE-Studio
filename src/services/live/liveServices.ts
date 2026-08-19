@@ -1653,9 +1653,10 @@ export function createLiveServices(projectIdOverride?: string): StudioServices {
     knowledgeTrace: (id, knowledgeId) =>
       call(`/api/projects/${resolve(id)}/knowledge/${knowledgeId}/trace`),
 
-    confirmFinding: async (id, findingId) => {
+    confirmFinding: async (id, findingId, expectedVersion) => {
       const body = await call(`/api/projects/${resolve(id)}/knowledge/${findingId}/confirm`, {
         method: 'POST',
+        body: JSON.stringify({ expected_version: expectedVersion }),
       })
       return accepted(body)
     },

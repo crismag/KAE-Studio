@@ -118,7 +118,7 @@ function NextAction({ requirement }: { requirement: Requirement }) {
       </Advice>
     )
   }
-  // No version, no rejection: the route refuses one carrying an invented
+  // No version, neither decision: both routes refuse one carrying an invented
   // number, and a button that always fails is worse than no button.
   if (requirement.version === undefined) {
     return <Advice>Review this on the Reviews page: confirm it, correct it, or reject it.</Advice>
@@ -133,7 +133,12 @@ function NextAction({ requirement }: { requirement: Requirement }) {
           variant="secondary"
           size="sm"
           disabled={busy}
-          onClick={() => confirm.mutate(requirement.id)}
+          onClick={() =>
+            confirm.mutate({
+              findingId: requirement.id,
+              expectedVersion: requirement.version as number,
+            })
+          }
         >
           <Check className="size-3.5" aria-hidden="true" />
           Confirm

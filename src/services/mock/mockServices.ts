@@ -332,7 +332,11 @@ class MockProjectMemoryClient implements ProjectMemoryClient {
     })
   }
 
-  confirmFinding(_projectId: string, findingId: string): Promise<MemoryWriteResult> {
+  confirmFinding(
+    _projectId: string,
+    findingId: string,
+    _expectedVersion: number,
+  ): Promise<MemoryWriteResult> {
     state.confirmedFindingIds.add(findingId)
     state.memoryRevision += 1
     return delay({ accepted: true, memoryRevision: state.memoryRevision })

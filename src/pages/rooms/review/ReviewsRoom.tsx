@@ -168,7 +168,15 @@ function FindingCard({ finding }: { finding: ReviewFinding }) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => confirm.mutate(finding.id)}
+              onClick={() =>
+                confirm.mutate({
+                  findingId: finding.id,
+                  // The same version Reject carries, for the stronger reason:
+                  // confirming wording that has moved makes something nobody
+                  // read authoritative.
+                  expectedVersion: finding.version,
+                })
+              }
               disabled={confirm.isPending || reject.isPending}
             >
               <Check className="size-3.5" aria-hidden="true" />
