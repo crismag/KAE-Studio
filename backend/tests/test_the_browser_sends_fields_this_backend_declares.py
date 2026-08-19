@@ -1,6 +1,8 @@
 """Does every key the browser puts in a body reach a field this backend declares?
 
-The third question at Studio's own seam, and the last one nothing asked.
+The third question at Studio's own seam. It called itself *the last one nothing
+asked* and was wrong by one (`D-322`): the fourth is what the browser **reads
+back**, and it is in `test_the_browser_reads_fields_this_backend_composes.py`.
 `test_the_browser_calls_routes_this_backend_serves.py` (`D-301`) asks whether the
 *route* exists. This asks what the browser **sends** to it, which is the
 direction with no signal at either end: FastAPI parses a body through Pydantic,
