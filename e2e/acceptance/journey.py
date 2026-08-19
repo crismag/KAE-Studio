@@ -20,8 +20,8 @@ exercised the artifact chain through the wiring the deployment actually uses.
 `STUDIO_PASSWORD` is needed only where the deployment reports
 `authentication: required`; the harness asks before signing in (`D-64`).
 
-Scenarios: sparse-idea, messy-requirements, weak-answer, does-not-know,
-established, lifecycle, continuity.
+Scenarios: architecture, module-deep-dive, sparse-idea, messy-requirements,
+weak-answer, does-not-know, established, lifecycle, continuity.
 """
 
 from __future__ import annotations
@@ -790,8 +790,160 @@ def architecture() -> None:
     print(f"  project: {project}")
 
 
+MODULE_SEED = (
+    "A booking tool for a small veterinary practice. Clients sign in with an "
+    "email and a password to book, and the practice invoices them monthly for "
+    "whatever they booked."
+)
+
+MODULE_FOCUS = (
+    "Let's leave the rest for now and go deep on sign-in only. What does that "
+    "part have to handle?"
+)
+
+MODULE_FOLLOW_UP = (
+    "Staying on sign-in: what does the rest of the system need from it, and what "
+    "does it need from the rest?"
+)
+
+
+def module_deep_dive() -> None:
+    """`J5` — focus on one part of the project without losing the others.
+
+    Written to `J5`'s own pass conditions: *deepen the module while retaining
+    whole-project context, identify cross-module contracts and dependencies, and
+    avoid unnecessary interrogation about unrelated areas.*
+
+    Whether the questions asked are good ones is judgement and is printed. What
+    is asserted is the plumbing that judgement rests on: the narrowing turn was
+    taken, nothing the wider conversation produced was lost by narrowing, the
+    focused turns produced material of their own, and that material still leads
+    back to the turns it came from.
+
+    **The cross-module clause is deliberately not asserted, and the reason is
+    structural rather than an omission.** Modules are curated over KAE-Memory's
+    MCP path and Studio cannot write them (`D-19`), so `modules.available` is
+    `False` on every projection this harness can read — there is no module
+    object here for a contract to hang off, and a check on one could only ever
+    read the same absence. It is printed with `modules.available` beside it, in
+    `J4`'s shape.
+    """
+
+    header("J5 — one module deepened, the rest of the project still there")
+    # Per-run name for `D-265`/`D-273`'s reason: a fixed name returns the
+    # existing project, and every clause below about what a turn *changed*
+    # would then be read against a project already carrying the answers.
+    project = new_project(f"Acceptance J5 {int(time.time())}")
+    say(project, MODULE_SEED)
+    seeded = wait_for_candidates(project, 2)
+
+    before = projection(project)
+    seeded_ids = {str(item.get("id")) for item in seeded}
+    proposed_before = len(before.get("proposed") or [])
+    questions_before = len(before.get("openQuestions") or [])
+
+    say(project, MODULE_FOCUS)
+    # This turn's own extraction, bounded, for `D-273`'s reason: reading
+    # straight back reads the seeding turn's candidates and none of this one's.
+    # An empty window is a permitted answer, so it is waited on and not asserted.
+    wait_for_candidates(project, proposed_before + 1, seconds=90)
+    # The cross-module turn is the one `J5` is *about* — what does the rest of
+    # the system need from this part — and on the canonical local reasoner it
+    # answers `503 the model returned no move` (`D-310`). Recorded as a failed
+    # clause rather than allowed to end the run in a traceback: a journey that
+    # stops at its own subject reports nothing about the clauses either side of
+    # it, and CIE refusing to invent a move is correct behaviour whose cost
+    # lands here.
+    answered = True
+    try:
+        say(project, MODULE_FOLLOW_UP)
+    except RuntimeError as refusal:
+        answered = False
+        print(f"  the cross-module turn was refused: {refusal}")
+    must(answered, "the turn asking what the rest of the system needs was answered")
+    wait_for_candidates(project, proposed_before + 2, seconds=90 if answered else 20)
+    after = projection(project)
+
+    # 1. Narrowing was taken rather than refused. A project that gained neither
+    #    a candidate nor a question from two turns about one part of it treated
+    #    the narrowing as noise.
+    must(
+        len(after.get("proposed") or []) > proposed_before
+        or len(after.get("openQuestions") or []) != questions_before,
+        "asking to go deep on one part of the project was taken rather than refused",
+    )
+
+    # 2. **Retain whole-project context**, and this is the clause the journey is
+    #    named for. Not "the count did not fall" — a count is preserved by a
+    #    replacement — but every statement the wider conversation produced,
+    #    identified by id, still present after the project was narrowed onto one
+    #    part of itself. Invoicing was mentioned once and never again.
+    surviving = {str(item.get("id")) for item in after.get("proposed") or []}
+    surviving |= {str(item.get("id")) for item in after.get("confirmed") or []}
+    lost = seeded_ids - surviving
+    must(
+        not lost,
+        f"narrowing onto one module kept what the wider conversation produced ({len(lost)} lost)",
+    )
+
+    # 3. **Deepen.** The focused turns have to produce material of their own, and
+    #    it has to lead back to them — a projection says what state a statement
+    #    is in and never whether the sentence behind it can still be reached.
+    from_focus = [
+        item for item in after.get("proposed") or [] if str(item.get("id")) not in seeded_ids
+    ]
+    must(bool(from_focus), "the focused turns produced material the seeding turn had not")
+    if from_focus:
+        traced = False
+        for item in from_focus[:5]:
+            trace = call(f"/api/projects/{project}/knowledge/{item['id']}/trace")
+            quoted = json.dumps(trace) if trace is not None else ""
+            if MODULE_FOCUS[:40] in quoted or MODULE_FOLLOW_UP[:40] in quoted:
+                traced = True
+                break
+        must(traced, "what the focused turns produced leads back to them")
+
+    # 4. **Avoid unnecessary interrogation** — the half of it that is mechanical.
+    #    Whether a question is *unnecessary* is judgement, but a question KAE had
+    #    already recorded and then asks again is not: an open question the
+    #    project already held must not be re-opened as a second row by narrowing.
+    #    The field is `question` and not `text` — `_questions` in `projection.py`
+    #    names it that, and reading the wrong key here would compare a list of
+    #    empty strings and pass on every deployment forever (`D-32`).
+    def _question_text(item: object) -> str:
+        return str(item.get("question", "")).strip().lower() if isinstance(item, dict) else str(item)
+
+    asked = [_question_text(q) for q in after.get("openQuestions") or []]
+    must(
+        len(asked) == len(set(asked)),
+        "narrowing did not re-open a question the project already held",
+    )
+
+    # 5. Discussing a part of the project settles nothing about it, for `J4`'s
+    #    reason one journey along: a deep dive is a conversation, and a
+    #    conversation is not a confirmation.
+    must(
+        len(after.get("confirmed") or []) == len(before.get("confirmed") or []),
+        "going deep on a module confirmed nothing on its own",
+    )
+
+    show("Proposed after two focused turns", after.get("proposed") or [])
+    print("\n  What to judge (not asserted):")
+    print("   - did the questions stay on sign-in, or wander back to invoicing and booking?")
+    print("   - is what it learned about sign-in deeper than the seeding turn, or restated?")
+    print(
+        "   - cross-module contracts have nowhere to live in Studio: module curation is "
+        "KAE-Memory's MCP path and Studio cannot write modules, so "
+        f"modules.available={((after.get('modules') or {}).get('available'))}"
+    )
+    print(f"   - open questions: {questions_before} → {len(after.get('openQuestions') or [])}")
+    print(f"   - readiness: {(after.get('health') or {}).get('percentage')}%")
+    print(f"  project: {project}")
+
+
 SCENARIOS = {
     "architecture": architecture,
+    "module-deep-dive": module_deep_dive,
     "messy-requirements": messy_requirements,
     "sparse-idea": sparse_idea,
     "weak-answer": weak_answer,
