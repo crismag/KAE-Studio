@@ -266,6 +266,18 @@ function PlanRow({
               {entry.blockedReason} Nothing will be generated for this file until that is decided.
             </p>
           )}
+
+          {entry.readiness === 'needs_review' && (
+            /*
+             * The row that used to say nothing (`D-329`). Unlike the one above,
+             * this file *will* be written — so the sentence is what tells a
+             * reader what they are approving, and leaving it off made the pill
+             * the only warning that anything was unsettled.
+             */
+            <p className="mt-1.5 text-[12px] leading-relaxed text-ink-muted">
+              {entry.reviewReason} It will still be generated, so read it before approving.
+            </p>
+          )}
         </div>
       </div>
     </li>

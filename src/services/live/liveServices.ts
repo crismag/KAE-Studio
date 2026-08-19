@@ -225,6 +225,7 @@ interface WirePlanEntry {
   inputs: string[]
   readiness: ArtifactReadiness
   blocked_reason: string
+  review_reason: string
   selected: boolean
   generatable: boolean
   options: Record<string, string>
@@ -380,6 +381,7 @@ function plan(wire: WirePlan): ArtifactPlan {
       inputs: e.inputs,
       readiness: e.readiness,
       blockedReason: e.blocked_reason,
+      reviewReason: e.review_reason,
       selected: e.selected,
       generatable: e.generatable,
       options: e.options,

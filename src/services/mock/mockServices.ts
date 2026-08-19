@@ -912,13 +912,25 @@ class MockArtifactPipeline implements ArtifactPipeline {
         logicalPath: a.defaultPath,
         purpose: a.purpose,
         inputs: a.inputs,
-        // The integration specification is blocked without a repository. Kept
-        // in the mock because it is the state the UI most needs to render, and
-        // the one a happy-path fixture would never produce.
-        readiness: a.type === 'integration-specification' ? 'blocked' : 'ready',
+        // The integration specification is blocked without a repository, and
+        // the project context needs review while nothing is confirmed. Both are
+        // kept in the mock because they are the states the UI most needs to
+        // render and a happy-path fixture would never produce — and
+        // `needs_review` was missing here for exactly as long as it was missing
+        // from the screen (`D-329`).
+        readiness:
+          a.type === 'integration-specification'
+            ? 'blocked'
+            : a.type === 'project-context'
+              ? 'needs_review'
+              : 'ready',
         blockedReason:
           a.type === 'integration-specification'
             ? 'No repository has been chosen for this project.'
+            : '',
+        reviewReason:
+          a.type === 'project-context'
+            ? 'Nothing in this project has been confirmed yet, so this would be written from material that is still proposed.'
             : '',
         selected: true,
         generatable: a.type !== 'integration-specification',

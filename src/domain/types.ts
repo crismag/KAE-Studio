@@ -605,6 +605,14 @@ export interface ArtifactPlanEntry {
    * would be indistinguishable from an oversight.
    */
   blockedReason: string
+  /**
+   * Required when readiness is `needs_review`, and it matters more than its
+   * neighbour rather than less: a blocked entry is not generated, so its
+   * silence costs one question, while this one **is** generated — from material
+   * nobody confirmed — and the readiness word alone does not say which material
+   * that was (`D-329`).
+   */
+  reviewReason: string
   selected: boolean
   /** Selected **and** not blocked. Selection alone cannot override readiness. */
   generatable: boolean

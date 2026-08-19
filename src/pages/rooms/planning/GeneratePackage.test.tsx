@@ -120,6 +120,24 @@ describe('GeneratePackage', () => {
     expect(screen.getByText(/waiting on a decision/i)).toBeInTheDocument()
   })
 
+  it('says what is unsettled about a file that needs review, and that it is generated anyway', async () => {
+    // `D-329`. This row said nothing at all: the pill read *Needs review* and
+    // the file was written from unconfirmed material regardless. It is the
+    // worse silence of the two — the blocked row above costs a reader one
+    // question, this one costs them a document they did not know to check.
+    const user = userEvent.setup()
+    renderPanel()
+
+    await proposePlan(user, 'full-project-foundation')
+
+    expect(
+      await screen.findByText(/Nothing in this project has been confirmed yet/i),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/It will still be generated, so read it before approving/i),
+    ).toBeInTheDocument()
+  })
+
   it('will not let a blocked file be selected for generation', async () => {
     const user = userEvent.setup()
     renderPanel()
