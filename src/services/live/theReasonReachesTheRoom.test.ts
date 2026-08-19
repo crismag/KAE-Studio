@@ -24,7 +24,7 @@ const REASON_UNSTATED = 'The finding behind this question gave no reason.'
 
 function backend(question: Record<string, unknown>) {
   return {
-    project: { id: 'p1', name: 'Test', phase: 'active', memoryRevision: 3, createdAt: '' },
+    project: { id: 'p1', name: 'Test', phase: 'active', memoryRevision: 3 },
     confirmed: [],
     proposed: [],
     rejected: [],

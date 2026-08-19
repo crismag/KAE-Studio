@@ -13,7 +13,7 @@ import { toProjection } from './liveServices'
 
 function backend(completeness?: Record<string, unknown>) {
   return {
-    project: { id: 'p1', name: 'Test', phase: 'active', memoryRevision: 3, createdAt: '' },
+    project: { id: 'p1', name: 'Test', phase: 'active', memoryRevision: 3 },
     confirmed: [],
     proposed: [],
     rejected: [],

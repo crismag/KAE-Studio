@@ -38,7 +38,6 @@ export const project: Project = {
   name: 'Ministry Reporting Workspace',
   phase: 'Requirements forming',
   memoryRevision: MEMORY_REVISION,
-  createdAt: '2026-07-28T09:12:00Z',
 }
 
 /* ------------------------------------------------------------------ session */

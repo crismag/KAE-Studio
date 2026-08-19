@@ -42,7 +42,6 @@ export interface Project {
   name: string
   phase: string
   memoryRevision: number
-  createdAt: string
 }
 
 /* ---------------------------------------------------------------- conversation */

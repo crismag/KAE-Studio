@@ -87,7 +87,7 @@ function respondWith(over: Record<string, unknown>) {
     new Response(
       JSON.stringify({
         ...{
-          project: { id: 'p1', name: 'Test', phase: 'active', createdAt: '', memoryRevision: 1 },
+          project: { id: 'p1', name: 'Test', phase: 'active', memoryRevision: 1 },
           confirmed: [],
           proposed: [],
           rejected: [],

@@ -138,8 +138,11 @@ async def build_projection(memory: MemoryClient, project_id: str) -> dict[str, A
             # against a Memory older than EM-1, and 0 is a real revision meaning
             # "nothing written yet". A default that renders identically to a
             # fact is how the previous version stayed wrong for so long.
+            # No creation time: KAE-Memory's project payload carries none on any
+            # route, so this carried `""` on every projection ever served and no
+            # surface read it. A declared date that is always empty cannot be
+            # told apart from an unknown one (`D-38`, `D-330`).
             "memoryRevision": _revision(project_data, readiness_data),
-            "createdAt": project_data.get("created_at", ""),
         },
         # Split by lifecycle rather than merged with a label. A reader scanning
         # a list reads structure before badges, and confirmed and proposed
@@ -397,11 +400,11 @@ def _statements(payload: Any) -> list[dict[str, Any]]:
             continue
         flattened.append(
             {
-                "id": item.get("id") or item.get("knowledge_id", ""),
+                "id": item.get("id") or "",
                 # `current_content` is the field Memory returns; `content`
                 # appears only inside `versions[]`. Reading the wrong one gave
                 # every statement an empty body while the list length was right.
-                "text": item.get("current_content") or item.get("content") or item.get("text", ""),
+                "text": item.get("current_content") or "",
                 "kind": item.get("kind", ""),
                 "lifecycle": item.get("lifecycle", ""),
                 # What this statement is about. Memory always held it; the
@@ -459,8 +462,9 @@ def _version_number(item: dict[str, Any]) -> int:
         latest = versions[-1]
         if isinstance(latest, dict) and isinstance(latest.get("number"), int):
             return int(latest["number"])
-    fallback = item.get("version") or item.get("current_version")
-    return int(fallback) if isinstance(fallback, int) else 1
+    # 1 when Memory sent no version at all. There is no item-level number to
+    # fall back to: `number` exists only inside a version (`D-330`).
+    return 1
 
 
 def _recorded_at(item: dict[str, Any]) -> str:
@@ -476,7 +480,9 @@ def _recorded_at(item: dict[str, Any]) -> str:
         latest = versions[-1]
         if isinstance(latest, dict):
             return str(latest.get("recorded_at") or "")
-    return str(item.get("updated_at") or item.get("recorded_at") or "")
+    # Empty when Memory sent no version. `recorded_at` exists only inside a
+    # version, and there is no item-level timestamp to fall back to (`D-330`).
+    return ""
 
 
 def _classification(readiness: Any) -> dict[str, Any]:
@@ -642,7 +648,7 @@ def _questions(payload: Any) -> list[dict[str, Any]]:
 
     return [
         {
-            "id": q.get("asked_id") or q.get("candidate_key") or q.get("clarification_id", ""),
+            "id": q.get("asked_id") or q.get("candidate_key") or "",
             "question": q.get("question", ""),
             "severity": q.get("severity", ""),
             # The sentence saying what is wrong, beside the grade saying how

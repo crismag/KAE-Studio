@@ -47,7 +47,7 @@ import { unavailableReason } from '@/components/project/unavailableReason'
  */
 function payload(over: Record<string, unknown> = {}) {
   return {
-    project: { id: 'p1', name: 'Audit', phase: 'discovery', memoryRevision: 3, createdAt: '' },
+    project: { id: 'p1', name: 'Audit', phase: 'discovery', memoryRevision: 3 },
     confirmed: [],
     proposed: [],
     rejected: [],

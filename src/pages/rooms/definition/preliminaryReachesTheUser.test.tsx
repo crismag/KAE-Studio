@@ -78,7 +78,7 @@ const BACKEND_PRELIMINARY = {
 /** The rest of the projection, reduced to what `toProjection` must have. */
 function backendProjection(preliminary: unknown) {
   return {
-    project: { id: 'p1', name: 'Test', phase: 'active', createdAt: '', memoryRevision: 1 },
+    project: { id: 'p1', name: 'Test', phase: 'active', memoryRevision: 1 },
     confirmed: [],
     proposed: [],
     rejected: [],

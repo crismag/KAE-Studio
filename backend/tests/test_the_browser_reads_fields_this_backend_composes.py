@@ -39,6 +39,14 @@ does not catch is a key moved from one nesting level to another while keeping
 its name. That limit is written here rather than left for a reader to assume,
 because a check whose reach is overstated is worth less than one with none.
 
+**It was overstated, and this is the correction (`D-330`).** *Any nesting depth*
+was true of an interface written one field per line and false of an inline
+object type written on one — `project: { id: string; name: string; … }` — where
+a line-anchored read returned `project` and nothing inside it. Every field of
+the projection's `project` block, `memoryRevision` included, could be renamed in
+the browser's copy without failing here. `_FIELD` now reads members after `{`
+and `;` as well as at a line start, which is nineteen more names.
+
 ## Only one direction fails
 
 A name the browser declares that this backend composes nowhere is a **failure**:
@@ -92,9 +100,12 @@ EXPECTED_UNCOMPOSED = {
 
 #: Floors, not exact counts — these move whenever anybody adds a field, and a
 #: check that has to be edited to add one gets edited without being read.
-LEAST_DECLARED = 60
+#: `LEAST_DECLARED` is above what a line-anchored read of the interfaces
+#: returns, so narrowing `_FIELD` back to one name per line fails here rather
+#: than quietly comparing the outer names only.
+LEAST_DECLARED = 75
 LEAST_COMPOSED = 90
-LEAST_RESOLVED = 60
+LEAST_RESOLVED = 72
 
 
 def composed_names() -> set[str]:
@@ -135,9 +146,12 @@ def _interface_body(source: str, name: str) -> str:
 
 
 #: A field declaration, including the optional marker and any nesting depth.
-#: Anchored to the line so a type expression mentioning a colon cannot be read
-#: as a second field.
-_FIELD = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\??:", re.MULTILINE)
+#: Anchored to a line start, an opening brace or a member separator, because an
+#: inline object type written on one line — `project: { id: string; name:
+#: string }` — carries its members after `{` and `;` and a line-anchored read
+#: sees only the outermost name. Every field of `project` was invisible to this
+#: check while its docstring said it compared names at any depth (`D-330`).
+_FIELD = re.compile(r"(?:^|[{;])\s*([A-Za-z_][A-Za-z0-9_]*)\??:", re.MULTILINE)
 
 
 def declared_names() -> set[str]:

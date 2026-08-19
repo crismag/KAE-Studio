@@ -671,7 +671,7 @@ interface BackendStatement {
 
 /** Shape of the backend's projection. Deliberately not the UI's own type. */
 interface BackendProjection {
-  project: { id: string; name: string; phase: string; memoryRevision: number; createdAt: string }
+  project: { id: string; name: string; phase: string; memoryRevision: number }
   confirmed: BackendStatement[]
   proposed: BackendStatement[]
   rejected: BackendStatement[]
@@ -789,7 +789,6 @@ export function toProjection(raw: BackendProjection): ProjectProjection {
       name: raw.project.name,
       phase: raw.project.phase,
       memoryRevision: raw.project.memoryRevision,
-      createdAt: raw.project.createdAt,
     },
     // What the project holds, from confirmed knowledge, in the shape a person
     // reads it in. This was hard-coded empty (DEF-1.3), so Definition rendered
