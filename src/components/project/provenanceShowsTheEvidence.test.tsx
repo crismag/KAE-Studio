@@ -56,6 +56,44 @@ const TWO_MESSAGES: KnowledgeTrace = {
   ],
 }
 
+const DOCUMENT = '/mnt/ai/workspaces/CRIS-GVIE@b120c87:docs/prompt.md'
+
+const READ_FROM_A_FILE: KnowledgeTrace = {
+  kind: 'requirement',
+  lifecycle: 'proposed',
+  source_message_ids: ['m-7'],
+  produced_by_run_id: 'run-4',
+  steps: [
+    { relation: 'project', reference: 'p-1' },
+    { relation: 'source_message', reference: 'm-7', detail: RECORDED },
+    { relation: 'source_document', reference: DOCUMENT },
+    { relation: 'produced_by_run', reference: 'run-4', detail: '' },
+  ],
+}
+
+describe('provenance says whether a statement was read or said', () => {
+  it('names the document a statement was read out of', async () => {
+    show(READ_FROM_A_FILE)
+
+    expect(await screen.findByText(DOCUMENT)).toBeInTheDocument()
+  })
+
+  it('does not call an ingested passage part of this project’s conversation', async () => {
+    show(READ_FROM_A_FILE)
+
+    await screen.findByText(DOCUMENT)
+    expect(screen.queryByText(/message\(s\) in this project/)).not.toBeInTheDocument()
+    expect(screen.getByText(/1 passage\(s\) read out of that source/)).toBeInTheDocument()
+  })
+
+  it('still calls a statement somebody typed a message, and names no document', async () => {
+    show(TWO_MESSAGES)
+
+    expect(await screen.findByText(/2 message\(s\) in this project/)).toBeInTheDocument()
+    expect(screen.queryByText(/Read from/)).not.toBeInTheDocument()
+  })
+})
+
 describe('provenance shows the evidence it holds', () => {
   it('quotes the source message the trace carries', async () => {
     show(TWO_MESSAGES)

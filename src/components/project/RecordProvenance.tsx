@@ -34,6 +34,7 @@ export function RecordProvenance({ knowledgeId, status }: { knowledgeId: string;
     )
 
   const quoted = quotedMessages(data.steps)
+  const documents = readDocuments(data.steps)
 
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]">
@@ -53,11 +54,25 @@ export function RecordProvenance({ knowledgeId, status }: { knowledgeId: string;
           </dd>
         </>
       )}
+      {documents.length > 0 && (
+        <>
+          <dt className="text-ink-subtle">Read from</dt>
+          <dd className="text-ink-muted">
+            {documents.map((step) => (
+              <div key={step.reference}>
+                <Mono>{step.reference}</Mono>
+              </div>
+            ))}
+          </dd>
+        </>
+      )}
       <dt className="text-ink-subtle">Derived from</dt>
       <dd className="text-ink-muted">
-        {data.source_message_ids?.length
-          ? `${data.source_message_ids.length} message(s) in this project's conversation`
-          : 'no recorded source message'}
+        {!data.source_message_ids?.length
+          ? 'no recorded source message'
+          : documents.length > 0
+            ? `${data.source_message_ids.length} passage(s) read out of that source`
+            : `${data.source_message_ids.length} message(s) in this project's conversation`}
         {quoted.length > 0 && (
           <div className="mt-1.5 space-y-2">
             {quoted.map((step) => (
@@ -96,4 +111,17 @@ export function RecordProvenance({ knowledgeId, status }: { knowledgeId: string;
  */
 function quotedMessages(steps: TraceStep[] | undefined): TraceStep[] {
   return (steps ?? []).filter((step) => step.relation === 'source_message' && step.detail?.trim())
+}
+
+/**
+ * The documents a statement was read out of, when it was read rather than said.
+ *
+ * Absent on a statement extracted from something somebody typed, and that
+ * absence is the whole point: without it a reference's behaviours and a
+ * person's own requirements read identically here (`TRACE-SOURCE`, `D-315`).
+ * Ingested text is recorded as a message like any other, so the count above
+ * would otherwise describe a repository file as conversation.
+ */
+function readDocuments(steps: TraceStep[] | undefined): TraceStep[] {
+  return (steps ?? []).filter((step) => step.relation === 'source_document' && step.reference)
 }
