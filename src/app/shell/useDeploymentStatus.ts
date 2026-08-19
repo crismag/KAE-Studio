@@ -37,6 +37,16 @@ export type DeploymentStatus = {
    */
   artifactsConfigured?: boolean
   /**
+   * Whether KAE-Artifacts answered when Studio asked, as opposed to merely
+   * having a URL set (`D-334`).
+   *
+   * Absent when nothing is configured — there is no service to be unreachable,
+   * and an operator's unfilled setting is not an outage. A panel read
+   * `artifactsConfigured` and promised a package on a deployment whose
+   * KAE-Artifacts was stopped.
+   */
+  artifactsReachable?: boolean
+  /**
    * The GitHub App's URL slug, when this deployment has one registered.
    *
    * Absent means there is nothing to install, which is why the Connect control
@@ -91,6 +101,8 @@ export function useDeploymentStatus(): State {
             interviewProvider: typeof provider.name === 'string' ? provider.name : undefined,
             memoryUrl: typeof raw.memory_url === 'string' ? raw.memory_url : undefined,
             artifactsConfigured: raw.artifacts === 'configured',
+            artifactsReachable:
+              typeof raw.artifacts_reachable === 'boolean' ? raw.artifacts_reachable : undefined,
             localSources: typeof raw.local_sources === 'number' ? raw.local_sources : undefined,
             githubAppSlug:
               typeof raw.github_app_slug === 'string' && raw.github_app_slug

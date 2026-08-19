@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from kae_studio.api import create_app  # noqa: E402
 from kae_studio.config import Settings  # noqa: E402
+from kae_studio.artifacts_client import ArtifactsRefused, ArtifactsUnavailable  # noqa: E402
 from kae_studio.memory_client import MemoryRefused, MemoryUnavailable  # noqa: E402
 
 
@@ -157,3 +158,60 @@ class TestTheStatusEndpointStaysHonestWhileEverythingElseIsDown:
         # And it still says what this deployment is, because that is exactly
         # what somebody debugging an outage needs.
         assert "authentication" in body
+
+    def test_it_says_nothing_about_a_service_this_deployment_does_not_have(self) -> None:
+        """Absent, not `False` (`D-334`).
+
+        There is no KAE-Artifacts here to be unreachable. Reporting one down
+        would turn an operator's unfilled setting into an outage and send them
+        hunting a process nobody started.
+        """
+
+        with _client(MemoryUnavailable("connection refused")) as client:
+            body = client.get("/api/status").json()
+
+        assert body["artifacts"] == "not configured"
+        assert "artifacts_reachable" not in body
+
+    def test_a_configured_artifacts_that_does_not_answer_is_reported_unreachable(self) -> None:
+        """`configured` is a URL string being non-empty, and says nothing more.
+
+        A panel read it and promised a package on a deployment whose
+        KAE-Artifacts was stopped. The two states have different remedies — a
+        setting to fill in, a service to start — so they need different words.
+        """
+
+        settings = Settings.from_environment(
+            {**BASE, "KAE_ARTIFACTS_URL": "http://127.0.0.1:59999"}
+        )
+        app = create_app(settings)
+        with TestClient(app) as client:
+            app.state.artifacts = _DownMemory(ArtifactsUnavailable("connection refused"))
+            body = client.get("/api/status").json()
+
+        assert body["artifacts"] == "configured"
+        assert body["artifacts_reachable"] is False
+        # The reason travels with it. "Unreachable" alone cannot distinguish a
+        # stopped service from a wrong URL.
+        assert "connection refused" in body["artifacts_error"]
+
+    def test_a_refusal_is_still_an_answer(self) -> None:
+        """Reached and refusing is not reached.
+
+        `/health` answering `503` means the service is there and unwell, which
+        is a different report from silence — but neither can generate, so both
+        must stop the promise rather than only one.
+        """
+
+        settings = Settings.from_environment(
+            {**BASE, "KAE_ARTIFACTS_URL": "http://127.0.0.1:59999"}
+        )
+        app = create_app(settings)
+        with TestClient(app) as client:
+            app.state.artifacts = _DownMemory(
+                ArtifactsRefused(status_code=503, code="unhealthy", message="state store is gone")
+            )
+            body = client.get("/api/status").json()
+
+        assert body["artifacts_reachable"] is False
+        assert "state store is gone" in body["artifacts_error"]

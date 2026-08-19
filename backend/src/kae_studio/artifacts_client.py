@@ -110,6 +110,18 @@ class ArtifactsClient:
 
     # -- discovery ---------------------------------------------------------
 
+    async def health(self) -> Any:
+        """Whether the service answers, for `/api/status` to report (`D-334`).
+
+        Configured and reachable are different states, and Studio could only
+        report the first: `artifacts` in the status body is a URL string being
+        non-empty, while `memory_reachable` beside it is the answer to a call.
+        A panel read the weaker one and promised a package on a deployment whose
+        KAE-Artifacts was stopped.
+        """
+
+        return await self._request("GET", "/health")
+
     async def profiles(self) -> Any:
         return await self._request("GET", "/v1/profiles")
 

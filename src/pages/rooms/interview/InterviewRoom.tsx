@@ -425,6 +425,19 @@ export function GenerableNow({ projection }: { projection: ProjectProjection }) 
     )
   }
 
+  // Configured and reachable are different states with different remedies, and
+  // this panel could only see the first (`D-334`). A stopped KAE-Artifacts on a
+  // configured deployment still reads as `artifacts: configured`, so the promise
+  // survived the service.
+  if (deployment.state === 'ready' && deployment.status.artifactsReachable === false) {
+    return (
+      <p className="text-[12.5px] leading-relaxed text-ink-muted">
+        Package generation is configured but the service is not answering, so nothing can be
+        generated until it is back. The project knowledge above is unaffected.
+      </p>
+    )
+  }
+
   // A gap is checked before the count, because the count is `0` on every live
   // deployment whether or not the project has modules — the adapter cannot read
   // them at all (`D-184`). "None have been proposed yet" is then a claim about

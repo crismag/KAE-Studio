@@ -572,11 +572,19 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.get("/api/status")
     async def status_(request: Request) -> dict[str, Any]:
-        """What this deployment is and whether its dependency is reachable.
+        """What this deployment is and whether its dependencies are reachable.
 
         Unauthenticated on purpose: a sign-in page that cannot tell you the
         backend is up is a page that looks broken when it is merely locked.
         Carries no secret and no project data.
+
+        **Both dependencies are asked, and until `D-334` only one was.**
+        `artifacts` says whether a URL is set; `artifacts_reachable` says whether
+        anything answers at it. A deployment can be configured and stopped, and
+        on that one `GenerableNow` promised a package a person could not have.
+        Absent rather than false where nothing is configured — there is no
+        service to be unreachable, and reporting one would turn an operator's
+        unfilled setting into an outage.
         """
 
         try:
@@ -584,10 +592,22 @@ def create_app(settings: Settings) -> FastAPI:
             reachable, detail = True, health
         except (MemoryUnavailable, MemoryRefused) as error:
             reachable, detail = False, {"error": str(error)[:200]}
+        artifacts_state: dict[str, Any] = {}
+        artifacts_client: ArtifactsClient | None = request.app.state.artifacts
+        if artifacts_client is not None:
+            try:
+                await artifacts_client.health()
+                artifacts_state = {"artifacts_reachable": True}
+            except (ArtifactsUnavailable, ArtifactsRefused) as error:
+                artifacts_state = {
+                    "artifacts_reachable": False,
+                    "artifacts_error": str(error)[:200],
+                }
         return {
             "studio": "ok",
             "memory_reachable": reachable,
             "memory": detail,
+            **artifacts_state,
             **settings.describe(),
             # Described from what is actually configured, not from a literal.
             # This said "CIE is not wired yet" for as long as CIE has been
