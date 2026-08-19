@@ -1277,6 +1277,11 @@ function toPreliminary(raw: BackendProjection['preliminary']): PreliminaryContex
       reversible: entry.reversible === true,
       material: entry.material === true,
       acceptedBy: typeof entry.accepted_by === 'string' ? entry.accepted_by : null,
+      // Absent reads as the empty string, which the panel's table does not
+      // hold and so renders as nothing. A backend too old to send this has not
+      // told us the question comes back on request — it has told us nothing,
+      // and a default here would be Studio inventing a promise Memory made.
+      revisit: text(entry, 'revisit'),
       disclosure: text(entry, 'disclosure'),
     })),
     materialUnknowns: unknowns(raw.materialUnknowns),

@@ -46,6 +46,7 @@ const BACKEND_PRELIMINARY = {
       reversible: false,
       material: true,
       accepted_by: null,
+      revisit: 'before_build',
       disclosure: 'KAE assumed a church cannot approve its own report.',
     },
   ],
@@ -118,6 +119,27 @@ describe('the adapter carries every collection, entry by entry', () => {
     expect(mapped.assumed[0].reversible).toBe(false)
   })
 
+  it('carries what brings the assumption back', () => {
+    // `D-290`. A **non-default** trigger, so a mapper that dropped the field
+    // and substituted `on_request` fails here — a check reading the default is
+    // a check that cannot fail, which is why this was recorded as a row rather
+    // than written as a green line during `J4` (`D-289`).
+    expect(mapped.assumed[0].revisit).toBe('before_build')
+  })
+
+  it('leaves an absent revisit absent rather than inventing a promise', () => {
+    // A backend too old to send it has not told us the question comes back on
+    // request; it has told us nothing, and the panel draws no line at all.
+    const mapped = toProjection(
+      backendProjection({
+        ...BACKEND_PRELIMINARY,
+        assumed: [{ ...BACKEND_PRELIMINARY.assumed[0], revisit: undefined }],
+      }),
+    ).preliminary
+
+    expect(mapped.assumed[0].revisit).toBe('')
+  })
+
   it('keeps material and deferrable unknowns in separate collections', () => {
     // Merged, they become one undifferentiated list of open questions, which
     // is the state the whole capability exists to prevent.
@@ -181,6 +203,33 @@ describe('a person can read it', () => {
     render(<PreliminaryContextPanel preliminary={fixture} />)
 
     expect(screen.getAllByText(/nobody has agreed to this yet/i).length).toBeGreaterThan(0)
+  })
+
+  it('says what brings each assumption back, in words rather than in Memory`s key', () => {
+    // The half that makes leaving a guess safe (`D-290`). The two fixtures
+    // carry different triggers, so a panel rendering one phrase for both fails
+    // here. `on_request` is asserted too: it is the weakest promise, and
+    // suppressing it would render "nothing brings this back on its own" as
+    // silence.
+    render(<PreliminaryContextPanel preliminary={fixture} />)
+
+    expect(screen.getByText(/comes back before anything is built on it/i)).toBeInTheDocument()
+    expect(screen.getByText(/comes back only if somebody asks/i)).toBeInTheDocument()
+    // `D-199`: never the key itself on the line a person reads.
+    expect(screen.queryByText(/before_build|on_request/)).toBeNull()
+  })
+
+  it('draws no revisit line at all for a word it does not recognise', () => {
+    // `D-28`: something rendered and wrong is worse than something absent,
+    // beside a guess somebody is deciding whether to trust.
+    const unrecognised: PreliminaryContext = {
+      ...fixture,
+      assumed: [{ ...fixture.assumed[0], revisit: 'when_the_moon_is_right' }],
+    }
+    render(<PreliminaryContextPanel preliminary={unrecognised} />)
+
+    expect(screen.queryByText(/comes back/i)).toBeNull()
+    expect(screen.queryByText(/when_the_moon_is_right/)).toBeNull()
   })
 
   it('separates what nobody has decided from what was postponed', () => {

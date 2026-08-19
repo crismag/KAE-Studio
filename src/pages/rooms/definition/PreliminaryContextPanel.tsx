@@ -33,6 +33,7 @@ import { SeverityBadge } from '@/components/project/SeverityBadge'
 import type { AssumedEntry, PreliminaryContext, UnknownEntry } from '@/domain/types'
 import { readableFindingKind } from './findingKinds'
 import { readableDisposition } from './questionDispositions'
+import { readableRevisit } from './revisitTriggers'
 
 /**
  * Whether there is anything at all to render.
@@ -169,6 +170,10 @@ export function PreliminaryContextPanel({ preliminary }: { preliminary: Prelimin
 }
 
 function AssumptionRow({ assumption }: { assumption: AssumedEntry }) {
+  // What brings this back, which is the half that makes leaving it safe
+  // (`D-290`). Not a badge: every assumption has a trigger, and a page where
+  // everything is flagged flags nothing.
+  const revisit = readableRevisit(assumption.revisit)
   return (
     <li className="rounded-md border border-line bg-surface-sunken px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -188,6 +193,7 @@ function AssumptionRow({ assumption }: { assumption: AssumedEntry }) {
         {assumption.acceptedBy
           ? `Accepted by ${assumption.acceptedBy}`
           : 'Nobody has agreed to this yet'}
+        {revisit && ` · ${revisit}`}
       </p>
     </li>
   )

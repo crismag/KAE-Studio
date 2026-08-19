@@ -1361,6 +1361,14 @@ export interface AssumedEntry {
   /** Architectural, unsafe, or irreversible — the ones worth a person's time. */
   material: boolean
   acceptedBy: string | null
+  /**
+   * When this is meant to be looked at again — a `RevisitTrigger` word.
+   *
+   * The field that makes *keep open* a promise rather than a way of losing the
+   * question politely: Memory's recommendations route forces `before_build`
+   * for that disposition. Rendered through a lookup, never raw (`D-199`).
+   */
+  revisit: string
   /** A line a reader can act on, written by Memory and rendered unedited. */
   disclosure: string
 }

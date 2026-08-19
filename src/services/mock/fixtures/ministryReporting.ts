@@ -1570,6 +1570,7 @@ export const preliminary: PreliminaryContext = {
       reversible: true,
       material: false,
       acceptedBy: null,
+      revisit: 'on_request',
       disclosure:
         'KAE assumed monthly reporting because every example described one. If the cycle is quarterly, reminders and period boundaries change.',
     },
@@ -1585,6 +1586,10 @@ export const preliminary: PreliminaryContext = {
       reversible: false,
       material: true,
       acceptedBy: null,
+      // Material, so Memory's domain refuses `never` on it outright. The two
+      // fixtures carry different triggers deliberately: one trigger repeated
+      // is a fixture that cannot show the field doing anything.
+      revisit: 'before_build',
       disclosure:
         'KAE assumed a church cannot approve its own report. This is architectural: if it can, the approval module changes shape rather than configuration.',
     },
