@@ -20,8 +20,9 @@ exercised the artifact chain through the wiring the deployment actually uses.
 `STUDIO_PASSWORD` is needed only where the deployment reports
 `authentication: required`; the harness asks before signing in (`D-64`).
 
-Scenarios: architecture, module-deep-dive, sparse-idea, messy-requirements,
-weak-answer, does-not-know, established, lifecycle, continuity.
+Scenarios: architecture, reference-driven, module-deep-dive, sparse-idea,
+messy-requirements, weak-answer, does-not-know, established, lifecycle,
+continuity.
 """
 
 from __future__ import annotations
@@ -941,8 +942,177 @@ def module_deep_dive() -> None:
     print(f"  project: {project}")
 
 
+REFERENCE_SEED = (
+    "We are building an in-car voice assistant. I want it to behave like the "
+    "reference project I am about to point you at, but we are not committing to "
+    "everything that project does."
+)
+
+#: Which directory is offered as the behavioural reference. Read from the
+#: deployment rather than written down, because the roots a deployment may read
+#: are an operator setting (`ADR-0006`) and a hard-coded path is a scenario that
+#: runs on one machine — `OFFLINE-WIPED`'s lesson taken before it applies.
+REFERENCE = os.environ.get("J6_REFERENCE", "")
+
+
+def _reference_repository() -> str:
+    if REFERENCE:
+        return REFERENCE
+    listed = call("/api/repositories?kind=local")
+    assert isinstance(listed, dict)
+    available = listed.get("repositories") or []
+    if not available:
+        raise SystemExit(
+            "this deployment offers no local repository to use as a reference: "
+            "set KAE_LOCAL_SOURCE_ROOTS, or name one in J6_REFERENCE"
+        )
+    return str(available[0]["full_name"])
+
+
+def reference_driven() -> None:
+    """`J6` — a repository offered as a behavioural reference.
+
+    Written to `J6`'s own pass condition, which has two halves that fail
+    independently: *useful requirements are extracted with source attribution*,
+    and *the system does not silently treat every reference behaviour as a
+    binding requirement*.
+
+    The reference is a local checkout (`D-314`). `J6` accepts a screenshot,
+    template, existing product, specification **or repository**, and a directory
+    on this machine is a repository given as behaviour with no credential in the
+    way — the other four kinds have no door in Studio at all, so a scenario
+    built on one of them could not run.
+
+    The files are named rather than taken wholesale, because the ingest route
+    refuses an empty list by design; they are chosen from the source's own
+    listing rather than composed here, so what is exercised is the product's
+    answer about a tree instead of this file's guess at one.
+    """
+
+    header("J6 — a repository offered as a reference, not as a decision")
+    location = _reference_repository()
+    print(f"  reference: {location}")
+    project = new_project(f"Acceptance J6 {int(time.time())}")
+
+    # The person's own material first. Without it there is nothing for the
+    # reference to overrule, and the second half of the pass condition — that a
+    # reference is not silently binding — would be a claim about an empty
+    # project (`D-314`).
+    say(project, REFERENCE_SEED)
+    said = wait_for_candidates(project, 1)
+    before = projection(project)
+    said_ids = {str(item.get("id")) for item in said}
+    confirmed_before = len(before.get("confirmed") or [])
+
+    source = call(
+        f"/api/projects/{project}/sources",
+        {"kind": "local", "location": location, "reference": "HEAD"},
+    )
+    assert isinstance(source, dict)
+    source_id = str(source["source_id"])
+    pinned = call(f"/api/sources/{source_id}/pin", method="POST")
+    assert isinstance(pinned, dict)
+    snapshot = pinned.get("snapshot") or {}
+
+    # 1. The reference was **accepted as a reference**: resolved to an exact
+    #    revision, with a count of what is in scope at it. A source that reaches
+    #    `pinned` is one KAE knows which bytes it would read.
+    must(
+        pinned.get("state") == "pinned" and bool(snapshot.get("revision")),
+        f"the repository was accepted and pinned to a revision ({str(snapshot.get('revision'))[:7]})",
+    )
+
+    listing = call(f"/api/sources/{source_id}/files?limit=25")
+    assert isinstance(listing, dict)
+    files = [str(entry["path"]) for entry in listing.get("files") or []]
+    # Prose first, because a reference is offered for what it says it does. A
+    # repository with no prose still ingests and the clauses below still hold.
+    chosen = [path for path in files if path.lower().endswith((".md", ".rst", ".txt"))][:1]
+    chosen = chosen or files[:1]
+    must(bool(chosen), "the pinned reference named a file that could be read")
+    if not chosen:
+        return
+    print(f"  reading: {', '.join(chosen)}")
+
+    ingested = call(f"/api/sources/{source_id}/ingest", {"paths": chosen})
+    assert isinstance(ingested, dict)
+    results = ingested.get("ingested") or []
+    documents = {
+        str((entry.get("ingested") or {}).get("document"))
+        for entry in results
+        if isinstance(entry, dict)
+    }
+    must(
+        len(results) == len(chosen)
+        and all((entry.get("ingested") or {}).get("evidence_recorded") for entry in results),
+        f"every file named was recorded as evidence ({len(results)} of {len(chosen)})",
+    )
+
+    # 2. **Source attribution, at the document.** The source names what it
+    #    taught KAE, by the coordinate the bytes were read at (`D-259`).
+    named = call(f"/api/sources/{source_id}/documents")
+    assert isinstance(named, dict)
+    listed_documents = {str(entry.get("document")) for entry in named.get("documents") or []}
+    must(
+        named.get("total_documents", 0) >= len(chosen) and documents <= listed_documents,
+        f"the source names the documents it taught KAE ({named.get('total_documents')})",
+    )
+
+    # 3. Useful material came out of it. Waited on rather than read straight
+    #    back: extraction is a model call per chunk and a README is several
+    #    (`D-273`).
+    proposed_before = len(before.get("proposed") or [])
+    wait_for_candidates(project, proposed_before + 1, seconds=300)
+    after = projection(project)
+    from_reference = [
+        item for item in after.get("proposed") or [] if str(item.get("id")) not in said_ids
+    ]
+    must(bool(from_reference), "reading the reference produced material of its own")
+    must(
+        any(str(item.get("kind")) == "requirement" for item in from_reference),
+        "at least one of them is a requirement rather than a note",
+    )
+
+    # 4. **Source attribution, at the statement**, and this is the half the
+    #    documents listing cannot answer. A deployment whose extraction produced
+    #    statements attached to nothing would pass the clause above and fail
+    #    this one, which is the loss `D-164` was written about.
+    #
+    #    The document **coordinate** is what is searched for, never the bare
+    #    path: `README.md` occurs inside the text of a README, so a check on the
+    #    path would pass on the file's own contents and assert nothing (`D-32`).
+    attributed = False
+    for item in from_reference[:5]:
+        trace = call(f"/api/projects/{project}/knowledge/{item['id']}/trace")
+        quoted = json.dumps(trace) if trace is not None else ""
+        if any(document and document in quoted for document in documents):
+            attributed = True
+            break
+    must(attributed, "a statement from the reference leads back to the document it was read from")
+
+    # 5. **A reference is not a decision.** The failure this guards is the one
+    #    that looks like the product working, only better: a project filled with
+    #    requirements nobody agreed to, because somebody pointed at a repository.
+    must(
+        len(after.get("confirmed") or []) == confirmed_before,
+        "reading a reference confirmed nothing on its own",
+    )
+    must(
+        all(str(item.get("lifecycle")) == "proposed" for item in from_reference),
+        "everything the reference produced arrived as a proposal",
+    )
+
+    show("Proposed from the reference", from_reference)
+    print("\n  What to judge (not asserted):")
+    print("   - are these the reference's behaviours, or this project's requirements?")
+    print("   - would a person reading this list know which of them came from the repository?")
+    print(f"   - readiness: {(after.get('health') or {}).get('percentage')}%")
+    print(f"  project: {project}  source: {source_id}")
+
+
 SCENARIOS = {
     "architecture": architecture,
+    "reference-driven": reference_driven,
     "module-deep-dive": module_deep_dive,
     "messy-requirements": messy_requirements,
     "sparse-idea": sparse_idea,
